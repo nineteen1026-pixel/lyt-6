@@ -76,6 +76,45 @@ export interface Hotspot {
   isDiscovered: boolean
 }
 
+export interface Tag {
+  id: string
+  name: string
+  color: string
+  description?: string
+}
+
+export interface ClueSearchResult {
+  clue: Clue
+  matchedTagIds: string[]
+  keywordMatched: boolean
+}
+
+export interface ProgressDetail {
+  clueProgress: { collected: number; total: number; percentage: number }
+  connectionProgress: { discovered: number; total: number; percentage: number }
+  noteProgress: { count: number }
+  overallPercentage: number
+}
+
+export interface NoteAggregate {
+  tagId: string
+  tag: Tag | null
+  notes: Note[]
+  clueCount: number
+}
+
+export interface Note {
+  id: string
+  commissionId: string
+  clueId?: string
+  title: string
+  content: string
+  tagIds: string[]
+  createdAt: string
+  updatedAt: string
+  isImportant: boolean
+}
+
 export interface Clue {
   id: string
   commissionId: string
@@ -85,6 +124,14 @@ export interface Clue {
   category: 'object' | 'memory' | 'emotion' | 'time'
   isCollected: boolean
   hotspotId?: string
+  tagIds: string[]
+}
+
+export interface ConnectionValidationResult {
+  isValid: boolean
+  errorCode?: 'same_clue' | 'already_connected' | 'circular_reference' | 'invalid_direction' | 'no_connection'
+  errorMessage?: string
+  connectionId?: string
 }
 
 export interface ClueConnection {
@@ -137,6 +184,10 @@ export interface GameState {
   totalPlayTime: number
   commissionStatuses: Record<string, CommissionStatus>
   unlockedSteps: Record<string, GameStep[]>
+  notes: Note[]
+  customTags: Tag[]
+  activeTagFilters: string[]
+  searchKeyword: string
 }
 
 export interface SavedGame {

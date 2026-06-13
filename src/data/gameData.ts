@@ -1,4 +1,15 @@
-import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter } from '../types'
+import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter, Tag } from '../types'
+
+export const tags: Tag[] = [
+  { id: 'tag-important', name: '重要', color: '#ef4444', description: '关键线索，需要重点关注' },
+  { id: 'tag-love', name: '爱情', color: '#ec4899', description: '与爱情相关的线索' },
+  { id: 'tag-family', name: '亲情', color: '#f97316', description: '与家人亲情相关的线索' },
+  { id: 'tag-time', name: '时间', color: '#eab308', description: '与时间、年代相关的线索' },
+  { id: 'tag-damage', name: '损坏', color: '#84cc16', description: '关于物品损坏的线索' },
+  { id: 'tag-memory', name: '回忆', color: '#06b6d4', description: '承载着珍贵回忆的线索' },
+  { id: 'tag-secret', name: '秘密', color: '#8b5cf6', description: '隐藏着秘密的线索' },
+  { id: 'tag-proof', name: '证据', color: '#10b981', description: '可以证明某个结论的线索' }
+]
 
 export const chapters: Chapter[] = [
   {
@@ -327,7 +338,8 @@ export const clues: Clue[] = [
     icon: '〰️',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-001-1'
+    hotspotId: 'hot-001-1',
+    tagIds: ['tag-damage', 'tag-important', 'tag-memory']
   },
   {
     id: 'clue-001-2',
@@ -337,7 +349,8 @@ export const clues: Clue[] = [
     icon: '📸',
     category: 'memory',
     isCollected: false,
-    hotspotId: 'hot-001-2'
+    hotspotId: 'hot-001-2',
+    tagIds: ['tag-love', 'tag-memory', 'tag-important']
   },
   {
     id: 'clue-001-3',
@@ -347,7 +360,8 @@ export const clues: Clue[] = [
     icon: '🔤',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-001-3'
+    hotspotId: 'hot-001-3',
+    tagIds: ['tag-secret']
   },
   {
     id: 'clue-001-4',
@@ -357,7 +371,8 @@ export const clues: Clue[] = [
     icon: '📝',
     category: 'emotion',
     isCollected: false,
-    hotspotId: 'hot-001-4'
+    hotspotId: 'hot-001-4',
+    tagIds: ['tag-love', 'tag-important', 'tag-proof']
   },
   {
     id: 'clue-002-1',
@@ -367,7 +382,8 @@ export const clues: Clue[] = [
     icon: '⚡',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-002-1'
+    hotspotId: 'hot-002-1',
+    tagIds: ['tag-damage']
   },
   {
     id: 'clue-002-2',
@@ -377,7 +393,8 @@ export const clues: Clue[] = [
     icon: '🍯',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-002-2'
+    hotspotId: 'hot-002-2',
+    tagIds: ['tag-time', 'tag-memory']
   },
   {
     id: 'clue-002-3',
@@ -387,7 +404,8 @@ export const clues: Clue[] = [
     icon: '🔲',
     category: 'time',
     isCollected: false,
-    hotspotId: 'hot-002-3'
+    hotspotId: 'hot-002-3',
+    tagIds: ['tag-time', 'tag-family']
   },
   {
     id: 'clue-002-4',
@@ -397,7 +415,8 @@ export const clues: Clue[] = [
     icon: '🌸',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-002-4'
+    hotspotId: 'hot-002-4',
+    tagIds: ['tag-memory', 'tag-family']
   },
   {
     id: 'clue-002-5',
@@ -407,7 +426,8 @@ export const clues: Clue[] = [
     icon: '🔧',
     category: 'emotion',
     isCollected: false,
-    hotspotId: 'hot-002-5'
+    hotspotId: 'hot-002-5',
+    tagIds: ['tag-damage', 'tag-family']
   },
   {
     id: 'clue-003-1',
@@ -417,7 +437,8 @@ export const clues: Clue[] = [
     icon: '💌',
     category: 'emotion',
     isCollected: false,
-    hotspotId: 'hot-003-1'
+    hotspotId: 'hot-003-1',
+    tagIds: ['tag-family', 'tag-important']
   },
   {
     id: 'clue-003-2',
@@ -427,7 +448,8 @@ export const clues: Clue[] = [
     icon: '🕒',
     category: 'time',
     isCollected: false,
-    hotspotId: 'hot-003-2'
+    hotspotId: 'hot-003-2',
+    tagIds: ['tag-time', 'tag-important']
   },
   {
     id: 'clue-003-3',
@@ -437,7 +459,8 @@ export const clues: Clue[] = [
     icon: '💥',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-003-3'
+    hotspotId: 'hot-003-3',
+    tagIds: ['tag-damage', 'tag-secret']
   },
   {
     id: 'clue-003-4',
@@ -447,7 +470,8 @@ export const clues: Clue[] = [
     icon: '✋',
     category: 'emotion',
     isCollected: false,
-    hotspotId: 'hot-003-4'
+    hotspotId: 'hot-003-4',
+    tagIds: ['tag-family', 'tag-memory']
   },
   {
     id: 'clue-003-5',
@@ -457,7 +481,8 @@ export const clues: Clue[] = [
     icon: '👶',
     category: 'memory',
     isCollected: false,
-    hotspotId: 'hot-003-5'
+    hotspotId: 'hot-003-5',
+    tagIds: ['tag-memory', 'tag-proof', 'tag-important']
   },
   {
     id: 'clue-003-6',
@@ -467,7 +492,8 @@ export const clues: Clue[] = [
     icon: '⚙️',
     category: 'object',
     isCollected: false,
-    hotspotId: 'hot-003-6'
+    hotspotId: 'hot-003-6',
+    tagIds: ['tag-damage', 'tag-proof']
   }
 ]
 

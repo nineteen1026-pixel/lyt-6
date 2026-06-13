@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency, SaveSlotInfo, LoadResult } from '../types'
+import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency, SaveSlotInfo, LoadResult, Tag, Note, ClueSearchResult, ProgressDetail, NoteAggregate } from '../types'
 import { 
   getInitialGameState, 
   saveGame, 
@@ -19,7 +19,7 @@ import {
   setCurrentSlotId,
   hasBackupInSlot
 } from '../utils/storage'
-import { commissions, clues, connections, endings, repairSteps, chapters } from '../data/gameData'
+import { commissions, clues, connections, endings, repairSteps, chapters, tags } from '../data/gameData'
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(getInitialGameState())
@@ -622,6 +622,286 @@ export const useGameStore = defineStore('game', () => {
     return hasBackupInSlot(slotId)
   }
 
+  const allTags = computed<Tag[]>(() => {
+    return [...tags, ...state.value.customTags]
+  })
+
+  const filteredClues = computed<ClueSearchResult[]>(() => {
+    const keyword = state.value.searchKeyword.trim().toLowerCase()
+    const activeFilters = state.value.activeTagFilters
+
+    return clues
+      .filter(c => state.value.collectedClues.includes(c.id))
+      .map(clue => {
+        const matchedTagIds = activeFilters.length > 0
+          ? clue.tagIds.filter(tid => activeFilters.includes(tid))
+          : []
+        const keywordMatched = keyword !== '' && (
+          clue.title.toLowerCase().includes(keyword) ||
+          clue.content.toLowerCase().includes(keyword)
+        )
+        const matchesTags = activeFilters.length === 0 || matchedTagIds.length > 0
+        const matchesKeyword = keyword === '' || keywordMatched
+        return { clue, matchedTagIds, keywordMatched, visible: matchesTags && matchesKeyword }
+      })
+      .filter(r => r.visible)
+      .map(({ clue, matchedTagIds, keywordMatched }) => ({ clue, matchedTagIds, keywordMatched }))
+  })
+
+  function searchCluesByTagIds(tagIds: string[]): ClueSearchResult[] {
+    if (tagIds.length === 0) {
+      return clues
+        .filter(c => state.value.collectedClues.includes(c.id))
+        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false }))
+    }
+    return clues
+      .filter(c => state.value.collectedClues.includes(c.id))
+      .map(clue => {
+        const matchedTagIds = clue.tagIds.filter(tid => tagIds.includes(tid))
+        return { clue, matchedTagIds, keywordMatched: false }
+      })
+      .filter(r => r.matchedTagIds.length > 0)
+  }
+
+  function searchCluesByKeyword(keyword: string): ClueSearchResult[] {
+    const kw = keyword.trim().toLowerCase()
+    if (kw === '') {
+      return clues
+        .filter(c => state.value.collectedClues.includes(c.id))
+        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false }))
+    }
+    return clues
+      .filter(c => state.value.collectedClues.includes(c.id))
+      .filter(c =>
+        c.title.toLowerCase().includes(kw) ||
+        c.content.toLowerCase().includes(kw)
+      )
+      .map(clue => ({ clue, matchedTagIds: [], keywordMatched: true }))
+  }
+
+  function setActiveTagFilters(tagIds: string[]): void {
+    state.value.activeTagFilters = tagIds
+    saveCurrentGame()
+  }
+
+  function setSearchKeyword(keyword: string): void {
+    state.value.searchKeyword = keyword
+    saveCurrentGame()
+  }
+
+  function getTagById(tagId: string): Tag | null {
+    return allTags.value.find(t => t.id === tagId) || null
+  }
+
+  function addCustomTag(tag: Omit<Tag, 'id'>): Tag {
+    const newTag: Tag = { ...tag, id: `tag-custom-${Date.now()}` }
+    state.value.customTags.push(newTag)
+    saveCurrentGame()
+    return newTag
+  }
+
+  function removeCustomTag(tagId: string): boolean {
+    const idx = state.value.customTags.findIndex(t => t.id === tagId)
+    if (idx === -1) return false
+    state.value.customTags.splice(idx, 1)
+    state.value.activeTagFilters = state.value.activeTagFilters.filter(id => id !== tagId)
+    saveCurrentGame()
+    return true
+  }
+
+  function addNote(note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Note {
+    const now = new Date().toISOString()
+    const newNote: Note = {
+      ...note,
+      id: `note-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: now,
+      updatedAt: now
+    }
+    state.value.notes.push(newNote)
+    saveCurrentGame()
+    return newNote
+  }
+
+  function updateNote(noteId: string, updates: Partial<Pick<Note, 'title' | 'content' | 'tagIds' | 'isImportant'>>): boolean {
+    const note = state.value.notes.find(n => n.id === noteId)
+    if (!note) return false
+    Object.assign(note, updates, { updatedAt: new Date().toISOString() })
+    saveCurrentGame()
+    return true
+  }
+
+  function deleteNote(noteId: string): boolean {
+    const idx = state.value.notes.findIndex(n => n.id === noteId)
+    if (idx === -1) return false
+    state.value.notes.splice(idx, 1)
+    saveCurrentGame()
+    return true
+  }
+
+  function getNotesForCommission(commissionId: string): Note[] {
+    return state.value.notes.filter(n => n.commissionId === commissionId)
+  }
+
+  function getNotesForClue(clueId: string): Note[] {
+    return state.value.notes.filter(n => n.clueId === clueId)
+  }
+
+  function aggregateNotesByTag(commissionId?: string): NoteAggregate[] {
+    const relevantNotes = commissionId
+      ? state.value.notes.filter(n => n.commissionId === commissionId)
+      : state.value.notes
+
+    const tagMap = new Map<string, Note[]>()
+    for (const note of relevantNotes) {
+      for (const tagId of note.tagIds) {
+        if (!tagMap.has(tagId)) tagMap.set(tagId, [])
+        tagMap.get(tagId)!.push(note)
+      }
+    }
+
+    const results: NoteAggregate[] = []
+    for (const [tagId, tagNotes] of tagMap) {
+      const tag = allTags.value.find(t => t.id === tagId) || null
+      const associatedClueIds = new Set<string>()
+      for (const clue of clues) {
+        if (clue.tagIds.includes(tagId) && state.value.collectedClues.includes(clue.id)) {
+          if (!commissionId || clue.commissionId === commissionId) {
+            associatedClueIds.add(clue.id)
+          }
+        }
+      }
+      results.push({ tagId, tag, notes: tagNotes, clueCount: associatedClueIds.size })
+    }
+
+    return results.sort((a, b) => b.notes.length - a.notes.length)
+  }
+
+  function validateConnection(fromClueId: string, toClueId: string): import('../types').ConnectionValidationResult {
+    if (fromClueId === toClueId) {
+      return { isValid: false, errorCode: 'same_clue', errorMessage: '不能连接同一个线索' }
+    }
+
+    const existing = connections.find(c =>
+      (c.fromClueId === fromClueId && c.toClueId === toClueId) ||
+      (c.fromClueId === toClueId && c.toClueId === fromClueId)
+    )
+    if (existing) {
+      if (state.value.discoveredConnections.includes(existing.id)) {
+        return { isValid: false, errorCode: 'already_connected', errorMessage: '这两个线索已经建立了关联', connectionId: existing.id }
+      }
+    }
+
+    const visited = new Set<string>()
+    const queue = [toClueId]
+    visited.add(toClueId)
+    while (queue.length > 0) {
+      const current = queue.shift()!
+      const neighborConns = connections.filter(c =>
+        state.value.discoveredConnections.includes(c.id) &&
+        (c.fromClueId === current || c.toClueId === current)
+      )
+      for (const conn of neighborConns) {
+        const neighbor = conn.fromClueId === current ? conn.toClueId : conn.fromClueId
+        if (neighbor === fromClueId) {
+          return { isValid: false, errorCode: 'circular_reference', errorMessage: '添加此连接会形成循环引用' }
+        }
+        if (!visited.has(neighbor)) {
+          visited.add(neighbor)
+          queue.push(neighbor)
+        }
+      }
+    }
+
+    const validConnection = connections.find(c =>
+      c.fromClueId === fromClueId && c.toClueId === toClueId
+    )
+    if (!validConnection) {
+      const reverseConnection = connections.find(c =>
+        c.fromClueId === toClueId && c.toClueId === fromClueId
+      )
+      if (!reverseConnection) {
+        return { isValid: false, errorCode: 'no_connection', errorMessage: '这两个线索之间没有可用的推理关联' }
+      }
+      return { isValid: true, connectionId: reverseConnection.id }
+    }
+
+    return { isValid: true, connectionId: validConnection.id }
+  }
+
+  function getCommissionProgress(commissionId: string): ProgressDetail {
+    const collectedClueCount = getCollectedClueCount(commissionId)
+    const totalClueCount = getTotalClueCount(commissionId)
+    const discoveredConnCount = getDiscoveredConnectionCount(commissionId)
+    const totalConnCount = getTotalConnectionCount(commissionId)
+    const noteCount = state.value.notes.filter(n => n.commissionId === commissionId).length
+
+    const cluePct = totalClueCount > 0 ? Math.round((collectedClueCount / totalClueCount) * 100) : 0
+    const connPct = totalConnCount > 0 ? Math.round((discoveredConnCount / totalConnCount) * 100) : 0
+    const overall = totalClueCount + totalConnCount > 0
+      ? Math.round(((collectedClueCount + discoveredConnCount) / (totalClueCount + totalConnCount)) * 100)
+      : 0
+
+    return {
+      clueProgress: { collected: collectedClueCount, total: totalClueCount, percentage: cluePct },
+      connectionProgress: { discovered: discoveredConnCount, total: totalConnCount, percentage: connPct },
+      noteProgress: { count: noteCount },
+      overallPercentage: overall
+    }
+  }
+
+  function getChapterProgress(chapterId: string): ProgressDetail {
+    const chapterCommissions = commissions.filter(c => c.chapterId === chapterId)
+    let totalClues = 0, collectedClues = 0, totalConns = 0, discoveredConns = 0, noteCount = 0
+
+    for (const comm of chapterCommissions) {
+      const progress = getCommissionProgress(comm.id)
+      totalClues += progress.clueProgress.total
+      collectedClues += progress.clueProgress.collected
+      totalConns += progress.connectionProgress.total
+      discoveredConns += progress.connectionProgress.discovered
+      noteCount += progress.noteProgress.count
+    }
+
+    const cluePct = totalClues > 0 ? Math.round((collectedClues / totalClues) * 100) : 0
+    const connPct = totalConns > 0 ? Math.round((discoveredConns / totalConns) * 100) : 0
+    const overall = totalClues + totalConns > 0
+      ? Math.round(((collectedClues + discoveredConns) / (totalClues + totalConns)) * 100)
+      : 0
+
+    return {
+      clueProgress: { collected: collectedClues, total: totalClues, percentage: cluePct },
+      connectionProgress: { discovered: discoveredConns, total: totalConns, percentage: connPct },
+      noteProgress: { count: noteCount },
+      overallPercentage: overall
+    }
+  }
+
+  function getOverallProgress(): ProgressDetail {
+    let totalClues = 0, collectedClues = 0, totalConns = 0, discoveredConns = 0
+
+    for (const clue of clues) {
+      totalClues++
+      if (state.value.collectedClues.includes(clue.id)) collectedClues++
+    }
+    for (const conn of connections) {
+      totalConns++
+      if (state.value.discoveredConnections.includes(conn.id)) discoveredConns++
+    }
+
+    const cluePct = totalClues > 0 ? Math.round((collectedClues / totalClues) * 100) : 0
+    const connPct = totalConns > 0 ? Math.round((discoveredConns / totalConns) * 100) : 0
+    const overall = totalClues + totalConns > 0
+      ? Math.round(((collectedClues + discoveredConns) / (totalClues + totalConns)) * 100)
+      : 0
+
+    return {
+      clueProgress: { collected: collectedClues, total: totalClues, percentage: cluePct },
+      connectionProgress: { discovered: discoveredConns, total: totalConns, percentage: connPct },
+      noteProgress: { count: state.value.notes.length },
+      overallPercentage: overall
+    }
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -686,6 +966,25 @@ export const useGameStore = defineStore('game', () => {
     getCollectedClueCount,
     getTotalClueCount,
     getDiscoveredConnectionCount,
-    getTotalConnectionCount
+    getTotalConnectionCount,
+    allTags,
+    filteredClues,
+    searchCluesByTagIds,
+    searchCluesByKeyword,
+    setActiveTagFilters,
+    setSearchKeyword,
+    getTagById,
+    addCustomTag,
+    removeCustomTag,
+    addNote,
+    updateNote,
+    deleteNote,
+    getNotesForCommission,
+    getNotesForClue,
+    aggregateNotesByTag,
+    validateConnection,
+    getCommissionProgress,
+    getChapterProgress,
+    getOverallProgress
   }
 })

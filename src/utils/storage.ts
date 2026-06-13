@@ -13,7 +13,7 @@ import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES } from '../types'
 
 const STORAGE_KEY = 'memory-repair-shop-save'
 const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
-const SAVE_VERSION = '3.0.0'
+const SAVE_VERSION = '4.0.0'
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
   const statuses: Record<string, CommissionStatus> = {}
@@ -42,7 +42,11 @@ export function getInitialGameState(): GameState {
     lastSaveTime: null,
     totalPlayTime: 0,
     commissionStatuses: getInitialCommissionStatuses(),
-    unlockedSteps
+    unlockedSteps,
+    notes: [],
+    customTags: [],
+    activeTagFilters: [],
+    searchKeyword: ''
   }
 }
 
@@ -103,7 +107,11 @@ function migrateFromV1ToV2(v1State: GameStateV1): GameState {
     lastSaveTime: v1State.lastSaveTime,
     totalPlayTime: v1State.totalPlayTime,
     commissionStatuses,
-    unlockedSteps
+    unlockedSteps,
+    notes: [],
+    customTags: [],
+    activeTagFilters: [],
+    searchKeyword: ''
   }
 }
 
@@ -197,11 +205,59 @@ function migrateFromV2ToV3(v2State: GameStateV2): GameState {
     lastSaveTime: v2State.lastSaveTime,
     totalPlayTime: v2State.totalPlayTime,
     commissionStatuses: { ...v2State.commissionStatuses },
-    unlockedSteps: inferUnlockedSteps(v2State.collectedClues, v2State.discoveredConnections, v2State.completedCommissions)
+    unlockedSteps: inferUnlockedSteps(v2State.collectedClues, v2State.discoveredConnections, v2State.completedCommissions),
+    notes: [],
+    customTags: [],
+    activeTagFilters: [],
+    searchKeyword: ''
   }
 }
 
-function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGame): GameState | null {
+interface GameStateV3 {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+}
+
+interface SavedGameV3 {
+  version: string
+  state: GameStateV3
+  savedAt: string
+}
+
+function migrateFromV3ToV4(v3State: GameStateV3): GameState {
+  return {
+    currentCommissionId: v3State.currentCommissionId,
+    currentChapterId: v3State.currentChapterId,
+    currentStep: v3State.currentStep,
+    completedCommissions: [...v3State.completedCommissions],
+    unlockedChapters: [...v3State.unlockedChapters],
+    collectedClues: [...v3State.collectedClues],
+    discoveredConnections: [...v3State.discoveredConnections],
+    unlockedEndings: [...v3State.unlockedEndings],
+    currentEndingType: v3State.currentEndingType,
+    lastSaveTime: v3State.lastSaveTime,
+    totalPlayTime: v3State.totalPlayTime,
+    commissionStatuses: { ...v3State.commissionStatuses },
+    unlockedSteps: { ...v3State.unlockedSteps },
+    notes: [],
+    customTags: [],
+    activeTagFilters: [],
+    searchKeyword: ''
+  }
+}
+
+function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGame): GameState | null {
   const version = savedGame.version
   
   if (version === SAVE_VERSION) {
@@ -209,15 +265,26 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGame): Gam
     if (!state.unlockedSteps) {
       state.unlockedSteps = inferUnlockedSteps(state.collectedClues, state.discoveredConnections, state.completedCommissions)
     }
+    if (!state.notes) state.notes = []
+    if (!state.customTags) state.customTags = []
+    if (!state.activeTagFilters) state.activeTagFilters = []
+    if (state.searchKeyword === undefined) state.searchKeyword = ''
     return state
   }
 
+  if (version === '3.0.0') {
+    return migrateFromV3ToV4((savedGame as SavedGameV3).state)
+  }
+
   if (version === '2.0.0') {
-    return migrateFromV2ToV3((savedGame as SavedGameV2).state)
+    const v3 = migrateFromV2ToV3((savedGame as SavedGameV2).state)
+    return migrateFromV3ToV4(v3)
   }
 
   if (version === '1.0.0') {
-    return migrateFromV1ToV2((savedGame as SavedGameV1).state)
+    const v2 = migrateFromV1ToV2((savedGame as SavedGameV1).state)
+    const v3 = migrateFromV2ToV3(v2)
+    return migrateFromV3ToV4(v3)
   }
 
   console.warn(`Unsupported save version: ${version}, starting new game`)
