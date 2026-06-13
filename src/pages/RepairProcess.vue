@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { RepairStep, RepairChoice } from '../types'
+import type { RepairStep, RepairChoice, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -20,7 +20,21 @@ const commission = computed(() => {
 })
 
 const repairSteps = computed(() => {
-  return gameStore.getRepairSteps()
+  if (!commissionId.value) return []
+  return gameStore.getRepairStepsForDifficulty(commissionId.value)
+})
+
+const difficultyContext = computed(() =>
+  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
+)
+
+const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
+  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  switch (difficultyContext.value.effectiveDifficulty) {
+    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
+    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
+    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  }
 })
 
 const currentStep = computed(() => {
@@ -44,6 +58,10 @@ function selectChoice(choice: RepairChoice) {
 
   isAnimating.value = true
   selectedChoices.value.push(choice.id)
+
+  if (choice.endingType === 'bad' && currentStep.value && commissionId.value) {
+    gameStore.incrementRepairRetryCount(commissionId.value, currentStep.value.id)
+  }
 
   setTimeout(() => {
     if (currentStepIndex.value < totalSteps.value - 1) {
@@ -100,6 +118,51 @@ function goBack() {
   router.push(`/deduction/${commissionId.value}`)
 }
 
+const baseChoiceIds = computed(() => {
+  if (!commissionId.value) return new Set<string>()
+  const rawSteps = gameStore.getRepairSteps()
+  const ids = new Set<string>()
+  for (const step of rawSteps) {
+    for (const ch of step.choices) {
+      ids.add(ch.id)
+    }
+  }
+  return ids
+})
+
+function isExtraChoice(choiceId: string): boolean {
+  return !baseChoiceIds.value.has(choiceId)
+}
+
+function choiceStyleClass(choice: RepairChoice): string {
+  const extra = isExtraChoice(choice.id)
+  if (choice.endingType === 'bad') {
+    return extra
+      ? 'border-rose-200/60 bg-rose-50/30 hover:border-rose-400/60 hover:bg-rose-50'
+      : 'border-rose-200/60 bg-rose-50/40 hover:border-rose-400/60 hover:bg-rose-50'
+  }
+  if (extra) {
+    return choice.endingType === 'good'
+      ? 'border-blue-200/60 bg-blue-50/40 hover:border-blue-400/60 hover:bg-blue-50'
+      : 'border-blue-200/60 bg-blue-50/30 hover:border-blue-400/60 hover:bg-blue-50'
+  }
+  return choice.endingType === 'good'
+    ? 'border-green-200/60 bg-green-50/40 hover:border-green-400/60 hover:bg-green-50'
+    : 'border-amber-200/60 bg-amber-50/40 hover:border-amber-400/60 hover:bg-amber-50'
+}
+
+function choiceIconBg(choice: RepairChoice): string {
+  if (choice.endingType === 'bad') return 'bg-rose-100'
+  if (isExtraChoice(choice.id)) return 'bg-blue-100'
+  return choice.endingType === 'good' ? 'bg-green-100' : 'bg-amber-100'
+}
+
+function choiceEmoji(choice: RepairChoice): string {
+  if (choice.endingType === 'bad') return '⚠️'
+  if (isExtraChoice(choice.id)) return choice.endingType === 'good' ? '💡' : '🌿'
+  return choice.endingType === 'good' ? '✨' : '🌿'
+}
+
 const stepIcons = ['🧹', '🔧', '✨']
 
 onMounted(() => {
@@ -121,8 +184,12 @@ onMounted(() => {
           <ArrowLeft class="w-5 h-5" />
           <span>返回推理板</span>
         </button>
-        <div class="text-sm text-stone-500 font-serif">
-          步骤 {{ progress.current }} / {{ progress.total }}
+        <div class="text-sm text-stone-500 font-serif flex items-center gap-3">
+          <span>步骤 {{ progress.current }} / {{ progress.total }}</span>
+          <span v-if="difficultyContext" class="flex items-center gap-1 text-xs" :class="difficultyLabel.color">
+            <span>{{ difficultyLabel.icon }}</span>
+            <span>{{ difficultyLabel.text }}</span>
+          </span>
         </div>
       </div>
 
@@ -199,9 +266,7 @@ onMounted(() => {
                 isAnimating
                   ? 'pointer-events-none opacity-70'
                   : 'cursor-pointer',
-                choice.endingType === 'good'
-                  ? 'border-green-200/60 bg-green-50/40 hover:border-green-400/60 hover:bg-green-50'
-                  : 'border-amber-200/60 bg-amber-50/40 hover:border-amber-400/60 hover:bg-amber-50'
+                choiceStyleClass(choice)
               ]"
               @click="selectChoice(choice)"
             >
@@ -209,17 +274,22 @@ onMounted(() => {
                 <div
                   :class="[
                     'w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0',
-                    choice.endingType === 'good' ? 'bg-green-100' : 'bg-amber-100'
+                    choiceIconBg(choice)
                   ]"
                 >
                   <span class="text-lg">
-                    {{ choice.endingType === 'good' ? '✨' : '🌿' }}
+                    {{ choiceEmoji(choice) }}
                   </span>
                 </div>
                 <div class="flex-1">
-                  <h3 class="font-medium text-stone-800 mb-1 font-serif">
-                    {{ choice.label }}
-                  </h3>
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="font-medium text-stone-800 font-serif">
+                      {{ choice.label }}
+                    </h3>
+                    <span v-if="isExtraChoice(choice.id)" class="text-[10px] px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600 font-serif">
+                      {{ difficultyContext?.effectiveDifficulty === 'assisted' ? '推荐' : '额外' }}
+                    </span>
+                  </div>
                   <p class="text-sm text-stone-500 font-serif">
                     {{ choice.description }}
                   </p>
@@ -260,6 +330,19 @@ onMounted(() => {
               ? '线索充足'
               : '线索不足'
             }}
+          </div>
+        </div>
+        <div v-if="difficultyContext" class="mt-3 pt-3 border-t border-amber-200/30 flex items-center justify-between">
+          <div class="flex items-center gap-2 text-xs font-serif" :class="difficultyLabel.color">
+            <span>{{ difficultyLabel.icon }}</span>
+            <span>当前难度：{{ difficultyLabel.text }}</span>
+            <span class="text-stone-400">|</span>
+            <span class="text-stone-500">线索率 {{ Math.round(difficultyContext.clueCollectionRate * 100) }}%</span>
+            <span class="text-stone-400">|</span>
+            <span class="text-stone-500">重试 {{ difficultyContext.retryCount }} 次</span>
+          </div>
+          <div class="text-[10px] text-stone-400 font-serif">
+            {{ difficultyContext.effectiveDifficulty === 'assisted' ? '提供更多提示与选项' : difficultyContext.effectiveDifficulty === 'challenging' ? '提示精简，选项更多风险' : '标准提示与选项' }}
           </div>
         </div>
       </div>

@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Link, Lightbulb, ChevronRight, Sparkles, X, Lock, Plus, Edit2, Trash2, Star, FolderKanban, Search, AlertCircle, RefreshCw, Repeat, AlertTriangle } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { Clue, ClueConnection, ConnectionValidationResult, Tag, Note } from '../types'
+import type { Clue, ClueConnection, ConnectionValidationResult, Tag, Note, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -72,6 +72,19 @@ const notesByTag = computed(() =>
 )
 
 const allAvailableTags = computed(() => gameStore.allTags)
+
+const difficultyContext = computed(() =>
+  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
+)
+
+const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
+  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  switch (difficultyContext.value.effectiveDifficulty) {
+    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
+    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
+    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  }
+})
 
 watch(localKeyword, (v) => gameStore.setSearchKeyword(v))
 watch(localTagFilters, (v) => gameStore.setActiveTagFilters(v), { deep: true })
@@ -261,6 +274,12 @@ onMounted(() => {
           <span>返回旧物检视</span>
         </button>
         <div class="flex items-center gap-3">
+          <div v-if="difficultyContext" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
+            <span>{{ difficultyLabel.icon }}</span>
+            <span>{{ difficultyLabel.text }}</span>
+            <span class="text-stone-400 mx-0.5">·</span>
+            <span class="text-stone-500">重试{{ difficultyContext.retryCount }}次</span>
+          </div>
           <div class="hidden sm:flex items-center gap-2 px-4 py-2 bg-stone-100/70 rounded-lg text-sm text-stone-600 font-serif">
             <span>综合进度</span>
             <span class="font-bold text-amber-700">{{ unifiedProgress?.overallPercentage ?? 0 }}%</span>

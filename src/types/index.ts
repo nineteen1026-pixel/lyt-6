@@ -64,6 +64,15 @@ export interface Item {
   hotspots: Hotspot[]
 }
 
+export type DynamicDifficultyLevel = 'assisted' | 'standard' | 'challenging'
+
+export interface DifficultyContext {
+  clueCollectionRate: number
+  retryCount: number
+  commissionBaseDifficulty: 'simple' | 'medium' | 'complex'
+  effectiveDifficulty: DynamicDifficultyLevel
+}
+
 export interface Hotspot {
   id: string
   name: string
@@ -74,6 +83,7 @@ export interface Hotspot {
   description: string
   clueId?: string
   isDiscovered: boolean
+  hints?: Record<DynamicDifficultyLevel, string>
 }
 
 export interface Tag {
@@ -225,6 +235,10 @@ export interface RepairStep {
   choices: RepairChoice[]
   isCompleted: boolean
   selectedChoice?: string
+  difficultyVariants?: Record<DynamicDifficultyLevel, {
+    description?: string
+    extraChoices?: RepairChoice[]
+  }>
 }
 
 export interface RepairChoice {
@@ -260,6 +274,8 @@ export interface GameState {
   connectionHintsUsed: string[]
   discoveredHints: string[]
   progressMilestones: Record<string, boolean>
+  repairRetryCounts: Record<string, number>
+  connectionRetryCounts: Record<string, number>
 }
 
 export interface SavedGame {

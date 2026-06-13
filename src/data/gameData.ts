@@ -98,6 +98,11 @@ export const commissions: Commission[] = [
           height: 20,
           description: '盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。',
           clueId: 'clue-001-1',
+          hints: {
+            assisted: '盒盖上有几道深浅不一的划痕，像是有人反复用手指沿着同一个方向摩挲。这种磨损暗示着主人对某处细节的眷恋——也许和旋钮上的刻字有关？',
+            standard: '盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。',
+            challenging: '划痕。深浅不一，方向一致。'
+          },
           isDiscovered: false
         },
         {
@@ -109,6 +114,11 @@ export const commissions: Commission[] = [
           height: 25,
           description: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。',
           clueId: 'clue-001-2',
+          hints: {
+            assisted: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。虽然画面泛黄模糊，但这显然是一段珍贵的爱情记忆——和盒底那行「永远」的承诺遥相呼应。',
+            standard: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。',
+            challenging: '泛黄。两个人的轮廓，模糊的笑。'
+          },
           isDiscovered: false
         },
         {
@@ -120,6 +130,11 @@ export const commissions: Commission[] = [
           height: 15,
           description: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。',
           clueId: 'clue-001-3',
+          hints: {
+            assisted: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母——这是某个人名字的首字母，也许和盒盖上的划痕有着关联？',
+            standard: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。',
+            challenging: '发黑。还能转。底部有个字母。'
+          },
           isDiscovered: false
         },
         {
@@ -131,6 +146,11 @@ export const commissions: Commission[] = [
           height: 10,
           description: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。',
           clueId: 'clue-001-4',
+          hints: {
+            assisted: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。这一定是某个人写下的承诺——和照片里那对恋人的故事有关。',
+            standard: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。',
+            challenging: '纸条。胶水晕开。两个字。'
+          },
           isDiscovered: false
         }
       ]
@@ -177,6 +197,11 @@ export const commissions: Commission[] = [
           height: 10,
           description: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。',
           clueId: 'clue-002-1',
+          hints: {
+            assisted: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。这样整齐的断面，更像是被牙齿磕出来的——也许是谁小时候用这个碗喝东西时留下的？',
+            standard: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。',
+            challenging: '缺口。断面整齐。非碎裂。'
+          },
           isDiscovered: false
         },
         {
@@ -188,6 +213,11 @@ export const commissions: Commission[] = [
           height: 30,
           description: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。',
           clueId: 'clue-002-2',
+          hints: {
+            assisted: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹，闻起来有淡淡的甜味——是糖水常年渗入留下的印记吧。',
+            standard: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。',
+            challenging: '长裂纹。口到底。黄褐色。'
+          },
           isDiscovered: false
         },
         {
@@ -199,6 +229,11 @@ export const commissions: Commission[] = [
           height: 15,
           description: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。',
           clueId: 'clue-002-3',
+          hints: {
+            assisted: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。这是陈家的传家之物，印章旁的年号说明这只碗有着久远的历史。',
+            standard: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。',
+            challenging: '方印。「陈」。旁有小字。'
+          },
           isDiscovered: false
         },
         {
@@ -210,6 +245,11 @@ export const commissions: Commission[] = [
           height: 20,
           description: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。',
           clueId: 'clue-002-4',
+          hints: {
+            assisted: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。磨损最重的地方正对碗口——那是每次喝东西时嘴唇触碰的位置。',
+            standard: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。',
+            challenging: '内壁花纹。梅花。磨损。'
+          },
           isDiscovered: false
         },
         {
@@ -221,6 +261,11 @@ export const commissions: Commission[] = [
           height: 25,
           description: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。',
           clueId: 'clue-002-5',
+          hints: {
+            assisted: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。修补的人虽然手笨，但每一道胶痕都透着小心翼翼——这分明是怀着爱在修补啊。',
+            standard: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。',
+            challenging: '胶水。厚重。不均匀。'
+          },
           isDiscovered: false
         }
       ]
@@ -267,6 +312,11 @@ export const commissions: Commission[] = [
           height: 20,
           description: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」',
           clueId: 'clue-003-1',
+          hints: {
+            assisted: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」这块表承载着父亲对儿子深沉的爱和期许，和他无数次摩挲表链的习惯一样，都是无声的关怀。',
+            standard: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」',
+            challenging: '内侧有字。父亲的。每一秒。'
+          },
           isDiscovered: false
         },
         {
@@ -278,6 +328,11 @@ export const commissions: Commission[] = [
           height: 25,
           description: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。',
           clueId: 'clue-003-2',
+          hints: {
+            assisted: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。这个精确到秒的时间一定有着特殊的意义——也许和某个重要的人的出生有关？',
+            standard: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。',
+            challenging: '3:17。秒针归位。整齐。'
+          },
           isDiscovered: false
         },
         {
@@ -289,6 +344,11 @@ export const commissions: Commission[] = [
           height: 30,
           description: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。',
           clueId: 'clue-003-3',
+          hints: {
+            assisted: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。但裂缝之下，机芯的齿轮看起来还完好——也许这块表还有重新走动的可能。',
+            standard: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。',
+            challenging: '蛛网裂。右上至中心。撞击。'
+          },
           isDiscovered: false
         },
         {
@@ -300,6 +360,11 @@ export const commissions: Commission[] = [
           height: 30,
           description: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。',
           clueId: 'clue-003-4',
+          hints: {
+            assisted: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。是父亲一遍遍握着它，想象着给儿子的赠言？这磨损里藏着多少无声的思念。',
+            standard: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。',
+            challenging: '磨损。棱角磨圆。常被握着。'
+          },
           isDiscovered: false
         },
         {
@@ -311,6 +376,11 @@ export const commissions: Commission[] = [
           height: 20,
           description: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。',
           clueId: 'clue-003-5',
+          hints: {
+            assisted: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期——这个日期和指针停住的时间有着惊人的巧合。原来，这块表定格的那一刻，就是他来到这个世界的瞬间。',
+            standard: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。',
+            challenging: '后盖。婴儿笑脸。日期。'
+          },
           isDiscovered: false
         },
         {
@@ -322,6 +392,11 @@ export const commissions: Commission[] = [
           height: 15,
           description: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。',
           clueId: 'clue-003-6',
+          hints: {
+            assisted: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。表面虽已锈蚀，核心却依然完好——就像有些爱，虽然经历了风雨，却从未真正损坏。',
+            standard: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。',
+            challenging: '锈迹。齿轮完好。'
+          },
           isDiscovered: false
         }
       ]
@@ -677,7 +752,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'good'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '也许可以用更温和的方式来清洁，比如用湿布慢慢擦拭？这样既能去掉灰尘，也能保留岁月的痕迹。',
+          extraChoices: [
+            {
+              id: 'choice-001-1c',
+              label: '用柔软的丝绸布轻拭',
+              description: '最温和的方式，既清洁又保护',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '清洁表面。方法决定了结果。',
+          extraChoices: [
+            {
+              id: 'choice-001-1d',
+              label: '大胆尝试化学溶剂',
+              description: '高风险高回报，可能完全清除也可能损坏',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-001-2',
@@ -697,7 +797,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '照片虽然模糊了，但如果小心地用数码技术辅助修复，也许能还原更多细节。记得要耐心，别急。',
+          extraChoices: [
+            {
+              id: 'choice-001-2c',
+              label: '参考同期照片逐步还原',
+              description: '借助老照片的色调参考，细致还原每一处',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '照片模糊。选择决定一切。',
+          extraChoices: [
+            {
+              id: 'choice-001-2d',
+              label: '直接刮开表层看底层',
+              description: '也许底下还有另一幅画面，也可能什么都没有',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-001-3',
@@ -717,7 +842,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '机芯虽然有些生锈，但齿轮看起来还完好。也许可以先听听原曲的录音，再根据参考来调音？这样不容易出错。',
+          extraChoices: [
+            {
+              id: 'choice-001-3c',
+              label: '先找原曲录音再微调',
+              description: '对照原曲精确校准，确保旋律完美还原',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '调音。听天由命。',
+          extraChoices: [
+            {
+              id: 'choice-001-3d',
+              label: '用力拧紧发条试试极限',
+              description: '也许调到极致会有惊喜，也可能崩断发条',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     }
   ],
   'comm-002': [
@@ -739,7 +889,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '碎片上有残留的胶水和糖渍，用温水慢慢泡软会更好清理。别着急，每一片都承载着回忆。',
+          extraChoices: [
+            {
+              id: 'choice-002-1c',
+              label: '用温水逐片浸泡清理',
+              description: '温柔的方式，不会伤到瓷片上的花纹',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '碎片。清理。时间不等人。',
+          extraChoices: [
+            {
+              id: 'choice-002-1d',
+              label: '用钢丝球快速刷洗',
+              description: '效率最高，但可能刮花釉面',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-002-2',
@@ -759,7 +934,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '金缮工艺虽然费时，但能让裂缝变成金色的河流，赋予残缺新的美。也可以试试传统的大漆工艺，更古朴一些。',
+          extraChoices: [
+            {
+              id: 'choice-002-2c',
+              label: '金缮结合大漆，层层髹涂',
+              description: '最用心的方式，让裂缝成为碗上最美的纹路',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '修补。一锤定音。',
+          extraChoices: [
+            {
+              id: 'choice-002-2d',
+              label: '用502胶水快速粘合',
+              description: '最快最省事，但胶痕会永远留下',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-002-3',
@@ -779,7 +979,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '打磨要轻柔，像抚摸孩子的脸颊一样。特别是金缮的部分，需要用极细的砂纸慢慢打磨，才能让金色自然地融入釉面。',
+          extraChoices: [
+            {
+              id: 'choice-002-3c',
+              label: '用鹿皮手工细磨',
+              description: '最温柔的方式，让每一处都温润如初',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '打磨。快即是好。',
+          extraChoices: [
+            {
+              id: 'choice-002-3d',
+              label: '上砂轮机快速抛光',
+              description: '一眨眼就搞定，但可能磨掉修补的细节',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     }
   ],
   'comm-003': [
@@ -801,7 +1026,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '拆卸怀表需要非常小心，零件又小又精密。建议每拆一个零件就拍照记录位置，这样装回去的时候才不会弄错。',
+          extraChoices: [
+            {
+              id: 'choice-003-1c',
+              label: '逐一拍照记录再拆卸',
+              description: '最稳妥的方式，确保每个零件都有据可查',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '拆。快。',
+          extraChoices: [
+            {
+              id: 'choice-003-1d',
+              label: '直接撬开后盖',
+              description: '最快的方式，但可能损坏密封结构',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-003-2',
@@ -821,7 +1071,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '表蒙的裂痕虽然碍眼，但那是时间的印记。如果找一块同年代的老矿物玻璃来替换，既能让表蒙完整，又能保留怀表原有的气质。',
+          extraChoices: [
+            {
+              id: 'choice-003-2c',
+              label: '寻找同年代矿物玻璃替换',
+              description: '既完美又保持时代气息，最用心的选择',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '表蒙裂了。换掉。',
+          extraChoices: [
+            {
+              id: 'choice-003-2d',
+              label: '用廉价亚克力替代',
+              description: '又轻又便宜，但和银质怀表格格不入',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     },
     {
       id: 'step-003-3',
@@ -841,7 +1116,32 @@ export const repairSteps: Record<string, RepairStep[]> = {
           endingType: 'neutral'
         }
       ],
-      isCompleted: false
+      isCompleted: false,
+      difficultyVariants: {
+        assisted: {
+          description: '这是最关键的决定。怀表停在3点17分，那是周先生出生的时刻。如果让它重新走动，也许可以从3点17分开始——让时间从那个充满爱的瞬间延续下去。',
+          extraChoices: [
+            {
+              id: 'choice-003-3c',
+              label: '从3点17分重新启动',
+              description: '让爱从那个瞬间延续，时间从未停止',
+              endingType: 'good'
+            }
+          ]
+        },
+        standard: {},
+        challenging: {
+          description: '走？留？只有一次机会。',
+          extraChoices: [
+            {
+              id: 'choice-003-3d',
+              label: '强行调快发条让表飞速运转',
+              description: '让时间疯狂奔跑，也许能忘掉停摆的痛苦',
+              endingType: 'bad'
+            }
+          ]
+        }
+      }
     }
   ]
 }

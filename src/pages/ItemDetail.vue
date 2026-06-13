@@ -3,7 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Lightbulb, Search, ChevronRight, X, Lock, Plus, Edit2, Trash2, Star, FolderKanban } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { Hotspot, Tag, Note } from '../types'
+import type { Hotspot, Tag, Note, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -23,6 +23,24 @@ const noteForm = ref({
   isImportant: false
 })
 const aggregationMode = ref<'list' | 'tag'>('list')
+
+const difficultyContext = computed(() =>
+  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
+)
+
+const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
+  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  switch (difficultyContext.value.effectiveDifficulty) {
+    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
+    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
+    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
+  }
+})
+
+function getHintForHotspot(hotspot: Hotspot): string {
+  if (!commissionId.value) return hotspot.description
+  return gameStore.getHotspotHintForDifficulty(hotspot, commissionId.value)
+}
 
 const commissionId = computed(() => route.params.id as string)
 
@@ -216,6 +234,12 @@ function getTagById(tagId: string): Tag | null {
           <span>返回委托列表</span>
         </button>
         <div class="flex items-center gap-2">
+          <div v-if="difficultyContext" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
+            <span>{{ difficultyLabel.icon }}</span>
+            <span>{{ difficultyLabel.text }}模式</span>
+            <span class="text-stone-400 mx-0.5">·</span>
+            <span class="text-stone-500">线索{{ Math.round(difficultyContext.clueCollectionRate * 100) }}%</span>
+          </div>
           <div class="hidden sm:flex items-center gap-2 px-4 py-2 bg-stone-100/70 rounded-lg text-sm text-stone-600 font-serif">
             <span>综合进度</span>
             <span class="font-bold text-amber-700">{{ unifiedProgress?.overallPercentage ?? 0 }}%</span>
@@ -599,7 +623,7 @@ function getTagById(tagId: string): Tag | null {
                 <X class="w-5 h-5" />
               </button>
             </div>
-            <p class="text-stone-600 leading-relaxed font-serif">{{ selectedHotspot.description }}</p>
+            <p class="text-stone-600 leading-relaxed font-serif">{{ getHintForHotspot(selectedHotspot) }}</p>
             <div v-if="selectedHotspot.clueId" class="mt-4 pt-4 border-t border-amber-200/30 flex items-center justify-between">
               <div class="flex items-center gap-2 text-green-600 font-serif">
                 <span>✓</span>

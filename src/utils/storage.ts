@@ -13,7 +13,7 @@ import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES } from '../types'
 
 const STORAGE_KEY = 'memory-repair-shop-save'
 const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
-const SAVE_VERSION = '5.0.0'
+const SAVE_VERSION = '6.0.0'
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
   const statuses: Record<string, CommissionStatus> = {}
@@ -54,7 +54,9 @@ export function getInitialGameState(): GameState {
     noteAggregationType: 'tag',
     connectionHintsUsed: [],
     discoveredHints: [],
-    progressMilestones: {}
+    progressMilestones: {},
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
   }
 }
 
@@ -127,7 +129,9 @@ function migrateFromV1ToV2(v1State: GameStateV1): any {
     noteAggregationType: 'tag',
     connectionHintsUsed: [],
     discoveredHints: [],
-    progressMilestones: {}
+    progressMilestones: {},
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
   }
 }
 
@@ -233,7 +237,9 @@ function migrateFromV2ToV3(v2State: GameStateV2): any {
     noteAggregationType: 'tag',
     connectionHintsUsed: [],
     discoveredHints: [],
-    progressMilestones: {}
+    progressMilestones: {},
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
   }
 }
 
@@ -285,11 +291,13 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     noteAggregationType: 'tag',
     connectionHintsUsed: [],
     discoveredHints: [],
-    progressMilestones: {}
+    progressMilestones: {},
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
   }
 }
 
-interface GameStateV4 {
+interface GameStateV1 {
   currentCommissionId: string | null
   currentChapterId: string | null
   currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
@@ -341,11 +349,79 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     noteAggregationType: 'tag',
     connectionHintsUsed: [],
     discoveredHints: [],
-    progressMilestones: {}
+    progressMilestones: {},
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
   }
 }
 
-function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGameV4 | SavedGame): GameState | null {
+interface GameStateV5 {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: GameStep
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+  notes: any[]
+  customTags: any[]
+  activeTagFilters: string[]
+  searchKeyword: string
+  searchMatchMode: 'and' | 'or'
+  searchScope: 'all' | 'clue' | 'note'
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: 'tag' | 'clue' | 'time' | 'importance'
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
+}
+
+interface SavedGameV5 {
+  version: string
+  state: GameStateV5
+  savedAt: string
+}
+
+function migrateFromV5ToV6(v5State: GameStateV5): GameState {
+  return {
+    currentCommissionId: v5State.currentCommissionId,
+    currentChapterId: v5State.currentChapterId,
+    currentStep: v5State.currentStep,
+    completedCommissions: [...v5State.completedCommissions],
+    unlockedChapters: [...v5State.unlockedChapters],
+    collectedClues: [...v5State.collectedClues],
+    discoveredConnections: [...v5State.discoveredConnections],
+    unlockedEndings: [...v5State.unlockedEndings],
+    currentEndingType: v5State.currentEndingType,
+    lastSaveTime: v5State.lastSaveTime,
+    totalPlayTime: v5State.totalPlayTime,
+    commissionStatuses: { ...v5State.commissionStatuses },
+    unlockedSteps: { ...v5State.unlockedSteps },
+    notes: [...(v5State.notes || [])],
+    customTags: [...(v5State.customTags || [])],
+    activeTagFilters: [...(v5State.activeTagFilters || [])],
+    searchKeyword: v5State.searchKeyword || '',
+    searchMatchMode: v5State.searchMatchMode || 'or',
+    searchScope: v5State.searchScope || 'all',
+    noteSortBy: v5State.noteSortBy || 'updatedAt',
+    noteSortOrder: v5State.noteSortOrder || 'desc',
+    noteAggregationType: v5State.noteAggregationType || 'tag',
+    connectionHintsUsed: [...(v5State.connectionHintsUsed || [])],
+    discoveredHints: [...(v5State.discoveredHints || [])],
+    progressMilestones: { ...(v5State.progressMilestones || {}) },
+    repairRetryCounts: {},
+    connectionRetryCounts: {}
+  }
+}
+
+function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGameV4 | SavedGameV5 | SavedGame): GameState | null {
   const version = savedGame.version
   
   if (version === SAVE_VERSION) {
@@ -365,29 +441,39 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     if (!(state as any).connectionHintsUsed) (state as any).connectionHintsUsed = []
     if (!(state as any).discoveredHints) (state as any).discoveredHints = []
     if (!(state as any).progressMilestones) (state as any).progressMilestones = {}
+    if (!(state as any).repairRetryCounts) (state as any).repairRetryCounts = {}
+    if (!(state as any).connectionRetryCounts) (state as any).connectionRetryCounts = {}
     return state
   }
 
+  if (version === '5.0.0') {
+    return migrateFromV5ToV6((savedGame as SavedGameV5).state)
+  }
+
   if (version === '4.0.0') {
-    return migrateFromV4ToV5((savedGame as SavedGameV4).state)
+    const v5 = migrateFromV4ToV5((savedGame as SavedGameV4).state)
+    return migrateFromV5ToV6(v5 as any)
   }
 
   if (version === '3.0.0') {
     const v4 = migrateFromV3ToV4((savedGame as SavedGameV3).state)
-    return migrateFromV4ToV5(v4 as any)
+    const v5 = migrateFromV4ToV5(v4 as any)
+    return migrateFromV5ToV6(v5 as any)
   }
 
   if (version === '2.0.0') {
     const v3 = migrateFromV2ToV3((savedGame as SavedGameV2).state)
     const v4 = migrateFromV3ToV4(v3 as any)
-    return migrateFromV4ToV5(v4 as any)
+    const v5 = migrateFromV4ToV5(v4 as any)
+    return migrateFromV5ToV6(v5 as any)
   }
 
   if (version === '1.0.0') {
     const v2 = migrateFromV1ToV2((savedGame as SavedGameV1).state)
     const v3 = migrateFromV2ToV3(v2 as any)
     const v4 = migrateFromV3ToV4(v3 as any)
-    return migrateFromV4ToV5(v4 as any)
+    const v5 = migrateFromV4ToV5(v4 as any)
+    return migrateFromV5ToV6(v5 as any)
   }
 
   console.warn(`Unsupported save version: ${version}, starting new game`)

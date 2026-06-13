@@ -19,7 +19,11 @@ import type {
   SearchMatchMode,
   SearchScope,
   AggregationType,
-  ClueNoteCluster
+  ClueNoteCluster,
+  DifficultyContext,
+  DynamicDifficultyLevel,
+  RepairStep,
+  RepairChoice
 } from '../types'
 import { 
   getInitialGameState, 
@@ -1174,6 +1178,8 @@ export const useGameStore = defineStore('game', () => {
   function validateConnection(fromClueId: string, toClueId: string): import('../types').ConnectionValidationResult {
     const fromClue = clues.find(c => c.id === fromClueId)
     const toClue = clues.find(c => c.id === toClueId)
+
+    const commissionId = fromClue?.commissionId || toClue?.commissionId || null
     
     if (!fromClue && !toClue) {
       return { 
@@ -1203,6 +1209,7 @@ export const useGameStore = defineStore('game', () => {
     }
 
     if (fromClueId === toClueId) {
+      if (commissionId) incrementConnectionRetryCount(commissionId)
       return { 
         isValid: false, 
         errorCode: 'same_clue', 
@@ -1219,6 +1226,7 @@ export const useGameStore = defineStore('game', () => {
     )
     if (existing) {
       if (state.value.discoveredConnections.includes(existing.id)) {
+        if (commissionId) incrementConnectionRetryCount(commissionId)
         return { 
           isValid: false, 
           errorCode: 'already_connected', 
@@ -1246,9 +1254,10 @@ export const useGameStore = defineStore('game', () => {
         for (const conn of neighborConns) {
           const neighbor = conn.fromClueId === current ? conn.toClueId : conn.fromClueId
           if (neighbor === fromClueId) {
-            return { 
-              isValid: false, 
-              errorCode: 'circular_reference', 
+            if (commissionId) incrementConnectionRetryCount(commissionId)
+            return {
+              isValid: false,
+              errorCode: 'circular_reference',
               errorMessage: '添加此连接会形成循环引用',
               suggestion: `这两条线索通过 ${depth + 1} 步已经间接相连`,
               fromClueTitle: fromClue.title,
@@ -1272,6 +1281,7 @@ export const useGameStore = defineStore('game', () => {
         c.fromClueId === toClueId && c.toClueId === fromClueId
       )
       if (!reverseConnection) {
+        if (commissionId) incrementConnectionRetryCount(commissionId)
         const sharedTags = fromClue.tagIds.filter(tid => toClue.tagIds.includes(tid))
         let suggestion = '尝试寻找其他相关的线索组合'
         let confidence = 0
@@ -1661,6 +1671,92 @@ export const useGameStore = defineStore('game', () => {
     saveCurrentGame()
   }
 
+  function computeDifficultyContext(commissionId: string): DifficultyContext {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) {
+      return {
+        clueCollectionRate: 0,
+        retryCount: 0,
+        commissionBaseDifficulty: 'simple',
+        effectiveDifficulty: 'standard' as DynamicDifficultyLevel
+      }
+    }
+
+    const collected = getCollectedClueCount(commissionId)
+    const total = getTotalClueCount(commissionId)
+    const clueCollectionRate = total > 0 ? collected / total : 0
+
+    const repairRetries = Object.entries(state.value.repairRetryCounts)
+      .filter(([key]) => key.startsWith(commissionId))
+      .reduce((sum, [, count]) => sum + count, 0)
+    const connectionRetries = state.value.connectionRetryCounts[commissionId] || 0
+    const retryCount = repairRetries + connectionRetries
+
+    let effectiveDifficulty: DynamicDifficultyLevel = 'standard'
+
+    if (clueCollectionRate < 0.4 || (clueCollectionRate < 0.6 && retryCount >= 3)) {
+      effectiveDifficulty = 'assisted'
+    } else if (clueCollectionRate >= 0.8 && retryCount === 0) {
+      effectiveDifficulty = 'challenging'
+    } else if (clueCollectionRate >= 0.6 && retryCount <= 1) {
+      effectiveDifficulty = 'challenging'
+    } else if (retryCount >= 2) {
+      effectiveDifficulty = 'assisted'
+    }
+
+    return {
+      clueCollectionRate: Math.round(clueCollectionRate * 100) / 100,
+      retryCount,
+      commissionBaseDifficulty: commission.difficulty,
+      effectiveDifficulty
+    }
+  }
+
+  function getDifficultyLevel(commissionId: string): DynamicDifficultyLevel {
+    return computeDifficultyContext(commissionId).effectiveDifficulty
+  }
+
+  function getHotspotHintForDifficulty(hotspot: import('../types').Hotspot, commissionId: string): string {
+    const level = getDifficultyLevel(commissionId)
+    if (hotspot.hints && hotspot.hints[level]) {
+      return hotspot.hints[level]
+    }
+    return hotspot.description
+  }
+
+  function getRepairStepsForDifficulty(commissionId: string): RepairStep[] {
+    const steps = repairSteps[commissionId]
+    if (!steps) return []
+
+    const level = getDifficultyLevel(commissionId)
+
+    return steps.map(step => {
+      const variant = step.difficultyVariants?.[level]
+      const merged: RepairStep = {
+        ...step,
+        description: variant?.description || step.description
+      }
+
+      if (variant?.extraChoices && variant.extraChoices.length > 0) {
+        merged.choices = [...step.choices, ...variant.extraChoices]
+      }
+
+      merged.difficultyVariants = step.difficultyVariants
+      return merged
+    })
+  }
+
+  function incrementRepairRetryCount(commissionId: string, stepId: string): void {
+    const key = `${commissionId}-${stepId}`
+    state.value.repairRetryCounts[key] = (state.value.repairRetryCounts[key] || 0) + 1
+    saveCurrentGame()
+  }
+
+  function incrementConnectionRetryCount(commissionId: string): void {
+    state.value.connectionRetryCounts[commissionId] = (state.value.connectionRetryCounts[commissionId] || 0) + 1
+    saveCurrentGame()
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -1758,6 +1854,12 @@ export const useGameStore = defineStore('game', () => {
     getCommissionProgress,
     getChapterProgress,
     getOverallProgress,
-    checkAndUnlockMilestones
+    checkAndUnlockMilestones,
+    computeDifficultyContext,
+    getDifficultyLevel,
+    getHotspotHintForDifficulty,
+    getRepairStepsForDifficulty,
+    incrementRepairRetryCount,
+    incrementConnectionRetryCount
   }
 })
