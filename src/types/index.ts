@@ -81,26 +81,60 @@ export interface Tag {
   name: string
   color: string
   description?: string
+  usageCount?: number
 }
+
+export type SearchMatchMode = 'and' | 'or'
+
+export type SearchScope = 'all' | 'clue' | 'note'
 
 export interface ClueSearchResult {
   clue: Clue
   matchedTagIds: string[]
   keywordMatched: boolean
+  matchScore: number
+  matchedFields: string[]
+}
+
+export interface NoteSearchResult {
+  note: Note
+  matchedTagIds: string[]
+  keywordMatched: boolean
+  matchScore: number
+  matchedFields: string[]
+}
+
+export interface UnifiedSearchResult {
+  clues: ClueSearchResult[]
+  notes: NoteSearchResult[]
+  totalCount: number
 }
 
 export interface ProgressDetail {
-  clueProgress: { collected: number; total: number; percentage: number }
-  connectionProgress: { discovered: number; total: number; percentage: number }
-  noteProgress: { count: number }
+  clueProgress: { collected: number; total: number; percentage: number; weightedScore: number }
+  connectionProgress: { discovered: number; total: number; percentage: number; weightedScore: number }
+  noteProgress: { count: number; weightedScore: number }
+  tagProgress?: { usedTagCount: number; totalTagCount: number; percentage: number }
   overallPercentage: number
+  weightedOverall: number
 }
+
+export type AggregationType = 'tag' | 'clue' | 'time' | 'importance'
 
 export interface NoteAggregate {
   tagId: string
   tag: Tag | null
   notes: Note[]
   clueCount: number
+  importantCount: number
+  lastUpdatedAt: string
+}
+
+export interface ClueNoteCluster {
+  clue: Clue
+  notes: Note[]
+  relatedClues: Clue[]
+  tagSummary: { tag: Tag; count: number }[]
 }
 
 export interface Note {
@@ -127,11 +161,41 @@ export interface Clue {
   tagIds: string[]
 }
 
+export type ConnectionErrorCode = 
+  | 'same_clue' 
+  | 'already_connected' 
+  | 'circular_reference' 
+  | 'invalid_direction' 
+  | 'no_connection'
+  | 'one_clue_missing'
+  | 'both_clues_missing'
+  | 'same_category_forbidden'
+  | 'weak_connection'
+  | 'max_connections_reached'
+
 export interface ConnectionValidationResult {
   isValid: boolean
-  errorCode?: 'same_clue' | 'already_connected' | 'circular_reference' | 'invalid_direction' | 'no_connection'
+  errorCode?: ConnectionErrorCode
   errorMessage?: string
   connectionId?: string
+  suggestion?: string
+  confidence?: number
+  fromClueTitle?: string
+  toClueTitle?: string
+}
+
+export interface ConnectionHint {
+  fromClueId: string
+  toClueId: string
+  hint: string
+  difficulty: 'easy' | 'medium' | 'hard'
+}
+
+export interface ConnectionGraphNode {
+  clueId: string
+  connections: string[]
+  depth: number
+  isHub: boolean
 }
 
 export interface ClueConnection {
@@ -188,6 +252,14 @@ export interface GameState {
   customTags: Tag[]
   activeTagFilters: string[]
   searchKeyword: string
+  searchMatchMode: SearchMatchMode
+  searchScope: SearchScope
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: AggregationType
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
 }
 
 export interface SavedGame {

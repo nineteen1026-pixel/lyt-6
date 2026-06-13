@@ -1,6 +1,26 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency, SaveSlotInfo, LoadResult, Tag, Note, ClueSearchResult, ProgressDetail, NoteAggregate } from '../types'
+import type { 
+  GameState, 
+  CommissionStatus, 
+  Chapter, 
+  Commission, 
+  GameStep, 
+  StepDependency, 
+  SaveSlotInfo, 
+  LoadResult, 
+  Tag, 
+  Note, 
+  ClueSearchResult, 
+  ProgressDetail, 
+  NoteAggregate,
+  NoteSearchResult,
+  UnifiedSearchResult,
+  SearchMatchMode,
+  SearchScope,
+  AggregationType,
+  ClueNoteCluster
+} from '../types'
 import { 
   getInitialGameState, 
   saveGame, 
@@ -623,12 +643,27 @@ export const useGameStore = defineStore('game', () => {
   }
 
   const allTags = computed<Tag[]>(() => {
-    return [...tags, ...state.value.customTags]
+    const baseTags = [...tags, ...state.value.customTags]
+    return baseTags.map(tag => {
+      let count = 0
+      for (const clue of clues) {
+        if (state.value.collectedClues.includes(clue.id) && clue.tagIds.includes(tag.id)) {
+          count++
+        }
+      }
+      for (const note of state.value.notes) {
+        if (note.tagIds.includes(tag.id)) {
+          count++
+        }
+      }
+      return { ...tag, usageCount: count }
+    })
   })
 
   const filteredClues = computed<ClueSearchResult[]>(() => {
     const keyword = state.value.searchKeyword.trim().toLowerCase()
     const activeFilters = state.value.activeTagFilters
+    const matchMode = state.value.searchMatchMode
 
     return clues
       .filter(c => state.value.collectedClues.includes(c.id))
@@ -636,31 +671,70 @@ export const useGameStore = defineStore('game', () => {
         const matchedTagIds = activeFilters.length > 0
           ? clue.tagIds.filter(tid => activeFilters.includes(tid))
           : []
-        const keywordMatched = keyword !== '' && (
-          clue.title.toLowerCase().includes(keyword) ||
-          clue.content.toLowerCase().includes(keyword)
-        )
-        const matchesTags = activeFilters.length === 0 || matchedTagIds.length > 0
+        
+        const matchedFields: string[] = []
+        let matchScore = 0
+        
+        if (keyword !== '') {
+          const titleLower = clue.title.toLowerCase()
+          const contentLower = clue.content.toLowerCase()
+          const kw = keyword
+          
+          if (titleLower.includes(kw)) {
+            matchedFields.push('title')
+            matchScore += 10
+            if (titleLower.startsWith(kw)) matchScore += 5
+          }
+          if (contentLower.includes(kw)) {
+            matchedFields.push('content')
+            matchScore += 5
+            const occurrences = contentLower.split(kw).length - 1
+            matchScore += Math.min(occurrences, 5)
+          }
+        }
+        
+        const keywordMatched = matchedFields.length > 0
+        
+        let matchesTags: boolean
+        if (activeFilters.length === 0) {
+          matchesTags = true
+        } else if (matchMode === 'and') {
+          matchesTags = matchedTagIds.length === activeFilters.length
+        } else {
+          matchesTags = matchedTagIds.length > 0
+        }
+        
         const matchesKeyword = keyword === '' || keywordMatched
-        return { clue, matchedTagIds, keywordMatched, visible: matchesTags && matchesKeyword }
+        const visible = matchesTags && matchesKeyword
+        
+        if (matchedTagIds.length > 0) {
+          matchScore += matchedTagIds.length * 3
+        }
+        
+        return { clue, matchedTagIds, keywordMatched, matchScore, matchedFields, visible }
       })
       .filter(r => r.visible)
-      .map(({ clue, matchedTagIds, keywordMatched }) => ({ clue, matchedTagIds, keywordMatched }))
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .map(({ clue, matchedTagIds, keywordMatched, matchScore, matchedFields }) => ({ 
+        clue, matchedTagIds, keywordMatched, matchScore, matchedFields 
+      }))
   })
 
-  function searchCluesByTagIds(tagIds: string[]): ClueSearchResult[] {
+  function searchCluesByTagIds(tagIds: string[], matchMode: SearchMatchMode = 'or'): ClueSearchResult[] {
     if (tagIds.length === 0) {
       return clues
         .filter(c => state.value.collectedClues.includes(c.id))
-        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false }))
+        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false, matchScore: 0, matchedFields: [] }))
     }
     return clues
       .filter(c => state.value.collectedClues.includes(c.id))
       .map(clue => {
         const matchedTagIds = clue.tagIds.filter(tid => tagIds.includes(tid))
-        return { clue, matchedTagIds, keywordMatched: false }
+        const matchScore = matchedTagIds.length * 3
+        return { clue, matchedTagIds, keywordMatched: false, matchScore, matchedFields: [] }
       })
-      .filter(r => r.matchedTagIds.length > 0)
+      .filter(r => matchMode === 'and' ? r.matchedTagIds.length === tagIds.length : r.matchedTagIds.length > 0)
+      .sort((a, b) => b.matchScore - a.matchScore)
   }
 
   function searchCluesByKeyword(keyword: string): ClueSearchResult[] {
@@ -668,15 +742,215 @@ export const useGameStore = defineStore('game', () => {
     if (kw === '') {
       return clues
         .filter(c => state.value.collectedClues.includes(c.id))
-        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false }))
+        .map(clue => ({ clue, matchedTagIds: [], keywordMatched: false, matchScore: 0, matchedFields: [] }))
     }
     return clues
       .filter(c => state.value.collectedClues.includes(c.id))
-      .filter(c =>
-        c.title.toLowerCase().includes(kw) ||
-        c.content.toLowerCase().includes(kw)
-      )
-      .map(clue => ({ clue, matchedTagIds: [], keywordMatched: true }))
+      .map(clue => {
+        const matchedFields: string[] = []
+        let matchScore = 0
+        const titleLower = clue.title.toLowerCase()
+        const contentLower = clue.content.toLowerCase()
+        
+        if (titleLower.includes(kw)) {
+          matchedFields.push('title')
+          matchScore += 10
+          if (titleLower.startsWith(kw)) matchScore += 5
+        }
+        if (contentLower.includes(kw)) {
+          matchedFields.push('content')
+          matchScore += 5
+          const occurrences = contentLower.split(kw).length - 1
+          matchScore += Math.min(occurrences, 5)
+        }
+        
+        return { clue, matchedTagIds: [], keywordMatched: matchedFields.length > 0, matchScore, matchedFields }
+      })
+      .filter(r => r.keywordMatched)
+      .sort((a, b) => b.matchScore - a.matchScore)
+  }
+
+  function searchNotesByTagIds(tagIds: string[], matchMode: SearchMatchMode = 'or', commissionId?: string): NoteSearchResult[] {
+    let relevantNotes = commissionId
+      ? state.value.notes.filter(n => n.commissionId === commissionId)
+      : state.value.notes
+    
+    if (tagIds.length === 0) {
+      return relevantNotes.map(note => ({ 
+        note, matchedTagIds: [], keywordMatched: false, matchScore: 0, matchedFields: [] 
+      }))
+    }
+    
+    return relevantNotes
+      .map(note => {
+        const matchedTagIds = note.tagIds.filter(tid => tagIds.includes(tid))
+        const matchScore = matchedTagIds.length * 3
+        return { note, matchedTagIds, keywordMatched: false, matchScore, matchedFields: [] }
+      })
+      .filter(r => matchMode === 'and' ? r.matchedTagIds.length === tagIds.length : r.matchedTagIds.length > 0)
+      .sort((a, b) => b.matchScore - a.matchScore)
+  }
+
+  function searchNotesByKeyword(keyword: string, commissionId?: string): NoteSearchResult[] {
+    const kw = keyword.trim().toLowerCase()
+    let relevantNotes = commissionId
+      ? state.value.notes.filter(n => n.commissionId === commissionId)
+      : state.value.notes
+    
+    if (kw === '') {
+      return relevantNotes.map(note => ({ 
+        note, matchedTagIds: [], keywordMatched: false, matchScore: 0, matchedFields: [] 
+      }))
+    }
+    
+    return relevantNotes
+      .map(note => {
+        const matchedFields: string[] = []
+        let matchScore = 0
+        const titleLower = note.title.toLowerCase()
+        const contentLower = note.content.toLowerCase()
+        
+        if (titleLower.includes(kw)) {
+          matchedFields.push('title')
+          matchScore += 10
+          if (titleLower.startsWith(kw)) matchScore += 5
+        }
+        if (contentLower.includes(kw)) {
+          matchedFields.push('content')
+          matchScore += 5
+          const occurrences = contentLower.split(kw).length - 1
+          matchScore += Math.min(occurrences, 5)
+        }
+        
+        return { note, matchedTagIds: [], keywordMatched: matchedFields.length > 0, matchScore, matchedFields }
+      })
+      .filter(r => r.keywordMatched)
+      .sort((a, b) => b.matchScore - a.matchScore)
+  }
+
+  function unifiedSearch(keyword: string, tagIds: string[], scope: SearchScope = 'all', matchMode: SearchMatchMode = 'or', commissionId?: string): UnifiedSearchResult {
+    const kw = keyword.trim().toLowerCase()
+    
+    let clueResults: ClueSearchResult[] = []
+    let noteResults: NoteSearchResult[] = []
+    
+    if (scope === 'all' || scope === 'clue') {
+      clueResults = clues
+        .filter(c => state.value.collectedClues.includes(c.id))
+        .filter(c => !commissionId || c.commissionId === commissionId)
+        .map(clue => {
+          const matchedTagIds = tagIds.length > 0
+            ? clue.tagIds.filter(tid => tagIds.includes(tid))
+            : []
+          
+          const matchedFields: string[] = []
+          let matchScore = 0
+          
+          if (kw !== '') {
+            const titleLower = clue.title.toLowerCase()
+            const contentLower = clue.content.toLowerCase()
+            
+            if (titleLower.includes(kw)) {
+              matchedFields.push('title')
+              matchScore += 10
+              if (titleLower.startsWith(kw)) matchScore += 5
+            }
+            if (contentLower.includes(kw)) {
+              matchedFields.push('content')
+              matchScore += 5
+            }
+          }
+          
+          const keywordMatched = matchedFields.length > 0
+          
+          let matchesTags: boolean
+          if (tagIds.length === 0) {
+            matchesTags = true
+          } else if (matchMode === 'and') {
+            matchesTags = matchedTagIds.length === tagIds.length
+          } else {
+            matchesTags = matchedTagIds.length > 0
+          }
+          
+          const matchesKeyword = kw === '' || keywordMatched
+          
+          if (matchedTagIds.length > 0) {
+            matchScore += matchedTagIds.length * 3
+          }
+          
+          return { clue, matchedTagIds, keywordMatched, matchScore, matchedFields, visible: matchesTags && matchesKeyword }
+        })
+        .filter(r => r.visible)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .map(({ clue, matchedTagIds, keywordMatched, matchScore, matchedFields }) => ({ 
+          clue, matchedTagIds, keywordMatched, matchScore, matchedFields 
+        }))
+    }
+    
+    if (scope === 'all' || scope === 'note') {
+      const relevantNotes = commissionId
+        ? state.value.notes.filter(n => n.commissionId === commissionId)
+        : state.value.notes
+      
+      noteResults = relevantNotes
+        .map(note => {
+          const matchedTagIds = tagIds.length > 0
+            ? note.tagIds.filter(tid => tagIds.includes(tid))
+            : []
+          
+          const matchedFields: string[] = []
+          let matchScore = 0
+          
+          if (kw !== '') {
+            const titleLower = note.title.toLowerCase()
+            const contentLower = note.content.toLowerCase()
+            
+            if (titleLower.includes(kw)) {
+              matchedFields.push('title')
+              matchScore += 10
+              if (titleLower.startsWith(kw)) matchScore += 5
+            }
+            if (contentLower.includes(kw)) {
+              matchedFields.push('content')
+              matchScore += 5
+            }
+          }
+          
+          const keywordMatched = matchedFields.length > 0
+          
+          let matchesTags: boolean
+          if (tagIds.length === 0) {
+            matchesTags = true
+          } else if (matchMode === 'and') {
+            matchesTags = matchedTagIds.length === tagIds.length
+          } else {
+            matchesTags = matchedTagIds.length > 0
+          }
+          
+          const matchesKeyword = kw === '' || keywordMatched
+          
+          if (matchedTagIds.length > 0) {
+            matchScore += matchedTagIds.length * 3
+          }
+          
+          if (note.isImportant) {
+            matchScore += 2
+          }
+          
+          return { note, matchedTagIds, keywordMatched, matchScore, matchedFields, visible: matchesTags && matchesKeyword }
+        })
+        .filter(r => r.visible)
+        .sort((a, b) => b.matchScore - a.matchScore)
+        .map(({ note, matchedTagIds, keywordMatched, matchScore, matchedFields }) => ({ 
+          note, matchedTagIds, keywordMatched, matchScore, matchedFields 
+        }))
+    }
+    
+    return {
+      clues: clueResults,
+      notes: noteResults,
+      totalCount: clueResults.length + noteResults.length
+    }
   }
 
   function setActiveTagFilters(tagIds: string[]): void {
@@ -686,6 +960,16 @@ export const useGameStore = defineStore('game', () => {
 
   function setSearchKeyword(keyword: string): void {
     state.value.searchKeyword = keyword
+    saveCurrentGame()
+  }
+
+  function setSearchMatchMode(mode: SearchMatchMode): void {
+    state.value.searchMatchMode = mode
+    saveCurrentGame()
+  }
+
+  function setSearchScope(scope: SearchScope): void {
+    state.value.searchScope = scope
     saveCurrentGame()
   }
 
@@ -770,15 +1054,163 @@ export const useGameStore = defineStore('game', () => {
           }
         }
       }
-      results.push({ tagId, tag, notes: tagNotes, clueCount: associatedClueIds.size })
+      const importantCount = tagNotes.filter(n => n.isImportant).length
+      const lastUpdatedAt = tagNotes.reduce((latest, note) => 
+        note.updatedAt > latest ? note.updatedAt : latest, ''
+      )
+      results.push({ tagId, tag, notes: tagNotes, clueCount: associatedClueIds.size, importantCount, lastUpdatedAt })
     }
 
     return results.sort((a, b) => b.notes.length - a.notes.length)
   }
 
+  function getClueNoteClusters(commissionId?: string): ClueNoteCluster[] {
+    const relevantClues = clues.filter(c => 
+      state.value.collectedClues.includes(c.id) && 
+      (!commissionId || c.commissionId === commissionId)
+    )
+
+    const clusters: ClueNoteCluster[] = []
+
+    for (const clue of relevantClues) {
+      const noteList = state.value.notes.filter(n => n.clueId === clue.id)
+      
+      const relatedClueIds = new Set<string>()
+      for (const conn of connections) {
+        if (state.value.discoveredConnections.includes(conn.id)) {
+          if (conn.fromClueId === clue.id) {
+            relatedClueIds.add(conn.toClueId)
+          } else if (conn.toClueId === clue.id) {
+            relatedClueIds.add(conn.fromClueId)
+          }
+        }
+      }
+      const relatedClues = clues.filter(c => relatedClueIds.has(c.id) && state.value.collectedClues.includes(c.id))
+      
+      const tagCountMap = new Map<string, number>()
+      for (const note of noteList) {
+        for (const tagId of note.tagIds) {
+          tagCountMap.set(tagId, (tagCountMap.get(tagId) || 0) + 1)
+        }
+      }
+      for (const tagId of clue.tagIds) {
+        tagCountMap.set(tagId, (tagCountMap.get(tagId) || 0) + 1)
+      }
+      
+      const tagSummary: { tag: Tag; count: number }[] = []
+      for (const [tagId, count] of tagCountMap) {
+        const tag = allTags.value.find(t => t.id === tagId)
+        if (tag) {
+          tagSummary.push({ tag, count })
+        }
+      }
+      tagSummary.sort((a, b) => b.count - a.count)
+
+      clusters.push({
+        clue,
+        notes: noteList,
+        relatedClues,
+        tagSummary
+      })
+    }
+
+    return clusters.sort((a, b) => b.notes.length - a.notes.length)
+  }
+
+  function getSortedNotes(
+    commissionId?: string, 
+    sortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title' = 'updatedAt',
+    sortOrder: 'asc' | 'desc' = 'desc'
+  ): Note[] {
+    let relevantNotes = commissionId
+      ? state.value.notes.filter(n => n.commissionId === commissionId)
+      : [...state.value.notes]
+
+    const multiplier = sortOrder === 'desc' ? -1 : 1
+
+    return relevantNotes.sort((a, b) => {
+      let comparison = 0
+      switch (sortBy) {
+        case 'updatedAt':
+          comparison = a.updatedAt.localeCompare(b.updatedAt)
+          break
+        case 'createdAt':
+          comparison = a.createdAt.localeCompare(b.createdAt)
+          break
+        case 'importance':
+          if (a.isImportant && !b.isImportant) comparison = 1
+          else if (!a.isImportant && b.isImportant) comparison = -1
+          else comparison = a.updatedAt.localeCompare(b.updatedAt)
+          break
+        case 'title':
+          comparison = a.title.localeCompare(b.title, 'zh-CN')
+          break
+      }
+      return comparison * multiplier
+    })
+  }
+
+  function setNoteSortBy(sortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'): void {
+    state.value.noteSortBy = sortBy
+    saveCurrentGame()
+  }
+
+  function setNoteSortOrder(sortOrder: 'asc' | 'desc'): void {
+    state.value.noteSortOrder = sortOrder
+    saveCurrentGame()
+  }
+
+  function setNoteAggregationType(type: AggregationType): void {
+    state.value.noteAggregationType = type
+    saveCurrentGame()
+  }
+
+  function getImportantNotes(commissionId?: string): Note[] {
+    return state.value.notes.filter(n => 
+      n.isImportant && (!commissionId || n.commissionId === commissionId)
+    ).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  }
+
   function validateConnection(fromClueId: string, toClueId: string): import('../types').ConnectionValidationResult {
+    const fromClue = clues.find(c => c.id === fromClueId)
+    const toClue = clues.find(c => c.id === toClueId)
+    
+    if (!fromClue && !toClue) {
+      return { 
+        isValid: false, 
+        errorCode: 'both_clues_missing', 
+        errorMessage: '两个线索都不存在',
+        suggestion: '请选择有效的线索进行连接'
+      }
+    }
+    if (!fromClue) {
+      return { 
+        isValid: false, 
+        errorCode: 'one_clue_missing', 
+        errorMessage: '起始线索不存在',
+        suggestion: '请检查起始线索是否正确',
+        toClueTitle: toClue?.title
+      }
+    }
+    if (!toClue) {
+      return { 
+        isValid: false, 
+        errorCode: 'one_clue_missing', 
+        errorMessage: '目标线索不存在',
+        suggestion: '请检查目标线索是否正确',
+        fromClueTitle: fromClue?.title
+      }
+    }
+
     if (fromClueId === toClueId) {
-      return { isValid: false, errorCode: 'same_clue', errorMessage: '不能连接同一个线索' }
+      return { 
+        isValid: false, 
+        errorCode: 'same_clue', 
+        errorMessage: '不能连接同一个线索',
+        suggestion: '请选择两个不同的线索进行连接',
+        fromClueTitle: fromClue.title,
+        toClueTitle: toClue.title
+      }
     }
 
     const existing = connections.find(c =>
@@ -787,29 +1219,49 @@ export const useGameStore = defineStore('game', () => {
     )
     if (existing) {
       if (state.value.discoveredConnections.includes(existing.id)) {
-        return { isValid: false, errorCode: 'already_connected', errorMessage: '这两个线索已经建立了关联', connectionId: existing.id }
+        return { 
+          isValid: false, 
+          errorCode: 'already_connected', 
+          errorMessage: '这两个线索已经建立了关联', 
+          connectionId: existing.id,
+          suggestion: '可以查看已有的关联结论',
+          fromClueTitle: fromClue.title,
+          toClueTitle: toClue.title
+        }
       }
     }
 
     const visited = new Set<string>()
     const queue = [toClueId]
     visited.add(toClueId)
+    let depth = 0
     while (queue.length > 0) {
-      const current = queue.shift()!
-      const neighborConns = connections.filter(c =>
-        state.value.discoveredConnections.includes(c.id) &&
-        (c.fromClueId === current || c.toClueId === current)
-      )
-      for (const conn of neighborConns) {
-        const neighbor = conn.fromClueId === current ? conn.toClueId : conn.fromClueId
-        if (neighbor === fromClueId) {
-          return { isValid: false, errorCode: 'circular_reference', errorMessage: '添加此连接会形成循环引用' }
-        }
-        if (!visited.has(neighbor)) {
-          visited.add(neighbor)
-          queue.push(neighbor)
+      const levelSize = queue.length
+      for (let i = 0; i < levelSize; i++) {
+        const current = queue.shift()!
+        const neighborConns = connections.filter(c =>
+          state.value.discoveredConnections.includes(c.id) &&
+          (c.fromClueId === current || c.toClueId === current)
+        )
+        for (const conn of neighborConns) {
+          const neighbor = conn.fromClueId === current ? conn.toClueId : conn.fromClueId
+          if (neighbor === fromClueId) {
+            return { 
+              isValid: false, 
+              errorCode: 'circular_reference', 
+              errorMessage: '添加此连接会形成循环引用',
+              suggestion: `这两条线索通过 ${depth + 1} 步已经间接相连`,
+              fromClueTitle: fromClue.title,
+              toClueTitle: toClue.title
+            }
+          }
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor)
+            queue.push(neighbor)
+          }
         }
       }
+      depth++
     }
 
     const validConnection = connections.find(c =>
@@ -820,12 +1272,148 @@ export const useGameStore = defineStore('game', () => {
         c.fromClueId === toClueId && c.toClueId === fromClueId
       )
       if (!reverseConnection) {
-        return { isValid: false, errorCode: 'no_connection', errorMessage: '这两个线索之间没有可用的推理关联' }
+        const sharedTags = fromClue.tagIds.filter(tid => toClue.tagIds.includes(tid))
+        let suggestion = '尝试寻找其他相关的线索组合'
+        let confidence = 0
+        if (sharedTags.length > 0) {
+          suggestion = `这两条线索有 ${sharedTags.length} 个共同标签，但暂未预设关联`
+          confidence = sharedTags.length * 10
+        }
+        return { 
+          isValid: false, 
+          errorCode: 'no_connection', 
+          errorMessage: '这两个线索之间没有可用的推理关联',
+          suggestion,
+          confidence,
+          fromClueTitle: fromClue.title,
+          toClueTitle: toClue.title
+        }
       }
-      return { isValid: true, connectionId: reverseConnection.id }
+      return { 
+        isValid: true, 
+        connectionId: reverseConnection.id,
+        confidence: 100,
+        fromClueTitle: toClue.title,
+        toClueTitle: fromClue.title
+      }
     }
 
-    return { isValid: true, connectionId: validConnection.id }
+    return { 
+      isValid: true, 
+      connectionId: validConnection.id,
+      confidence: 100,
+      fromClueTitle: fromClue.title,
+      toClueTitle: toClue.title
+    }
+  }
+
+  function getConnectionHints(commissionId: string): import('../types').ConnectionHint[] {
+    const commissionClues = clues.filter(c => c.commissionId === commissionId)
+    const undiscoveredConns = connections.filter(c => {
+      const fromClue = clues.find(clue => clue.id === c.fromClueId)
+      return fromClue?.commissionId === commissionId && 
+        !state.value.discoveredConnections.includes(c.id) &&
+        state.value.collectedClues.includes(c.fromClueId) &&
+        state.value.collectedClues.includes(c.toClueId)
+    })
+
+    const hints: import('../types').ConnectionHint[] = []
+    for (const conn of undiscoveredConns) {
+      const fromClue = clues.find(c => c.id === conn.fromClueId)
+      const toClue = clues.find(c => c.id === conn.toClueId)
+      if (!fromClue || !toClue) continue
+
+      const sharedTags = fromClue.tagIds.filter(tid => toClue.tagIds.includes(tid))
+      let difficulty: 'easy' | 'medium' | 'hard' = 'hard'
+      let hint = ''
+
+      if (sharedTags.length >= 2) {
+        difficulty = 'easy'
+        const tagNames = sharedTags.slice(0, 2).map(tid => getTagById(tid)?.name || '').join('、')
+        hint = `试试找找都有「${tagNames}」标签的线索`
+      } else if (sharedTags.length === 1) {
+        difficulty = 'medium'
+        const tagName = getTagById(sharedTags[0])?.name || ''
+        hint = `它们都和「${tagName}」有关`
+      } else {
+        const categoryMatch = fromClue.category === toClue.category
+        if (categoryMatch) {
+          difficulty = 'medium'
+          hint = `它们属于同一类线索`
+        } else {
+          hint = `仔细想想这两条线索之间的联系`
+        }
+      }
+
+      hints.push({
+        fromClueId: conn.fromClueId,
+        toClueId: conn.toClueId,
+        hint,
+        difficulty
+      })
+    }
+
+    return hints.sort((a, b) => {
+      const order = { easy: 0, medium: 1, hard: 2 }
+      return order[a.difficulty] - order[b.difficulty]
+    })
+  }
+
+  function getConnectionGraph(commissionId: string): import('../types').ConnectionGraphNode[] {
+    const commissionClues = clues.filter(c => 
+      c.commissionId === commissionId && state.value.collectedClues.includes(c.id)
+    )
+    
+    const nodes: Map<string, import('../types').ConnectionGraphNode> = new Map()
+    const edges: Map<string, Set<string>> = new Map()
+    
+    for (const clue of commissionClues) {
+      edges.set(clue.id, new Set())
+    }
+    
+    for (const conn of connections) {
+      if (!state.value.discoveredConnections.includes(conn.id)) continue
+      const fromClue = clues.find(c => c.id === conn.fromClueId)
+      if (fromClue?.commissionId !== commissionId) continue
+      
+      if (edges.has(conn.fromClueId)) {
+        edges.get(conn.fromClueId)!.add(conn.toClueId)
+      }
+      if (edges.has(conn.toClueId)) {
+        edges.get(conn.toClueId)!.add(conn.fromClueId)
+      }
+    }
+    
+    const visited = new Set<string>()
+    let maxDepth = 0
+    
+    function dfs(clueId: string, depth: number) {
+      if (visited.has(clueId)) return
+      visited.add(clueId)
+      maxDepth = Math.max(maxDepth, depth)
+      
+      const neighbors = edges.get(clueId) || new Set()
+      const isHub = neighbors.size >= 3
+      
+      nodes.set(clueId, {
+        clueId,
+        connections: Array.from(neighbors),
+        depth,
+        isHub
+      })
+      
+      for (const neighbor of neighbors) {
+        dfs(neighbor, depth + 1)
+      }
+    }
+    
+    for (const clue of commissionClues) {
+      if (!visited.has(clue.id)) {
+        dfs(clue.id, 0)
+      }
+    }
+    
+    return Array.from(nodes.values())
   }
 
   function getCommissionProgress(commissionId: string): ProgressDetail {
@@ -834,24 +1422,76 @@ export const useGameStore = defineStore('game', () => {
     const discoveredConnCount = getDiscoveredConnectionCount(commissionId)
     const totalConnCount = getTotalConnectionCount(commissionId)
     const noteCount = state.value.notes.filter(n => n.commissionId === commissionId).length
+    const importantNoteCount = state.value.notes.filter(n => 
+      n.commissionId === commissionId && n.isImportant
+    ).length
 
-    const cluePct = totalClueCount > 0 ? Math.round((collectedClueCount / totalClueCount) * 100) : 0
-    const connPct = totalConnCount > 0 ? Math.round((discoveredConnCount / totalConnCount) * 100) : 0
-    const overall = totalClueCount + totalConnCount > 0
-      ? Math.round(((collectedClueCount + discoveredConnCount) / (totalClueCount + totalConnCount)) * 100)
-      : 0
+    const clueWeight = 0.5
+    const connWeight = 0.35
+    const noteWeight = 0.15
+
+    const cluePct = totalClueCount > 0 ? (collectedClueCount / totalClueCount) * 100 : 0
+    const connPct = totalConnCount > 0 ? (discoveredConnCount / totalConnCount) * 100 : 0
+    
+    const expectedNotes = Math.max(totalClueCount * 0.5, 2)
+    const noteScore = Math.min(noteCount / expectedNotes, 1) * 100
+    const noteWeightedScore = noteScore * noteWeight
+    
+    const clueWeightedScore = cluePct * clueWeight
+    const connWeightedScore = connPct * connWeight
+    
+    const weightedOverall = clueWeightedScore + connWeightedScore + noteWeightedScore
+    const overallPercentage = Math.round(weightedOverall)
+
+    const commissionClues = clues.filter(c => 
+      c.commissionId === commissionId && state.value.collectedClues.includes(c.id)
+    )
+    const usedTagIds = new Set<string>()
+    for (const clue of commissionClues) {
+      for (const tid of clue.tagIds) {
+        usedTagIds.add(tid)
+      }
+    }
+    for (const note of state.value.notes.filter(n => n.commissionId === commissionId)) {
+      for (const tid of note.tagIds) {
+        usedTagIds.add(tid)
+      }
+    }
+    const totalTagCount = allTags.value.length
+    const tagPct = totalTagCount > 0 ? Math.round((usedTagIds.size / totalTagCount) * 100) : 0
 
     return {
-      clueProgress: { collected: collectedClueCount, total: totalClueCount, percentage: cluePct },
-      connectionProgress: { discovered: discoveredConnCount, total: totalConnCount, percentage: connPct },
-      noteProgress: { count: noteCount },
-      overallPercentage: overall
+      clueProgress: { 
+        collected: collectedClueCount, 
+        total: totalClueCount, 
+        percentage: Math.round(cluePct),
+        weightedScore: Math.round(clueWeightedScore)
+      },
+      connectionProgress: { 
+        discovered: discoveredConnCount, 
+        total: totalConnCount, 
+        percentage: Math.round(connPct),
+        weightedScore: Math.round(connWeightedScore)
+      },
+      noteProgress: { 
+        count: noteCount,
+        weightedScore: Math.round(noteWeightedScore)
+      },
+      tagProgress: {
+        usedTagCount: usedTagIds.size,
+        totalTagCount,
+        percentage: tagPct
+      },
+      overallPercentage,
+      weightedOverall: Math.round(weightedOverall)
     }
   }
 
   function getChapterProgress(chapterId: string): ProgressDetail {
     const chapterCommissions = commissions.filter(c => c.chapterId === chapterId)
-    let totalClues = 0, collectedClues = 0, totalConns = 0, discoveredConns = 0, noteCount = 0
+    let totalClues = 0, collectedClues = 0, totalConns = 0, discoveredConns = 0
+    let noteCount = 0, totalWeightedScore = 0, count = 0
+    let totalTagCount = 0, usedTagIdsSet = new Set<string>()
 
     for (const comm of chapterCommissions) {
       const progress = getCommissionProgress(comm.id)
@@ -860,6 +1500,24 @@ export const useGameStore = defineStore('game', () => {
       totalConns += progress.connectionProgress.total
       discoveredConns += progress.connectionProgress.discovered
       noteCount += progress.noteProgress.count
+      totalWeightedScore += progress.weightedOverall
+      count++
+      if (progress.tagProgress) {
+        totalTagCount = progress.tagProgress.totalTagCount
+        const commissionClues = clues.filter(c => 
+          c.commissionId === comm.id && state.value.collectedClues.includes(c.id)
+        )
+        for (const clue of commissionClues) {
+          for (const tid of clue.tagIds) {
+            usedTagIdsSet.add(tid)
+          }
+        }
+        for (const note of state.value.notes.filter(n => n.commissionId === comm.id)) {
+          for (const tid of note.tagIds) {
+            usedTagIdsSet.add(tid)
+          }
+        }
+      }
     }
 
     const cluePct = totalClues > 0 ? Math.round((collectedClues / totalClues) * 100) : 0
@@ -868,24 +1526,67 @@ export const useGameStore = defineStore('game', () => {
       ? Math.round(((collectedClues + discoveredConns) / (totalClues + totalConns)) * 100)
       : 0
 
+    const avgWeighted = count > 0 ? Math.round(totalWeightedScore / count) : 0
+    const tagPct = totalTagCount > 0 ? Math.round((usedTagIdsSet.size / totalTagCount) * 100) : 0
+
     return {
-      clueProgress: { collected: collectedClues, total: totalClues, percentage: cluePct },
-      connectionProgress: { discovered: discoveredConns, total: totalConns, percentage: connPct },
-      noteProgress: { count: noteCount },
-      overallPercentage: overall
+      clueProgress: { 
+        collected: collectedClues, 
+        total: totalClues, 
+        percentage: cluePct,
+        weightedScore: Math.round(cluePct * 0.5)
+      },
+      connectionProgress: { 
+        discovered: discoveredConns, 
+        total: totalConns, 
+        percentage: connPct,
+        weightedScore: Math.round(connPct * 0.35)
+      },
+      noteProgress: { 
+        count: noteCount,
+        weightedScore: 0
+      },
+      tagProgress: {
+        usedTagCount: usedTagIdsSet.size,
+        totalTagCount,
+        percentage: tagPct
+      },
+      overallPercentage: overall,
+      weightedOverall: avgWeighted
     }
   }
 
   function getOverallProgress(): ProgressDetail {
     let totalClues = 0, collectedClues = 0, totalConns = 0, discoveredConns = 0
+    let totalWeightedScore = 0, count = 0
+    let usedTagIdsSet = new Set<string>()
 
     for (const clue of clues) {
       totalClues++
-      if (state.value.collectedClues.includes(clue.id)) collectedClues++
+      if (state.value.collectedClues.includes(clue.id)) {
+        collectedClues++
+        for (const tid of clue.tagIds) {
+          usedTagIdsSet.add(tid)
+        }
+      }
     }
     for (const conn of connections) {
       totalConns++
       if (state.value.discoveredConnections.includes(conn.id)) discoveredConns++
+    }
+    
+    for (const note of state.value.notes) {
+      for (const tid of note.tagIds) {
+        usedTagIdsSet.add(tid)
+      }
+    }
+
+    for (const comm of commissions) {
+      if (getCommissionStatus(comm.id) !== 'locked') {
+        const progress = getCommissionProgress(comm.id)
+        totalWeightedScore += progress.weightedOverall
+        count++
+      }
     }
 
     const cluePct = totalClues > 0 ? Math.round((collectedClues / totalClues) * 100) : 0
@@ -894,12 +1595,70 @@ export const useGameStore = defineStore('game', () => {
       ? Math.round(((collectedClues + discoveredConns) / (totalClues + totalConns)) * 100)
       : 0
 
+    const avgWeighted = count > 0 ? Math.round(totalWeightedScore / count) : 0
+    const totalTagCount = allTags.value.length
+    const tagPct = totalTagCount > 0 ? Math.round((usedTagIdsSet.size / totalTagCount) * 100) : 0
+
     return {
-      clueProgress: { collected: collectedClues, total: totalClues, percentage: cluePct },
-      connectionProgress: { discovered: discoveredConns, total: totalConns, percentage: connPct },
-      noteProgress: { count: state.value.notes.length },
-      overallPercentage: overall
+      clueProgress: { 
+        collected: collectedClues, 
+        total: totalClues, 
+        percentage: cluePct,
+        weightedScore: Math.round(cluePct * 0.5)
+      },
+      connectionProgress: { 
+        discovered: discoveredConns, 
+        total: totalConns, 
+        percentage: connPct,
+        weightedScore: Math.round(connPct * 0.35)
+      },
+      noteProgress: { 
+        count: state.value.notes.length,
+        weightedScore: 0
+      },
+      tagProgress: {
+        usedTagCount: usedTagIdsSet.size,
+        totalTagCount,
+        percentage: tagPct
+      },
+      overallPercentage: overall,
+      weightedOverall: avgWeighted
     }
+  }
+
+  function checkAndUnlockMilestones(commissionId: string): void {
+    const progress = getCommissionProgress(commissionId)
+    const milestones: Record<string, boolean> = { ...state.value.progressMilestones }
+    
+    const cluePct = progress.clueProgress.percentage
+    const connPct = progress.connectionProgress.percentage
+    
+    if (cluePct >= 25 && !milestones[`${commissionId}-clue-25`]) {
+      milestones[`${commissionId}-clue-25`] = true
+    }
+    if (cluePct >= 50 && !milestones[`${commissionId}-clue-50`]) {
+      milestones[`${commissionId}-clue-50`] = true
+    }
+    if (cluePct >= 75 && !milestones[`${commissionId}-clue-75`]) {
+      milestones[`${commissionId}-clue-75`] = true
+    }
+    if (cluePct >= 100 && !milestones[`${commissionId}-clue-100`]) {
+      milestones[`${commissionId}-clue-100`] = true
+    }
+    
+    if (connPct >= 50 && !milestones[`${commissionId}-conn-50`]) {
+      milestones[`${commissionId}-conn-50`] = true
+    }
+    if (connPct >= 100 && !milestones[`${commissionId}-conn-100`]) {
+      milestones[`${commissionId}-conn-100`] = true
+    }
+    
+    if (progress.noteProgress.count >= 3 && !milestones[`${commissionId}-notes-3`]) {
+      milestones[`${commissionId}-notes-3`] = true
+    }
+    
+    state.value.progressMilestones = milestones
+    saveCurrentGame()
   }
 
   return {
@@ -971,8 +1730,13 @@ export const useGameStore = defineStore('game', () => {
     filteredClues,
     searchCluesByTagIds,
     searchCluesByKeyword,
+    searchNotesByTagIds,
+    searchNotesByKeyword,
+    unifiedSearch,
     setActiveTagFilters,
     setSearchKeyword,
+    setSearchMatchMode,
+    setSearchScope,
     getTagById,
     addCustomTag,
     removeCustomTag,
@@ -982,9 +1746,18 @@ export const useGameStore = defineStore('game', () => {
     getNotesForCommission,
     getNotesForClue,
     aggregateNotesByTag,
+    getClueNoteClusters,
+    getSortedNotes,
+    setNoteSortBy,
+    setNoteSortOrder,
+    setNoteAggregationType,
+    getImportantNotes,
     validateConnection,
+    getConnectionHints,
+    getConnectionGraph,
     getCommissionProgress,
     getChapterProgress,
-    getOverallProgress
+    getOverallProgress,
+    checkAndUnlockMilestones
   }
 })
