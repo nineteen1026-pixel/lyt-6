@@ -144,3 +144,37 @@ export interface SavedGame {
   state: GameState
   savedAt: string
 }
+
+export interface SaveSlotInfo {
+  slotId: string
+  slotName: string
+  savedAt: string | null
+  playTime: number
+  completedCount: number
+  totalCount: number
+  chapterProgress: string
+  currentCommissionTitle: string | null
+  hasBackup: boolean
+  backupSavedAt: string | null
+}
+
+export interface SaveSlotData {
+  slotId: string
+  slotName: string
+  save: SavedGame | null
+  backup: SavedGame | null
+  createdAt: string
+}
+
+export interface SaveManagerState {
+  slots: SaveSlotData[]
+  currentSlotId: string | null
+  lastActiveSlotId: string | null
+}
+
+export type LoadResult = 
+  | { success: true; state: GameState; fromBackup: boolean }
+  | { success: false; error: string; recoverable: boolean; backupAvailable: boolean }
+
+export const MAX_SAVE_SLOTS = 6
+export const DEFAULT_SLOT_NAMES = ['存档一', '存档二', '存档三', '存档四', '存档五', '存档六']

@@ -1,7 +1,18 @@
-import type { GameState, SavedGame, CommissionStatus, GameStep } from '../types'
-import { commissions, clues, connections } from '../data/gameData'
+import type { 
+  GameState, 
+  SavedGame, 
+  CommissionStatus, 
+  GameStep,
+  SaveSlotData,
+  SaveSlotInfo,
+  SaveManagerState,
+  LoadResult
+} from '../types'
+import { commissions, clues, connections, chapters } from '../data/gameData'
+import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES } from '../types'
 
 const STORAGE_KEY = 'memory-repair-shop-save'
+const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
 const SAVE_VERSION = '3.0.0'
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
@@ -213,37 +224,363 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGame): Gam
   return null
 }
 
-export function saveGame(state: GameState): void {
-  try {
-    const savedGame: SavedGame = {
-      version: SAVE_VERSION,
-      state,
-      savedAt: new Date().toISOString()
-    }
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(savedGame))
-  } catch (e) {
-    console.error('Failed to save game:', e)
-  }
+function validateGameState(state: unknown): state is GameState {
+  if (!state || typeof state !== 'object') return false
+  const s = state as Record<string, unknown>
+  return (
+    'completedCommissions' in s &&
+    Array.isArray(s.completedCommissions) &&
+    'commissionStatuses' in s &&
+    typeof s.commissionStatuses === 'object' &&
+    s.commissionStatuses !== null
+  )
 }
 
-export function loadGame(): GameState | null {
+function parseSavedGame(raw: string): SavedGame | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY)
-    if (!saved) return null
-
-    const savedGame: SavedGameV1 | SavedGameV2 | SavedGame = JSON.parse(saved)
-    
-    return migrateSavedGame(savedGame)
-  } catch (e) {
-    console.error('Failed to load game:', e)
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object') return null
+    if (!('version' in parsed) || !('state' in parsed) || !('savedAt' in parsed)) return null
+    if (!validateGameState(parsed.state)) return null
+    return parsed as SavedGame
+  } catch {
     return null
   }
 }
 
+function createSaveSlot(slotId: string, slotName: string): SaveSlotData {
+  return {
+    slotId,
+    slotName,
+    save: null,
+    backup: null,
+    createdAt: new Date().toISOString()
+  }
+}
+
+function initializeSaveManager(): SaveManagerState {
+  const slots: SaveSlotData[] = []
+  for (let i = 0; i < MAX_SAVE_SLOTS; i++) {
+    slots.push(createSaveSlot(`slot-${i + 1}`, DEFAULT_SLOT_NAMES[i]))
+  }
+  
+  const legacySaveRaw = localStorage.getItem(STORAGE_KEY)
+  let lastActiveSlotId: string | null = null
+  
+  if (legacySaveRaw) {
+    const legacySave = parseSavedGame(legacySaveRaw)
+    if (legacySave) {
+      slots[0].save = legacySave
+      slots[0].backup = { ...legacySave }
+      lastActiveSlotId = slots[0].slotId
+    }
+  }
+  
+  return {
+    slots,
+    currentSlotId: null,
+    lastActiveSlotId
+  }
+}
+
+function loadSaveManagerState(): SaveManagerState {
+  try {
+    const raw = localStorage.getItem(SAVE_MANAGER_KEY)
+    if (!raw) {
+      const state = initializeSaveManager()
+      saveSaveManagerState(state)
+      return state
+    }
+    
+    const parsed = JSON.parse(raw) as SaveManagerState
+    if (!parsed.slots || parsed.slots.length !== MAX_SAVE_SLOTS) {
+      const state = initializeSaveManager()
+      saveSaveManagerState(state)
+      return state
+    }
+    
+    for (const slot of parsed.slots) {
+      if (slot.save) {
+        const migrated = migrateSavedGame(slot.save)
+        if (migrated) {
+          slot.save.state = migrated
+        } else {
+          slot.save = null
+        }
+      }
+      if (slot.backup) {
+        const migrated = migrateSavedGame(slot.backup)
+        if (migrated) {
+          slot.backup.state = migrated
+        } else {
+          slot.backup = null
+        }
+      }
+    }
+    
+    return parsed
+  } catch (e) {
+    console.error('Failed to load save manager state:', e)
+    const state = initializeSaveManager()
+    saveSaveManagerState(state)
+    return state
+  }
+}
+
+function saveSaveManagerState(state: SaveManagerState): void {
+  try {
+    localStorage.setItem(SAVE_MANAGER_KEY, JSON.stringify(state))
+  } catch (e) {
+    console.error('Failed to save save manager state:', e)
+  }
+}
+
+function getChapterProgress(state: GameState): string {
+  const unlockedCount = state.unlockedChapters.length
+  const totalCount = chapters.length
+  const currentChapter = chapters.find(c => c.id === state.currentChapterId)
+  if (currentChapter) {
+    return `第${currentChapter.number}章 · ${currentChapter.title}`
+  }
+  return `${unlockedCount}/${totalCount} 章`
+}
+
+function getCurrentCommissionTitle(state: GameState): string | null {
+  if (!state.currentCommissionId) return null
+  const commission = commissions.find(c => c.id === state.currentCommissionId)
+  return commission?.title || null
+}
+
+function slotToInfo(slot: SaveSlotData): SaveSlotInfo {
+  const save = slot.save
+  const hasData = save !== null
+  
+  return {
+    slotId: slot.slotId,
+    slotName: slot.slotName,
+    savedAt: save?.savedAt ?? null,
+    playTime: save?.state.totalPlayTime ?? 0,
+    completedCount: save?.state.completedCommissions.length ?? 0,
+    totalCount: commissions.length,
+    chapterProgress: hasData ? getChapterProgress(save!.state) : '空存档',
+    currentCommissionTitle: hasData ? getCurrentCommissionTitle(save!.state) : null,
+    hasBackup: slot.backup !== null,
+    backupSavedAt: slot.backup?.savedAt ?? null
+  }
+}
+
+export function getAllSaveSlots(): SaveSlotInfo[] {
+  const manager = loadSaveManagerState()
+  return manager.slots.map(slotToInfo)
+}
+
+export function getSaveSlotInfo(slotId: string): SaveSlotInfo | null {
+  const manager = loadSaveManagerState()
+  const slot = manager.slots.find(s => s.slotId === slotId)
+  return slot ? slotToInfo(slot) : null
+}
+
+export function getLastActiveSlotId(): string | null {
+  const manager = loadSaveManagerState()
+  return manager.lastActiveSlotId
+}
+
+export function hasAnySaveData(): boolean {
+  const manager = loadSaveManagerState()
+  return manager.slots.some(s => s.save !== null)
+}
+
+export function hasSaveDataInSlot(slotId: string): boolean {
+  const manager = loadSaveManagerState()
+  const slot = manager.slots.find(s => s.slotId === slotId)
+  return slot?.save !== null
+}
+
+export function saveGameToSlot(slotId: string, state: GameState): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot) return false
+
+    if (slot.save) {
+      slot.backup = { ...slot.save }
+    }
+
+    const savedGame: SavedGame = {
+      version: SAVE_VERSION,
+      state: JSON.parse(JSON.stringify(state)),
+      savedAt: new Date().toISOString()
+    }
+
+    slot.save = savedGame
+    manager.lastActiveSlotId = slotId
+    manager.currentSlotId = slotId
+
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to save game to slot:', e)
+    return false
+  }
+}
+
+export function loadGameFromSlot(slotId: string): LoadResult {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    
+    if (!slot) {
+      return { success: false, error: '存档位不存在', recoverable: false, backupAvailable: false }
+    }
+
+    if (!slot.save) {
+      return { success: false, error: '该存档位为空', recoverable: false, backupAvailable: slot.backup !== null }
+    }
+
+    const migratedState = migrateSavedGame(slot.save)
+    
+    if (!migratedState) {
+      if (slot.backup) {
+        const backupMigrated = migrateSavedGame(slot.backup)
+        if (backupMigrated) {
+          return { success: false, error: '存档数据损坏', recoverable: true, backupAvailable: true }
+        }
+      }
+      return { success: false, error: '存档数据损坏且无法恢复', recoverable: false, backupAvailable: false }
+    }
+
+    manager.lastActiveSlotId = slotId
+    manager.currentSlotId = slotId
+    saveSaveManagerState(manager)
+
+    return { success: true, state: migratedState, fromBackup: false }
+  } catch (e) {
+    return { success: false, error: '读取存档时发生错误', recoverable: false, backupAvailable: false }
+  }
+}
+
+export function loadBackupFromSlot(slotId: string): LoadResult {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    
+    if (!slot || !slot.backup) {
+      return { success: false, error: '没有可用的备份', recoverable: false, backupAvailable: false }
+    }
+
+    const migratedState = migrateSavedGame(slot.backup)
+    
+    if (!migratedState) {
+      return { success: false, error: '备份数据也已损坏', recoverable: false, backupAvailable: false }
+    }
+
+    slot.save = { ...slot.backup }
+    manager.lastActiveSlotId = slotId
+    manager.currentSlotId = slotId
+    saveSaveManagerState(manager)
+
+    return { success: true, state: migratedState, fromBackup: true }
+  } catch (e) {
+    return { success: false, error: '恢复备份时发生错误', recoverable: false, backupAvailable: false }
+  }
+}
+
+export function clearSlot(slotId: string): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot) return false
+
+    slot.save = null
+    slot.backup = null
+    slot.createdAt = new Date().toISOString()
+
+    if (manager.lastActiveSlotId === slotId) {
+      manager.lastActiveSlotId = null
+    }
+    if (manager.currentSlotId === slotId) {
+      manager.currentSlotId = null
+    }
+
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to clear slot:', e)
+    return false
+  }
+}
+
+export function renameSlot(slotId: string, newName: string): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot) return false
+
+    slot.slotName = newName.trim() || slot.slotName
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to rename slot:', e)
+    return false
+  }
+}
+
+export function getCurrentSlotId(): string | null {
+  const manager = loadSaveManagerState()
+  return manager.currentSlotId
+}
+
+export function setCurrentSlotId(slotId: string | null): void {
+  const manager = loadSaveManagerState()
+  manager.currentSlotId = slotId
+  if (slotId) {
+    manager.lastActiveSlotId = slotId
+  }
+  saveSaveManagerState(manager)
+}
+
+export function hasBackupInSlot(slotId: string): boolean {
+  const manager = loadSaveManagerState()
+  const slot = manager.slots.find(s => s.slotId === slotId)
+  return slot?.backup !== null
+}
+
+export function saveGame(state: GameState): void {
+  const currentSlotId = getCurrentSlotId()
+  if (currentSlotId) {
+    saveGameToSlot(currentSlotId, state)
+  } else {
+    const firstSlot = 'slot-1'
+    saveGameToSlot(firstSlot, state)
+  }
+}
+
+export function loadGame(): GameState | null {
+  const lastSlotId = getLastActiveSlotId()
+  if (!lastSlotId) {
+    const legacySaveRaw = localStorage.getItem(STORAGE_KEY)
+    if (legacySaveRaw) {
+      const legacySave = parseSavedGame(legacySaveRaw)
+      if (legacySave) {
+        return migrateSavedGame(legacySave)
+      }
+    }
+    return null
+  }
+  
+  const result = loadGameFromSlot(lastSlotId)
+  if (result.success) {
+    return result.state
+  }
+  return null
+}
+
 export function hasSaveData(): boolean {
+  if (hasAnySaveData()) return true
   return localStorage.getItem(STORAGE_KEY) !== null
 }
 
 export function clearSave(): void {
+  localStorage.removeItem(SAVE_MANAGER_KEY)
   localStorage.removeItem(STORAGE_KEY)
 }

@@ -1,7 +1,24 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency } from '../types'
-import { getInitialGameState, saveGame, loadGame, hasSaveData, clearSave } from '../utils/storage'
+import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency, SaveSlotInfo, LoadResult } from '../types'
+import { 
+  getInitialGameState, 
+  saveGame, 
+  loadGame, 
+  hasSaveData, 
+  clearSave,
+  getAllSaveSlots,
+  getSaveSlotInfo,
+  getLastActiveSlotId,
+  saveGameToSlot,
+  loadGameFromSlot,
+  loadBackupFromSlot,
+  clearSlot,
+  renameSlot,
+  getCurrentSlotId,
+  setCurrentSlotId,
+  hasBackupInSlot
+} from '../utils/storage'
 import { commissions, clues, connections, endings, repairSteps, chapters } from '../data/gameData'
 
 export const useGameStore = defineStore('game', () => {
@@ -539,7 +556,85 @@ export const useGameStore = defineStore('game', () => {
     return null
   }
 
+  const currentSlotId = ref<string | null>(getCurrentSlotId())
+  const lastActiveSlotId = ref<string | null>(getLastActiveSlotId())
+
+  const saveSlots = computed<SaveSlotInfo[]>(() => getAllSaveSlots())
+
+  function refreshSaveSlots() {
+    return getAllSaveSlots()
+  }
+
+  function getSlotInfo(slotId: string): SaveSlotInfo | null {
+    return getSaveSlotInfo(slotId)
+  }
+
+  function saveToSlot(slotId: string): boolean {
+    const result = saveGameToSlot(slotId, state.value)
+    if (result) {
+      currentSlotId.value = slotId
+    }
+    return result
+  }
+
+  function loadFromSlot(slotId: string): LoadResult {
+    const result = loadGameFromSlot(slotId)
+    if (result.success) {
+      state.value = result.state
+      currentSlotId.value = slotId
+      lastActiveSlotId.value = slotId
+      refreshAllUnlocks()
+    }
+    return result
+  }
+
+  function restoreBackup(slotId: string): LoadResult {
+    const result = loadBackupFromSlot(slotId)
+    if (result.success) {
+      state.value = result.state
+      currentSlotId.value = slotId
+      lastActiveSlotId.value = slotId
+      refreshAllUnlocks()
+    }
+    return result
+  }
+
+  function deleteSlot(slotId: string): boolean {
+    const result = clearSlot(slotId)
+    if (result && currentSlotId.value === slotId) {
+      currentSlotId.value = null
+    }
+    return result
+  }
+
+  function renameSaveSlot(slotId: string, newName: string): boolean {
+    return renameSlot(slotId, newName)
+  }
+
+  function startNewGameInSlot(slotId: string) {
+    state.value = getInitialGameState()
+    saveGameToSlot(slotId, state.value)
+    currentSlotId.value = slotId
+    lastActiveSlotId.value = slotId
+  }
+
+  function hasBackup(slotId: string): boolean {
+    return hasBackupInSlot(slotId)
+  }
+
   return {
+    currentSlotId,
+    lastActiveSlotId,
+    saveSlots,
+    refreshSaveSlots,
+    getSlotInfo,
+    saveToSlot,
+    loadFromSlot,
+    restoreBackup,
+    deleteSlot,
+    renameSaveSlot,
+    startNewGameInSlot,
+    hasBackup,
     state,
     hasSave,
     currentCommission,
