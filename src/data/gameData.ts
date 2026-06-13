@@ -66,6 +66,11 @@ export const commissions: Commission[] = [
       }
     ],
     prerequisiteCommissionIds: [],
+    stepDependencies: [
+      { step: 'item', dependencyType: 'always' },
+      { step: 'deduction', dependencyType: 'clue_count', minCount: 3 },
+      { step: 'repair', dependencyType: 'connection_count', minCount: 1 }
+    ],
     orderInChapter: 1,
     item: {
       id: 'item-001',
@@ -140,6 +145,11 @@ export const commissions: Commission[] = [
       }
     ],
     prerequisiteCommissionIds: ['comm-001'],
+    stepDependencies: [
+      { step: 'item', dependencyType: 'always' },
+      { step: 'deduction', dependencyType: 'clue_count', minCount: 3 },
+      { step: 'repair', dependencyType: 'connection_count', minCount: 2 }
+    ],
     orderInChapter: 1,
     item: {
       id: 'item-002',
@@ -225,6 +235,11 @@ export const commissions: Commission[] = [
       }
     ],
     prerequisiteCommissionIds: ['comm-002'],
+    stepDependencies: [
+      { step: 'item', dependencyType: 'always' },
+      { step: 'deduction', dependencyType: 'clue_count', minCount: 4 },
+      { step: 'repair', dependencyType: 'connection_count', minCount: 2 }
+    ],
     orderInChapter: 1,
     item: {
       id: 'item-003',

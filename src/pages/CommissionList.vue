@@ -57,6 +57,25 @@ const filterOptions: { value: FilterType; label: string }[] = [
 ]
 
 function handleLockedCommissionClick(commission: Commission) {
+  const chapter = gameStore.getChapterById(commission.chapterId)
+  const chapterUnlocked = chapter?.isUnlocked
+  
+  if (!chapterUnlocked) {
+    const chapterRule = chapter?.unlockRule
+    let chapterReason = '需要解锁对应章节'
+    if (chapterRule?.type === 'prerequisites' && chapterRule.prerequisiteCommissionIds) {
+      const prereqNames = chapterRule.prerequisiteCommissionIds
+        .map(id => gameStore.getCommissionById(id)?.title)
+        .filter(Boolean)
+        .join('、')
+      chapterReason = `需先完成「${prereqNames}」解锁本章`
+    } else if (chapterRule?.type === 'condition' && chapterRule.conditionType === 'completed_count') {
+      chapterReason = `需完成 ${chapterRule.conditionValue} 个委托解锁本章`
+    }
+    alert(`章节未解锁：${chapterReason}`)
+    return
+  }
+  
   const prereqNames = commission.prerequisiteCommissionIds
     .map(id => gameStore.getCommissionById(id)?.title)
     .filter(Boolean)
@@ -64,7 +83,7 @@ function handleLockedCommissionClick(commission: Commission) {
   if (prereqNames) {
     alert(`此委托需要先完成：${prereqNames}`)
   } else {
-    alert('此委托所在章节尚未解锁，请先完成前置章节。')
+    alert('此委托尚未解锁')
   }
 }
 
@@ -169,6 +188,47 @@ function goToGallery() {
       <div v-if="filteredCommissions.length === 0" class="text-center py-16">
         <div class="text-6xl mb-4">📋</div>
         <p class="text-stone-500">暂无相关委托</p>
+      </div>
+
+      <div class="mt-8 space-y-4">
+        <h3 class="text-lg font-serif font-bold text-stone-700 flex items-center gap-2">
+          <span>📖</span>
+          <span>章节进度</span>
+        </h3>
+        <div class="grid gap-3 md:grid-cols-3">
+          <div
+            v-for="chapter in chapters"
+            :key="chapter.id"
+            :class="[
+              'p-4 rounded-xl border-2 transition-all',
+              chapter.isUnlocked ? 'bg-white border-amber-200' : 'bg-stone-50 border-stone-200 opacity-60'
+            ]"
+          >
+            <div class="flex items-center gap-2 mb-2">
+              <span class="text-xl">{{ chapter.icon }}</span>
+              <div class="flex-1 min-w-0">
+                <h4 class="text-sm font-serif font-bold text-stone-800 truncate">{{ chapter.title }}</h4>
+                <p class="text-xs text-stone-400">{{ chapter.subtitle }}</p>
+              </div>
+              <span
+                v-if="chapter.isUnlocked"
+                class="text-xs px-2 py-0.5 bg-green-100 text-green-700 rounded-full"
+              >已解锁</span>
+              <span
+                v-else
+                class="text-xs px-2 py-0.5 bg-stone-200 text-stone-500 rounded-full"
+              >未解锁</span>
+            </div>
+            <div v-if="!chapter.isUnlocked" class="text-xs text-stone-400 mt-1">
+              <template v-if="chapter.unlockRule.type === 'prerequisites' && chapter.unlockRule.prerequisiteCommissionIds">
+                需完成：{{ chapter.unlockRule.prerequisiteCommissionIds.map(id => gameStore.getCommissionById(id)?.title).filter(Boolean).join('、') }}
+              </template>
+              <template v-else-if="chapter.unlockRule.type === 'condition' && chapter.unlockRule.conditionType === 'completed_count'">
+                需完成 {{ chapter.unlockRule.conditionValue }} 个委托
+              </template>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="mt-12 text-center">

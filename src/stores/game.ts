@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameState, CommissionStatus, Chapter, Commission } from '../types'
+import type { GameState, CommissionStatus, Chapter, Commission, GameStep, StepDependency } from '../types'
 import { getInitialGameState, saveGame, loadGame, hasSaveData, clearSave } from '../utils/storage'
 import { commissions, clues, connections, endings, repairSteps, chapters } from '../data/gameData'
 
@@ -75,6 +75,117 @@ export const useGameStore = defineStore('game', () => {
     return commission.prerequisiteCommissionIds.every(
       prereqId => state.value.completedCommissions.includes(prereqId)
     )
+  }
+
+  function getCollectedClueCount(commissionId: string): number {
+    return clues.filter(c =>
+      c.commissionId === commissionId &&
+      state.value.collectedClues.includes(c.id)
+    ).length
+  }
+
+  function getTotalClueCount(commissionId: string): number {
+    return clues.filter(c => c.commissionId === commissionId).length
+  }
+
+  function getDiscoveredConnectionCount(commissionId: string): number {
+    return connections.filter(conn => {
+      const fromClue = clues.find(c => c.id === conn.fromClueId)
+      return fromClue?.commissionId === commissionId &&
+        state.value.discoveredConnections.includes(conn.id)
+    }).length
+  }
+
+  function getTotalConnectionCount(commissionId: string): number {
+    return connections.filter(conn => {
+      const fromClue = clues.find(c => c.id === conn.fromClueId)
+      return fromClue?.commissionId === commissionId
+    }).length
+  }
+
+  function checkStepDependency(commissionId: string, dep: StepDependency): boolean {
+    switch (dep.dependencyType) {
+      case 'always':
+        return true
+      case 'clue_count':
+        return getCollectedClueCount(commissionId) >= (dep.minCount ?? 1)
+      case 'connection_count':
+        return getDiscoveredConnectionCount(commissionId) >= (dep.minCount ?? 1)
+      case 'clue_ids':
+        return (dep.requiredIds ?? []).every(id => state.value.collectedClues.includes(id))
+      case 'connection_ids':
+        return (dep.requiredIds ?? []).every(id => state.value.discoveredConnections.includes(id))
+      default:
+        return false
+    }
+  }
+
+  function isStepUnlocked(commissionId: string, step: GameStep): boolean {
+    if (!state.value.unlockedSteps[commissionId]) {
+      return step === 'item'
+    }
+    return state.value.unlockedSteps[commissionId].includes(step)
+  }
+
+  function checkAndUnlockSteps(commissionId: string): void {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return
+
+    if (!state.value.unlockedSteps[commissionId]) {
+      state.value.unlockedSteps[commissionId] = ['item']
+    }
+
+    const unlocked = state.value.unlockedSteps[commissionId]
+
+    for (const dep of commission.stepDependencies) {
+      if (unlocked.includes(dep.step)) continue
+      if (checkStepDependency(commissionId, dep)) {
+        unlocked.push(dep.step)
+      }
+    }
+  }
+
+  function getStepUnlockProgress(commissionId: string, step: GameStep): { current: number; required: number; description: string } {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return { current: 0, required: 1, description: '' }
+
+    const dep = commission.stepDependencies.find(d => d.step === step)
+    if (!dep) return { current: 1, required: 1, description: '已解锁' }
+
+    switch (dep.dependencyType) {
+      case 'always':
+        return { current: 1, required: 1, description: '已解锁' }
+      case 'clue_count': {
+        const current = getCollectedClueCount(commissionId)
+        const required = dep.minCount ?? 1
+        const total = getTotalClueCount(commissionId)
+        return { current, required, description: `收集线索 ${current}/${required}（共${total}条）` }
+      }
+      case 'connection_count': {
+        const current = getDiscoveredConnectionCount(commissionId)
+        const required = dep.minCount ?? 1
+        const total = getTotalConnectionCount(commissionId)
+        return { current, required, description: `发现关联 ${current}/${required}（共${total}条）` }
+      }
+      case 'clue_ids': {
+        const requiredIds = dep.requiredIds ?? []
+        const found = requiredIds.filter(id => state.value.collectedClues.includes(id)).length
+        const clueNames = requiredIds.map(id => clues.find(c => c.id === id)?.title ?? id).join('、')
+        return { current: found, required: requiredIds.length, description: `需要线索：${clueNames}` }
+      }
+      case 'connection_ids': {
+        const requiredIds = dep.requiredIds ?? []
+        const found = requiredIds.filter(id => state.value.discoveredConnections.includes(id)).length
+        return { current: found, required: requiredIds.length, description: `需要发现 ${requiredIds.length} 条关联` }
+      }
+      default:
+        return { current: 0, required: 1, description: '' }
+    }
+  }
+
+  function canAccessStep(commissionId: string, step: GameStep): boolean {
+    checkAndUnlockSteps(commissionId)
+    return isStepUnlocked(commissionId, step)
   }
 
   function checkChapterUnlock(chapter: Chapter): boolean {
@@ -291,12 +402,21 @@ export const useGameStore = defineStore('game', () => {
     state.value.currentCommissionId = commissionId
     state.value.currentChapterId = commission.chapterId
     state.value.currentStep = 'item'
+
+    if (!state.value.unlockedSteps[commissionId]) {
+      state.value.unlockedSteps[commissionId] = ['item']
+    }
+    checkAndUnlockSteps(commissionId)
+
     saveCurrentGame()
   }
 
   function collectClue(clueId: string) {
     if (!state.value.collectedClues.includes(clueId)) {
       state.value.collectedClues.push(clueId)
+      if (state.value.currentCommissionId) {
+        checkAndUnlockSteps(state.value.currentCommissionId)
+      }
       saveCurrentGame()
     }
   }
@@ -304,6 +424,9 @@ export const useGameStore = defineStore('game', () => {
   function discoverConnection(connectionId: string) {
     if (!state.value.discoveredConnections.includes(connectionId)) {
       state.value.discoveredConnections.push(connectionId)
+      if (state.value.currentCommissionId) {
+        checkAndUnlockSteps(state.value.currentCommissionId)
+      }
       saveCurrentGame()
     }
   }
@@ -364,9 +487,9 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function canStartRepair(): boolean {
-    const collected = collectedCluesForCurrent.value.length
-    const total = allCluesForCurrent.value.length
-    return total > 0 && collected >= Math.ceil(total * 0.5)
+    if (!state.value.currentCommissionId) return false
+    checkAndUnlockSteps(state.value.currentCommissionId)
+    return isStepUnlocked(state.value.currentCommissionId, 'repair')
   }
 
   function getRepairSteps() {
@@ -460,6 +583,14 @@ export const useGameStore = defineStore('game', () => {
     getCommissionsByChapter,
     getChapterById,
     getAllChapters,
-    refreshAllUnlocks
+    refreshAllUnlocks,
+    canAccessStep,
+    isStepUnlocked,
+    checkAndUnlockSteps,
+    getStepUnlockProgress,
+    getCollectedClueCount,
+    getTotalClueCount,
+    getDiscoveredConnectionCount,
+    getTotalConnectionCount
   }
 })

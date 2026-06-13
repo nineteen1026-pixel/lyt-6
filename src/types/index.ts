@@ -27,6 +27,17 @@ export interface Chapter {
   unlockedAt?: string
 }
 
+export type GameStep = 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
+
+export type StepDependencyType = 'clue_count' | 'connection_count' | 'clue_ids' | 'connection_ids' | 'always'
+
+export interface StepDependency {
+  step: GameStep
+  dependencyType: StepDependencyType
+  minCount?: number
+  requiredIds?: string[]
+}
+
 export interface Commission {
   id: string
   chapterId: string
@@ -39,6 +50,7 @@ export interface Commission {
   status: CommissionStatus
   unlockRules: UnlockRule[]
   prerequisiteCommissionIds: string[]
+  stepDependencies: StepDependency[]
   unlockedAt?: string
   completedAt?: string
   orderInChapter: number
@@ -114,7 +126,7 @@ export interface RepairChoice {
 export interface GameState {
   currentCommissionId: string | null
   currentChapterId: string | null
-  currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
+  currentStep: GameStep
   completedCommissions: string[]
   unlockedChapters: string[]
   collectedClues: string[]
@@ -124,6 +136,7 @@ export interface GameState {
   lastSaveTime: string | null
   totalPlayTime: number
   commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
 }
 
 export interface SavedGame {
