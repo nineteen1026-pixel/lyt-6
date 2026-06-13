@@ -1,14 +1,72 @@
-import type { Commission, Clue, ClueConnection, Ending, RepairStep } from '../types'
+import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter } from '../types'
+
+export const chapters: Chapter[] = [
+  {
+    id: 'chap-001',
+    number: 1,
+    title: '初遇的记忆',
+    subtitle: '第一章',
+    description: '欢迎来到记忆修复店。在这里，你将学会如何修复那些承载着珍贵回忆的旧物。',
+    theme: 'warmth',
+    icon: '🌅',
+    unlockRule: {
+      type: 'condition',
+      conditionType: 'custom',
+      conditionValue: 'always_unlocked'
+    },
+    commissionIds: ['comm-001'],
+    isUnlocked: true
+  },
+  {
+    id: 'chap-002',
+    number: 2,
+    title: '家的温度',
+    subtitle: '第二章',
+    description: '有些记忆，藏在日常的烟火气里。一碗糖水，一声叮咛，都是家的味道。',
+    theme: 'nostalgia',
+    icon: '🏠',
+    unlockRule: {
+      type: 'prerequisites',
+      prerequisiteCommissionIds: ['comm-001']
+    },
+    commissionIds: ['comm-002'],
+    isUnlocked: false
+  },
+  {
+    id: 'chap-003',
+    number: 3,
+    title: '时光的馈赠',
+    subtitle: '第三章',
+    description: '时间会带走很多东西，但有些爱，会永远停留在某个瞬间。',
+    theme: 'time',
+    icon: '⏳',
+    unlockRule: {
+      type: 'prerequisites',
+      prerequisiteCommissionIds: ['comm-002']
+    },
+    commissionIds: ['comm-003'],
+    isUnlocked: false
+  }
+]
 
 export const commissions: Commission[] = [
   {
     id: 'comm-001',
+    chapterId: 'chap-001',
     title: '褪色的音乐盒',
     clientName: '林奶奶',
     clientAvatar: '👵',
     description: '这是我老伴生前送给我的定情信物，音乐盒还能转动，但上面的漆都掉了，照片也模糊了……能不能帮我找回那些年轻时的记忆？',
     difficulty: 'simple',
     status: 'pending',
+    unlockRules: [
+      {
+        type: 'chapter',
+        chapterId: 'chap-001'
+      }
+    ],
+    prerequisiteCommissionIds: [],
+    orderInChapter: 1,
     item: {
       id: 'item-001',
       name: '老式音乐盒',
@@ -64,12 +122,25 @@ export const commissions: Commission[] = [
   },
   {
     id: 'comm-002',
+    chapterId: 'chap-002',
     title: '破碎的陶瓷碗',
     clientName: '小陈',
     clientAvatar: '👨',
     description: '这是我外婆生前用的碗，小时候她总用这个碗给我盛糖水。搬家时不小心打碎了，我粘回去过，但怎么看都不对……',
     difficulty: 'medium',
-    status: 'pending',
+    status: 'locked',
+    unlockRules: [
+      {
+        type: 'chapter',
+        chapterId: 'chap-002'
+      },
+      {
+        type: 'prerequisites',
+        prerequisiteCommissionIds: ['comm-001']
+      }
+    ],
+    prerequisiteCommissionIds: ['comm-001'],
+    orderInChapter: 1,
     item: {
       id: 'item-002',
       name: '青瓷碗',
@@ -136,12 +207,25 @@ export const commissions: Commission[] = [
   },
   {
     id: 'comm-003',
+    chapterId: 'chap-003',
     title: '沉默的怀表',
     clientName: '周先生',
     clientAvatar: '🧔',
     description: '这块怀表是我父亲留给我的，他走得突然，什么都没来得及说。表停了，我想知道……它停在了什么时候。',
     difficulty: 'complex',
-    status: 'pending',
+    status: 'locked',
+    unlockRules: [
+      {
+        type: 'chapter',
+        chapterId: 'chap-003'
+      },
+      {
+        type: 'prerequisites',
+        prerequisiteCommissionIds: ['comm-002']
+      }
+    ],
+    prerequisiteCommissionIds: ['comm-002'],
+    orderInChapter: 1,
     item: {
       id: 'item-003',
       name: '银质怀表',

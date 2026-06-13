@@ -6,12 +6,18 @@ import DeductionBoard from '@/pages/DeductionBoard.vue'
 import RepairProcess from '@/pages/RepairProcess.vue'
 import EndingPage from '@/pages/EndingPage.vue'
 import GalleryPage from '@/pages/GalleryPage.vue'
+import RoadmapPage from '@/pages/RoadmapPage.vue'
 
 const routes = [
   {
     path: '/',
     name: 'home',
     component: HomePage,
+  },
+  {
+    path: '/roadmap',
+    name: 'roadmap',
+    component: RoadmapPage,
   },
   {
     path: '/commissions',

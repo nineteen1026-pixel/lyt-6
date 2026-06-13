@@ -1,8 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import type { GameState } from '../types'
+import type { GameState, CommissionStatus, Chapter, Commission } from '../types'
 import { getInitialGameState, saveGame, loadGame, hasSaveData, clearSave } from '../utils/storage'
-import { commissions, clues, connections, endings, repairSteps } from '../data/gameData'
+import { commissions, clues, connections, endings, repairSteps, chapters } from '../data/gameData'
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(getInitialGameState())
@@ -13,6 +13,20 @@ export const useGameStore = defineStore('game', () => {
     if (!state.value.currentCommissionId) return null
     return commissions.find(c => c.id === state.value.currentCommissionId) || null
   })
+
+  const currentChapter = computed(() => {
+    if (!state.value.currentChapterId) return null
+    return chapters.find(c => c.id === state.value.currentChapterId) || null
+  })
+
+  const allChapters = computed(() => chapters.map(chapter => ({
+    ...chapter,
+    isUnlocked: state.value.unlockedChapters.includes(chapter.id)
+  })))
+
+  const unlockedChapters = computed(() => 
+    allChapters.value.filter(c => c.isUnlocked)
+  )
 
   const collectedCluesForCurrent = computed(() => {
     if (!state.value.currentCommissionId) return []
@@ -53,13 +67,196 @@ export const useGameStore = defineStore('game', () => {
     return { total, completed, percentage: total > 0 ? Math.round((completed / total) * 100) : 0 }
   })
 
+  function getCommissionStatus(commissionId: string): CommissionStatus {
+    return state.value.commissionStatuses[commissionId] || 'locked'
+  }
+
+  function checkPrerequisitesMet(commission: Commission): boolean {
+    return commission.prerequisiteCommissionIds.every(
+      prereqId => state.value.completedCommissions.includes(prereqId)
+    )
+  }
+
+  function checkChapterUnlock(chapter: Chapter): boolean {
+    const rule = chapter.unlockRule
+    
+    switch (rule.type) {
+      case 'condition':
+        if (rule.conditionType === 'custom' && rule.conditionValue === 'always_unlocked') {
+          return true
+        }
+        if (rule.conditionType === 'completed_count' && typeof rule.conditionValue === 'number') {
+          return state.value.completedCommissions.length >= rule.conditionValue
+        }
+        return false
+      case 'prerequisites':
+        if (rule.prerequisiteCommissionIds) {
+          return rule.prerequisiteCommissionIds.every(
+            id => state.value.completedCommissions.includes(id)
+          )
+        }
+        return false
+      default:
+        return false
+    }
+  }
+
+  function checkCommissionUnlock(commission: Commission): boolean {
+    for (const rule of commission.unlockRules) {
+      switch (rule.type) {
+        case 'chapter':
+          if (rule.chapterId && !state.value.unlockedChapters.includes(rule.chapterId)) {
+            return false
+          }
+          break
+        case 'prerequisites':
+          if (rule.prerequisiteCommissionIds) {
+            const allMet = rule.prerequisiteCommissionIds.every(
+              id => state.value.completedCommissions.includes(id)
+            )
+            if (!allMet) return false
+          }
+          break
+        case 'condition':
+          if (rule.conditionType === 'completed_count' && typeof rule.conditionValue === 'number') {
+            if (state.value.completedCommissions.length < rule.conditionValue) {
+              return false
+            }
+          }
+          break
+      }
+    }
+    return true
+  }
+
+  function tryUnlockChapter(chapterId: string): boolean {
+    const chapter = chapters.find(c => c.id === chapterId)
+    if (!chapter) return false
+    if (state.value.unlockedChapters.includes(chapterId)) return true
+
+    if (checkChapterUnlock(chapter)) {
+      state.value.unlockedChapters.push(chapterId)
+      updateCommissionsForChapter(chapterId)
+      saveCurrentGame()
+      return true
+    }
+    return false
+  }
+
+  function tryUnlockCommission(commissionId: string): boolean {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return false
+
+    const currentStatus = getCommissionStatus(commissionId)
+    if (currentStatus !== 'locked') return true
+
+    if (checkCommissionUnlock(commission)) {
+      state.value.commissionStatuses[commissionId] = 'pending'
+      saveCurrentGame()
+      return true
+    }
+    return false
+  }
+
+  function updateCommissionsForChapter(chapterId: string): void {
+    commissions
+      .filter(c => c.chapterId === chapterId)
+      .forEach(commission => {
+        if (getCommissionStatus(commission.id) === 'locked' && checkCommissionUnlock(commission)) {
+          state.value.commissionStatuses[commission.id] = 'pending'
+        }
+      })
+  }
+
+  function checkAndUnlockDependencies(completedCommissionId: string): void {
+    commissions.forEach(commission => {
+      if (commission.prerequisiteCommissionIds.includes(completedCommissionId)) {
+        tryUnlockCommission(commission.id)
+      }
+    })
+
+    chapters.forEach(chapter => {
+      if (!state.value.unlockedChapters.includes(chapter.id)) {
+        tryUnlockChapter(chapter.id)
+      }
+    })
+  }
+
+  function transitionCommissionStatus(
+    commissionId: string, 
+    newStatus: CommissionStatus
+  ): boolean {
+    const currentStatus = getCommissionStatus(commissionId)
+    
+    const validTransitions: Record<CommissionStatus, CommissionStatus[]> = {
+      locked: ['pending'],
+      pending: ['in_progress', 'locked'],
+      in_progress: ['completed', 'failed', 'pending'],
+      completed: [],
+      failed: ['pending', 'in_progress']
+    }
+
+    if (!validTransitions[currentStatus]?.includes(newStatus)) {
+      console.warn(`Invalid status transition: ${currentStatus} -> ${newStatus}`)
+      return false
+    }
+
+    state.value.commissionStatuses[commissionId] = newStatus
+    
+    if (newStatus === 'completed') {
+      const commission = commissions.find(c => c.id === commissionId)
+      if (commission) {
+        if (!state.value.completedCommissions.includes(commissionId)) {
+          state.value.completedCommissions.push(commissionId)
+        }
+        checkAndUnlockDependencies(commissionId)
+      }
+    }
+    
+    return true
+  }
+
+  function getCommissionsByChapter(chapterId: string): Commission[] {
+    return commissions
+      .filter(c => c.chapterId === chapterId)
+      .sort((a, b) => a.orderInChapter - b.orderInChapter)
+  }
+
+  function getChapterById(chapterId: string) {
+    const chapter = chapters.find(c => c.id === chapterId)
+    if (!chapter) return null
+    return {
+      ...chapter,
+      isUnlocked: state.value.unlockedChapters.includes(chapterId)
+    }
+  }
+
+  function getAllChapters() {
+    return allChapters.value
+  }
+
   function loadSavedGame() {
     const saved = loadGame()
     if (saved) {
       state.value = saved
+      refreshAllUnlocks()
       return true
     }
     return false
+  }
+
+  function refreshAllUnlocks() {
+    chapters.forEach(chapter => {
+      if (!state.value.unlockedChapters.includes(chapter.id)) {
+        tryUnlockChapter(chapter.id)
+      }
+    })
+
+    commissions.forEach(commission => {
+      if (getCommissionStatus(commission.id) === 'locked') {
+        tryUnlockCommission(commission.id)
+      }
+    })
   }
 
   function saveCurrentGame() {
@@ -73,7 +270,26 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function selectCommission(commissionId: string) {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return
+
+    if (!tryUnlockCommission(commissionId)) {
+      console.warn('Commission is locked, cannot select')
+      return
+    }
+
+    const status = getCommissionStatus(commissionId)
+    if (status === 'locked') {
+      console.warn('Commission is still locked after unlock attempt')
+      return
+    }
+
+    if (status === 'pending') {
+      transitionCommissionStatus(commissionId, 'in_progress')
+    }
+
     state.value.currentCommissionId = commissionId
+    state.value.currentChapterId = commission.chapterId
     state.value.currentStep = 'item'
     saveCurrentGame()
   }
@@ -109,9 +325,7 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function completeCommission(commissionId: string) {
-    if (!state.value.completedCommissions.includes(commissionId)) {
-      state.value.completedCommissions.push(commissionId)
-    }
+    transitionCommissionStatus(commissionId, 'completed')
     state.value.currentStep = 'ending'
     saveCurrentGame()
   }
@@ -206,6 +420,9 @@ export const useGameStore = defineStore('game', () => {
     state,
     hasSave,
     currentCommission,
+    currentChapter,
+    allChapters,
+    unlockedChapters,
     collectedCluesForCurrent,
     allCluesForCurrent,
     discoveredConnectionsForCurrent,
@@ -234,6 +451,15 @@ export const useGameStore = defineStore('game', () => {
     getClueById,
     getConnectionById,
     getConnectionsForCommission,
-    continueGame
+    continueGame,
+    getCommissionStatus,
+    checkPrerequisitesMet,
+    tryUnlockChapter,
+    tryUnlockCommission,
+    transitionCommissionStatus,
+    getCommissionsByChapter,
+    getChapterById,
+    getAllChapters,
+    refreshAllUnlocks
   }
 })

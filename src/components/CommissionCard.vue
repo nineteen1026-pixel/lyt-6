@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { Lock } from 'lucide-vue-next'
 import type { Commission } from '../types'
 import { useGameStore } from '../stores/game'
 import { cn } from '../lib/utils'
@@ -9,16 +10,44 @@ const props = defineProps<{
   commission: Commission
 }>()
 
+const emit = defineEmits<{
+  (e: 'locked-click', commission: Commission): void
+}>()
+
 const router = useRouter()
 const gameStore = useGameStore()
 
-const isCompleted = computed(() => 
-  gameStore.state.completedCommissions.includes(props.commission.id)
-)
+const status = computed(() => gameStore.getCommissionStatus(props.commission.id))
 
-const isInProgress = computed(() => 
-  gameStore.state.currentCommissionId === props.commission.id && !isCompleted.value
-)
+const isLocked = computed(() => status.value === 'locked')
+const isCompleted = computed(() => status.value === 'completed')
+const isInProgress = computed(() => status.value === 'in_progress')
+const isFailed = computed(() => status.value === 'failed')
+
+const lockedReason = computed(() => {
+  if (!isLocked.value) return ''
+  const prereqs = props.commission.prerequisiteCommissionIds
+  if (prereqs.length > 0) {
+    const incomplete = prereqs.filter(id => 
+      !gameStore.state.completedCommissions.includes(id)
+    )
+    if (incomplete.length > 0) {
+      return `需要先完成 ${incomplete.length} 个前置委托`
+    }
+  }
+  return '需要解锁对应章节'
+})
+
+const statusLabel = computed(() => {
+  const map: Record<string, string> = {
+    locked: '未解锁',
+    pending: '待接取',
+    in_progress: '进行中',
+    completed: '已完成',
+    failed: '失败'
+  }
+  return map[status.value] || '未知'
+})
 
 const difficultyLabel = computed(() => {
   const map: Record<string, string> = {
@@ -39,6 +68,10 @@ const difficultyColor = computed(() => {
 })
 
 function handleClick() {
+  if (isLocked.value) {
+    emit('locked-click', props.commission)
+    return
+  }
   gameStore.selectCommission(props.commission.id)
   router.push(`/commission/${props.commission.id}`)
 }
@@ -46,23 +79,34 @@ function handleClick() {
 
 <template>
   <div
-    class="commission-card relative cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-lg"
+    class="commission-card relative transition-all duration-300"
     :class="[
-      isCompleted ? 'bg-amber-50' : 'bg-stone-50',
+      isLocked ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer hover:scale-[1.02] hover:shadow-lg',
+      isCompleted ? 'bg-amber-50' : isLocked ? 'bg-stone-100' : 'bg-stone-50',
       'rounded-lg border-2 p-5',
-      isCompleted ? 'border-amber-300' : 'border-stone-200',
+      isCompleted ? 'border-amber-300' : isLocked ? 'border-stone-300' : 'border-stone-200',
       isInProgress ? 'ring-2 ring-amber-400 ring-offset-2' : ''
     ]"
     @click="handleClick"
   >
-    <div v-if="isCompleted" class="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm shadow-md">
-      ✓
-    </div>
-    <div v-if="isInProgress" class="absolute -top-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs shadow-md animate-pulse">
-      进行中
+    <div v-if="isLocked" class="absolute inset-0 flex items-center justify-center bg-stone-900/10 backdrop-blur-[1px] rounded-lg z-10">
+      <div class="text-center">
+        <Lock class="w-8 h-8 text-stone-500 mx-auto mb-2" />
+        <span class="text-xs text-stone-500 font-medium">{{ lockedReason }}</span>
+      </div>
     </div>
 
-    <div class="flex items-start gap-4">
+    <div v-if="isCompleted" class="absolute -top-2 -right-2 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center text-white text-sm shadow-md z-20">
+      ✓
+    </div>
+    <div v-if="isInProgress" class="absolute -top-2 -right-2 w-8 h-8 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs shadow-md animate-pulse z-20">
+      进行中
+    </div>
+    <div v-if="isFailed" class="absolute -top-2 -right-2 w-8 h-8 bg-rose-500 rounded-full flex items-center justify-center text-white text-xs shadow-md z-20">
+      ✕
+    </div>
+
+    <div class="flex items-start gap-4" :class="{ 'blur-[2px]': isLocked }">
       <div class="text-4xl flex-shrink-0">
         {{ commission.item.image }}
       </div>
@@ -91,6 +135,12 @@ function handleClick() {
           </span>
           <span v-else-if="isInProgress" class="text-xs text-amber-600 font-medium">
             继续修复
+          </span>
+          <span v-else-if="isFailed" class="text-xs text-rose-600 font-medium">
+            重新挑战
+          </span>
+          <span v-else-if="isLocked" class="text-xs text-stone-400">
+            {{ statusLabel }}
           </span>
           <span v-else class="text-xs text-stone-400">
             点击接取

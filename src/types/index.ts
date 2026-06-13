@@ -1,14 +1,47 @@
+export type CommissionStatus = 
+  | 'locked'
+  | 'pending'
+  | 'in_progress'
+  | 'completed'
+  | 'failed'
+
+export interface UnlockRule {
+  type: 'chapter' | 'prerequisites' | 'condition'
+  chapterId?: string
+  prerequisiteCommissionIds?: string[]
+  conditionType?: 'completed_count' | 'ending_type' | 'custom'
+  conditionValue?: string | number
+}
+
+export interface Chapter {
+  id: string
+  number: number
+  title: string
+  subtitle: string
+  description: string
+  theme: string
+  icon: string
+  unlockRule: UnlockRule
+  commissionIds: string[]
+  isUnlocked: boolean
+  unlockedAt?: string
+}
+
 export interface Commission {
   id: string
+  chapterId: string
   title: string
   clientName: string
   clientAvatar: string
   description: string
   difficulty: 'simple' | 'medium' | 'complex'
   item: Item
-  status: 'pending' | 'in_progress' | 'completed'
+  status: CommissionStatus
+  unlockRules: UnlockRule[]
+  prerequisiteCommissionIds: string[]
   unlockedAt?: string
   completedAt?: string
+  orderInChapter: number
 }
 
 export interface Item {
@@ -80,14 +113,17 @@ export interface RepairChoice {
 
 export interface GameState {
   currentCommissionId: string | null
-  currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending'
+  currentChapterId: string | null
+  currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
   completedCommissions: string[]
+  unlockedChapters: string[]
   collectedClues: string[]
   discoveredConnections: string[]
   unlockedEndings: string[]
   currentEndingType: string | null
   lastSaveTime: string | null
   totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
 }
 
 export interface SavedGame {

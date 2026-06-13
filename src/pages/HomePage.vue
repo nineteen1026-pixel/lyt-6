@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Play, RotateCcw, DoorOpen, ScrollText } from 'lucide-vue-next'
+import { Play, RotateCcw, DoorOpen, ScrollText, Map } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 
 const router = useRouter()
@@ -57,6 +57,10 @@ function continueGame() {
 
 function goToGallery() {
   router.push('/gallery')
+}
+
+function goToRoadmap() {
+  router.push('/roadmap')
 }
 
 function resetGame() {
@@ -120,6 +124,14 @@ function resetGame() {
         >
           <ScrollText class="w-5 h-5" />
           <span>历史陈列室</span>
+        </button>
+
+        <button
+          class="btn-secondary w-full text-lg py-4"
+          @click="goToRoadmap"
+        >
+          <Map class="w-5 h-5" />
+          <span>修复路线图</span>
         </button>
       </div>
 

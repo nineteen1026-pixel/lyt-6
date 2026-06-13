@@ -1,37 +1,48 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Filter, ScrollText } from 'lucide-vue-next'
+import { ArrowLeft, Filter, ScrollText, Map } from 'lucide-vue-next'
 import CommissionCard from '../components/CommissionCard.vue'
 import { useGameStore } from '../stores/game'
 import { cn } from '../lib/utils'
+import type { Commission } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
 
-type FilterType = 'all' | 'pending' | 'in_progress' | 'completed'
+type FilterType = 'all' | 'pending' | 'in_progress' | 'completed' | 'locked'
 const currentFilter = ref<FilterType>('all')
+const currentChapterFilter = ref<string>('all')
+
+const chapters = computed(() => gameStore.getAllChapters())
 
 const commissions = computed(() => gameStore.getAllCommissions())
 
+const chapterFilterOptions = computed(() => [
+  { value: 'all', label: '全部章节', disabled: false },
+  ...chapters.value.map(c => ({
+    value: c.id,
+    label: `${c.subtitle} ${c.title}`,
+    disabled: !c.isUnlocked
+  }))
+])
+
 const filteredCommissions = computed(() => {
-  const all = commissions.value
+  let all = [...commissions.value]
+  
+  if (currentChapterFilter.value !== 'all') {
+    all = all.filter(c => c.chapterId === currentChapterFilter.value)
+  }
   
   switch (currentFilter.value) {
     case 'pending':
-      return all.filter(c => {
-        const isCompleted = gameStore.state.completedCommissions.includes(c.id)
-        const isCurrent = gameStore.state.currentCommissionId === c.id
-        return !isCompleted && !isCurrent
-      })
+      return all.filter(c => gameStore.getCommissionStatus(c.id) === 'pending')
     case 'in_progress':
-      return all.filter(c => {
-        const isCompleted = gameStore.state.completedCommissions.includes(c.id)
-        const isCurrent = gameStore.state.currentCommissionId === c.id
-        return isCurrent && !isCompleted
-      })
+      return all.filter(c => gameStore.getCommissionStatus(c.id) === 'in_progress')
     case 'completed':
-      return all.filter(c => gameStore.state.completedCommissions.includes(c.id))
+      return all.filter(c => gameStore.getCommissionStatus(c.id) === 'completed')
+    case 'locked':
+      return all.filter(c => gameStore.getCommissionStatus(c.id) === 'locked')
     default:
       return all
   }
@@ -41,8 +52,25 @@ const filterOptions: { value: FilterType; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: 'pending', label: '待接取' },
   { value: 'in_progress', label: '进行中' },
-  { value: 'completed', label: '已完成' }
+  { value: 'completed', label: '已完成' },
+  { value: 'locked', label: '未解锁' }
 ]
+
+function handleLockedCommissionClick(commission: Commission) {
+  const prereqNames = commission.prerequisiteCommissionIds
+    .map(id => gameStore.getCommissionById(id)?.title)
+    .filter(Boolean)
+    .join('、')
+  if (prereqNames) {
+    alert(`此委托需要先完成：${prereqNames}`)
+  } else {
+    alert('此委托所在章节尚未解锁，请先完成前置章节。')
+  }
+}
+
+function goToRoadmap() {
+  router.push('/roadmap')
+}
 
 onMounted(() => {
   gameStore.loadSavedGame()
@@ -68,13 +96,22 @@ function goToGallery() {
           <ArrowLeft class="w-5 h-5" />
           <span>返回店铺</span>
         </button>
-        <button
-          class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
-          @click="goToGallery"
-        >
-          <ScrollText class="w-5 h-5" />
-          <span>陈列室</span>
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            class="flex items-center gap-2 px-4 py-2 bg-stone-100 text-stone-700 rounded-lg hover:bg-stone-200 transition-colors"
+            @click="goToRoadmap"
+          >
+            <Map class="w-5 h-5" />
+            <span>路线图</span>
+          </button>
+          <button
+            class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
+            @click="goToGallery"
+          >
+            <ScrollText class="w-5 h-5" />
+            <span>陈列室</span>
+          </button>
+        </div>
       </div>
 
       <div class="text-center mb-8">
@@ -82,22 +119,41 @@ function goToGallery() {
         <p class="text-stone-500">选择一个委托，开始修复记忆</p>
       </div>
 
-      <div class="flex items-center justify-center gap-2 mb-8">
-        <Filter class="w-4 h-4 text-stone-400" />
-        <div class="flex gap-1 bg-stone-200 rounded-lg p-1">
-          <button
-            v-for="option in filterOptions"
-            :key="option.value"
-            :class="[
-              'px-3 py-1.5 text-sm rounded-md transition-all',
-              currentFilter === option.value
-                ? 'bg-white text-stone-800 shadow-sm'
-                : 'text-stone-500 hover:text-stone-700'
-            ]"
-            @click="currentFilter = option.value"
+      <div class="flex flex-col items-center gap-4 mb-8">
+        <div class="flex items-center gap-2">
+          <Filter class="w-4 h-4 text-stone-400" />
+          <div class="flex gap-1 bg-stone-200 rounded-lg p-1">
+            <button
+              v-for="option in filterOptions"
+              :key="option.value"
+              :class="[
+                'px-3 py-1.5 text-sm rounded-md transition-all',
+                currentFilter === option.value
+                  ? 'bg-white text-stone-800 shadow-sm'
+                  : 'text-stone-500 hover:text-stone-700'
+              ]"
+              @click="currentFilter = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2">
+          <span class="text-sm text-stone-500">章节：</span>
+          <select
+            v-model="currentChapterFilter"
+            class="px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
-            {{ option.label }}
-          </button>
+            <option
+              v-for="option in chapterFilterOptions"
+              :key="option.value"
+              :value="option.value"
+              :disabled="option.disabled"
+            >
+              {{ option.label }}{{ option.disabled ? ' (未解锁)' : '' }}
+            </option>
+          </select>
         </div>
       </div>
 
@@ -106,6 +162,7 @@ function goToGallery() {
           v-for="commission in filteredCommissions"
           :key="commission.id"
           :commission="commission"
+          @locked-click="handleLockedCommissionClick"
         />
       </div>
 
