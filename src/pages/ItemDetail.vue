@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Lightbulb, Search, ChevronRight, X } from 'lucide-vue-next'
+import { ArrowLeft, Lightbulb, Search, ChevronRight, X, Lock } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { Hotspot } from '../types'
 
@@ -33,6 +33,18 @@ const progress = computed(() => {
   const total = item.value.hotspots.length
   const current = discoveredHotspots.value.length
   return { current, total, percentage: total > 0 ? Math.round((current / total) * 100) : 0 }
+})
+
+const deductionUnlockProgress = computed(() => {
+  if (!commissionId.value) return { current: 0, required: 1, description: '', unlocked: false }
+  const progress = gameStore.getStepUnlockProgress(commissionId.value, 'deduction')
+  return { ...progress, unlocked: gameStore.canAccessStep(commissionId.value, 'deduction') }
+})
+
+const repairUnlockProgress = computed(() => {
+  if (!commissionId.value) return { current: 0, required: 1, description: '', unlocked: false }
+  const progress = gameStore.getStepUnlockProgress(commissionId.value, 'repair')
+  return { ...progress, unlocked: gameStore.canAccessStep(commissionId.value, 'repair') }
 })
 
 function isHotspotDiscovered(hotspot: Hotspot): boolean {
@@ -186,19 +198,25 @@ onMounted(() => {
           </div>
 
           <div class="mt-6 flex justify-end">
-            <button
-              :class="[
-                'flex items-center gap-2 px-6 py-3 rounded-xl font-serif font-medium transition-all duration-300',
-                gameStore.canStartRepair()
-                  ? 'btn-primary'
-                  : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
-              ]"
-              :disabled="!gameStore.canStartRepair()"
-              @click="goToDeduction"
-            >
-              <span>前往推理板</span>
-              <ChevronRight class="w-5 h-5" />
-            </button>
+            <div class="flex flex-col items-end gap-2">
+              <div v-if="!deductionUnlockProgress.unlocked" class="flex items-center gap-2 text-sm text-stone-500 bg-stone-100 px-4 py-2 rounded-lg">
+                <Lock class="w-4 h-4" />
+                <span>{{ deductionUnlockProgress.description }}</span>
+              </div>
+              <button
+                :class="[
+                  'flex items-center gap-2 px-6 py-3 rounded-xl font-serif font-medium transition-all duration-300',
+                  deductionUnlockProgress.unlocked
+                    ? 'btn-primary'
+                    : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
+                ]"
+                :disabled="!deductionUnlockProgress.unlocked"
+                @click="goToDeduction"
+              >
+                <span>前往推理板</span>
+                <ChevronRight class="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -252,8 +270,11 @@ onMounted(() => {
             </div>
 
             <div class="mt-4 pt-4 border-t border-amber-200/30">
-              <p class="text-xs text-stone-400 text-center font-serif">
-                收集至少一半线索才能开始推理
+              <p v-if="!deductionUnlockProgress.unlocked" class="text-xs text-stone-400 text-center font-serif">
+                {{ deductionUnlockProgress.description }} 即可开始推理
+              </p>
+              <p v-else class="text-xs text-green-600 text-center font-serif">
+                推理板已解锁，可以前往推理了！
               </p>
             </div>
           </div>

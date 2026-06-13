@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Link, Lightbulb, ChevronRight, Sparkles, X } from 'lucide-vue-next'
+import { ArrowLeft, Link, Lightbulb, ChevronRight, Sparkles, X, Lock } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { Clue, ClueConnection } from '../types'
 
@@ -38,6 +38,12 @@ const progress = computed(() => {
   const total = allConnections.value.length
   const discovered = discoveredConnections.value.length
   return { total, discovered, percentage: total > 0 ? Math.round((discovered / total) * 100) : 0 }
+})
+
+const repairUnlockProgress = computed(() => {
+  if (!commissionId.value) return { current: 0, required: 1, description: '', unlocked: false }
+  const progress = gameStore.getStepUnlockProgress(commissionId.value, 'repair')
+  return { ...progress, unlocked: gameStore.canAccessStep(commissionId.value, 'repair') }
 })
 
 function selectClue(clue: Clue) {
@@ -209,19 +215,25 @@ onMounted(() => {
           </div>
 
           <div class="mt-6 flex justify-end">
-            <button
-              :class="[
-                'flex items-center gap-2 px-6 py-3 rounded-xl font-serif font-medium transition-all duration-300',
-                discoveredConnections.length > 0
-                  ? 'btn-primary'
-                  : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
-              ]"
-              :disabled="discoveredConnections.length === 0"
-              @click="goToRepair"
-            >
-              <span>开始修复</span>
-              <ChevronRight class="w-5 h-5" />
-            </button>
+            <div class="flex flex-col items-end gap-2">
+              <div v-if="!repairUnlockProgress.unlocked" class="flex items-center gap-2 text-sm text-stone-500 bg-stone-100 px-4 py-2 rounded-lg">
+                <Lock class="w-4 h-4" />
+                <span>{{ repairUnlockProgress.description }}</span>
+              </div>
+              <button
+                :class="[
+                  'flex items-center gap-2 px-6 py-3 rounded-xl font-serif font-medium transition-all duration-300',
+                  repairUnlockProgress.unlocked
+                    ? 'btn-primary'
+                    : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
+                ]"
+                :disabled="!repairUnlockProgress.unlocked"
+                @click="goToRepair"
+              >
+                <span>开始修复</span>
+                <ChevronRight class="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </div>
 
@@ -271,8 +283,11 @@ onMounted(() => {
                   }"
                 />
               </div>
-              <p class="text-xs text-stone-400 text-center mt-2 font-serif">
-                发现至少一个关联即可开始修复
+              <p v-if="!repairUnlockProgress.unlocked" class="text-xs text-stone-400 text-center mt-2 font-serif">
+                {{ repairUnlockProgress.description }} 即可开始修复
+              </p>
+              <p v-else class="text-xs text-green-600 text-center mt-2 font-serif">
+                修复已解锁，可以开始修复了！
               </p>
             </div>
           </div>
