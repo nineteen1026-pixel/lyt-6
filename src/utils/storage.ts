@@ -66,7 +66,10 @@ export function getInitialGameState(): GameState {
     completedDialogueNodeIds: [],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -315,7 +318,10 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     completedDialogueNodeIds: [],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -379,7 +385,10 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     completedDialogueNodeIds: [],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -451,7 +460,10 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     completedDialogueNodeIds: [],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -525,7 +537,10 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     completedDialogueNodeIds: [],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -602,7 +617,10 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     completedDialogueNodeIds: [...(v7State.completedDialogueNodeIds || [])],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 }
 
@@ -679,7 +697,10 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     completedDialogueNodeIds: [...(v8State.completedDialogueNodeIds || [])],
     archivedConclusions: [],
     boardCluePositions: {},
-    discoveredConflicts: []
+    discoveredConflicts: [],
+    scoreHistory: [],
+    unlockedAchievements: [],
+    currentScore: null
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
@@ -751,6 +772,9 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     if (!(state as any).archivedConclusions) (state as any).archivedConclusions = []
     if (!(state as any).boardCluePositions) (state as any).boardCluePositions = {}
     if (!(state as any).discoveredConflicts) (state as any).discoveredConflicts = []
+    if (!(state as any).scoreHistory) (state as any).scoreHistory = []
+    if (!(state as any).unlockedAchievements) (state as any).unlockedAchievements = []
+    if (!(state as any).currentScore) (state as any).currentScore = null
     return state
   }
 

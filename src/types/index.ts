@@ -277,42 +277,6 @@ export interface RepairChoice {
   endingType: 'good' | 'neutral' | 'bad'
 }
 
-export interface GameState {
-  currentCommissionId: string | null
-  currentChapterId: string | null
-  currentStep: GameStep
-  completedCommissions: string[]
-  unlockedChapters: string[]
-  collectedClues: string[]
-  discoveredConnections: string[]
-  unlockedEndings: string[]
-  currentEndingType: string | null
-  lastSaveTime: string | null
-  totalPlayTime: number
-  commissionStatuses: Record<string, CommissionStatus>
-  unlockedSteps: Record<string, GameStep[]>
-  notes: Note[]
-  customTags: Tag[]
-  activeTagFilters: string[]
-  searchKeyword: string
-  searchMatchMode: SearchMatchMode
-  searchScope: SearchScope
-  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
-  noteSortOrder: 'asc' | 'desc'
-  noteAggregationType: AggregationType
-  connectionHintsUsed: string[]
-  discoveredHints: string[]
-  progressMilestones: Record<string, boolean>
-  repairRetryCounts: Record<string, number>
-  connectionRetryCounts: Record<string, number>
-  dialogueFlags: Record<string, string | number | boolean>
-  dialogueHistory: DialogueHistoryEntry[]
-  completedDialogueNodeIds: string[]
-  archivedConclusions: DeductionConclusion[]
-  boardCluePositions: Record<string, BoardCluePosition[]>
-  discoveredConflicts: string[]
-}
-
 export interface SavedGame {
   version: string
   state: GameState
@@ -580,5 +544,142 @@ export interface CommissionProgressArchive {
   totalConclusionCount: number
   conflictCount: number
   lastArchivedAt: string | null
+}
+
+export type ScoreDimension = 
+  | 'craftsmanship' 
+  | 'clue_completeness' 
+  | 'reasoning_depth' 
+  | 'emotional_resonance' 
+  | 'efficiency'
+
+export interface DimensionScore {
+  dimension: ScoreDimension
+  name: string
+  description: string
+  score: number
+  maxScore: number
+  percentage: number
+  icon: string
+  color: string
+}
+
+export interface MultiDimensionalScore {
+  id: string
+  commissionId: string
+  endingId: string
+  endingType: 'good' | 'neutral' | 'bad'
+  totalScore: number
+  maxTotalScore: number
+  overallPercentage: number
+  grade: 'S' | 'A' | 'B' | 'C' | 'D'
+  dimensions: DimensionScore[]
+  choiceScoreBreakdown: {
+    goodChoices: number
+    neutralChoices: number
+    badChoices: number
+    totalChoices: number
+  }
+  metadata: {
+    clueCollected: number
+    clueTotal: number
+    connectionsDiscovered: number
+    connectionsTotal: number
+    repairRetries: number
+    connectionRetries: number
+    hintsUsed: number
+    difficultyLevel: string
+  }
+  achievedAt: string
+}
+
+export interface ScoreGradeConfig {
+  grade: 'S' | 'A' | 'B' | 'C' | 'D'
+  minPercentage: number
+  color: string
+  bgColor: string
+  label: string
+  description: string
+}
+
+export const SCORE_GRADES: ScoreGradeConfig[] = [
+  { grade: 'S', minPercentage: 95, color: 'text-amber-500', bgColor: 'bg-amber-50', label: '大师级', description: '完美的修复，展现了非凡的技艺与同理心' },
+  { grade: 'A', minPercentage: 85, color: 'text-green-600', bgColor: 'bg-green-50', label: '专业级', description: '出色的修复，每一个细节都处理得当' },
+  { grade: 'B', minPercentage: 70, color: 'text-blue-600', bgColor: 'bg-blue-50', label: '熟练级', description: '良好的修复，达成了委托人的期望' },
+  { grade: 'C', minPercentage: 50, color: 'text-stone-600', bgColor: 'bg-stone-50', label: '入门级', description: '基本完成修复，但仍有提升空间' },
+  { grade: 'D', minPercentage: 0, color: 'text-rose-600', bgColor: 'bg-rose-50', label: '待提升', description: '修复未能完成，需要更多的练习' }
+]
+
+export const SCORE_DIMENSION_CONFIG: Record<ScoreDimension, { name: string; description: string; icon: string; color: string; weight: number }> = {
+  craftsmanship: { name: '修复技艺', description: '修复选择的质量与专业性', icon: '🔧', color: 'text-amber-600', weight: 0.30 },
+  clue_completeness: { name: '线索完整度', description: '收集线索的完整程度', icon: '🔍', color: 'text-blue-600', weight: 0.20 },
+  reasoning_depth: { name: '推理深度', description: '发现关联的数量与质量', icon: '🧩', color: 'text-purple-600', weight: 0.20 },
+  emotional_resonance: { name: '情感共鸣', description: '与委托人情感的连接程度', icon: '💝', color: 'text-rose-500', weight: 0.20 },
+  efficiency: { name: '效率表现', description: '完成任务的效率与独立性', icon: '⚡', color: 'text-green-600', weight: 0.10 }
+}
+
+export interface AchievementConfig {
+  id: string
+  name: string
+  description: string
+  icon: string
+  category: 'score' | 'ending' | 'collection' | 'special'
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  condition: {
+    type: 'total_score' | 'dimension_score' | 'grade' | 'ending_count' | 'perfect_commission' | 'all_endings' | 'no_hints' | 'consecutive_good'
+    value: number | string
+    dimension?: ScoreDimension
+    commissionId?: string
+  }
+  reward?: {
+    type: 'title' | 'badge' | 'unlock'
+    value: string
+  }
+}
+
+export interface Achievement extends AchievementConfig {
+  isUnlocked: boolean
+  unlockedAt?: string
+  progress?: number
+  target?: number
+}
+
+export interface GameState {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: GameStep
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+  notes: Note[]
+  customTags: Tag[]
+  activeTagFilters: string[]
+  searchKeyword: string
+  searchMatchMode: SearchMatchMode
+  searchScope: SearchScope
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: AggregationType
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
+  repairRetryCounts: Record<string, number>
+  connectionRetryCounts: Record<string, number>
+  dialogueFlags: Record<string, string | number | boolean>
+  dialogueHistory: DialogueHistoryEntry[]
+  completedDialogueNodeIds: string[]
+  archivedConclusions: DeductionConclusion[]
+  boardCluePositions: Record<string, BoardCluePosition[]>
+  discoveredConflicts: string[]
+  scoreHistory: MultiDimensionalScore[]
+  unlockedAchievements: string[]
+  currentScore: MultiDimensionalScore | null
 }
 

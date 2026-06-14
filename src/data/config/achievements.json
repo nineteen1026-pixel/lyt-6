@@ -1,0 +1,209 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏成就配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "ach-first-repair",
+      "name": "初次修复",
+      "description": "完成你的第一件修复委托",
+      "icon": "🌟",
+      "category": "special",
+      "rarity": "common",
+      "condition": {
+        "type": "ending_count",
+        "value": 1
+      }
+    },
+    {
+      "id": "ach-perfect-comm-001",
+      "name": "旋律大师",
+      "description": "在「褪色的音乐盒」中获得S级评价",
+      "icon": "🎶",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "grade",
+        "value": "S",
+        "commissionId": "comm-001"
+      }
+    },
+    {
+      "id": "ach-perfect-comm-002",
+      "name": "金缮匠人",
+      "description": "在「破碎的陶瓷碗」中获得S级评价",
+      "icon": "✨",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "grade",
+        "value": "S",
+        "commissionId": "comm-002"
+      }
+    },
+    {
+      "id": "ach-perfect-comm-003",
+      "name": "时间守望者",
+      "description": "在「沉默的怀表」中获得S级评价",
+      "icon": "⏰",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "grade",
+        "value": "S",
+        "commissionId": "comm-003"
+      }
+    },
+    {
+      "id": "ach-all-s-grade",
+      "name": "修复大师",
+      "description": "在所有委托中都获得S级评价",
+      "icon": "👑",
+      "category": "score",
+      "rarity": "legendary",
+      "condition": {
+        "type": "perfect_commission",
+        "value": 3
+      }
+    },
+    {
+      "id": "ach-all-endings-comm-001",
+      "name": "音乐盒收藏家",
+      "description": "解锁「褪色的音乐盒」的所有结局",
+      "icon": "📚",
+      "category": "ending",
+      "rarity": "rare",
+      "condition": {
+        "type": "all_endings",
+        "value": "comm-001"
+      }
+    },
+    {
+      "id": "ach-all-endings-comm-002",
+      "name": "瓷碗守护者",
+      "description": "解锁「破碎的陶瓷碗」的所有结局",
+      "icon": "📚",
+      "category": "ending",
+      "rarity": "rare",
+      "condition": {
+        "type": "all_endings",
+        "value": "comm-002"
+      }
+    },
+    {
+      "id": "ach-all-endings-comm-003",
+      "name": "时光旅人",
+      "description": "解锁「沉默的怀表」的所有结局",
+      "icon": "📚",
+      "category": "ending",
+      "rarity": "rare",
+      "condition": {
+        "type": "all_endings",
+        "value": "comm-003"
+      }
+    },
+    {
+      "id": "ach-all-endings",
+      "name": "全结局收集者",
+      "description": "解锁游戏中的所有结局",
+      "icon": "🏆",
+      "category": "collection",
+      "rarity": "legendary",
+      "condition": {
+        "type": "ending_count",
+        "value": 9
+      }
+    },
+    {
+      "id": "ach-no-hints",
+      "name": "独立思考者",
+      "description": "完成一个委托时不使用任何提示",
+      "icon": "🧠",
+      "category": "special",
+      "rarity": "rare",
+      "condition": {
+        "type": "no_hints",
+        "value": 1
+      }
+    },
+    {
+      "id": "ach-master-craftsman",
+      "name": "匠心独运",
+      "description": "修复技艺维度达到满分",
+      "icon": "🔧",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "dimension_score",
+        "value": 100,
+        "dimension": "craftsmanship"
+      }
+    },
+    {
+      "id": "ach-observant",
+      "name": "明察秋毫",
+      "description": "线索完整度维度达到满分",
+      "icon": "🔍",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "dimension_score",
+        "value": 100,
+        "dimension": "clue_completeness"
+      }
+    },
+    {
+      "id": "ach-deep-thinker",
+      "name": "深度思考者",
+      "description": "推理深度维度达到满分",
+      "icon": "🧩",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "dimension_score",
+        "value": 100,
+        "dimension": "reasoning_depth"
+      }
+    },
+    {
+      "id": "ach-empathetic",
+      "name": "善解人意",
+      "description": "情感共鸣维度达到满分",
+      "icon": "💝",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "dimension_score",
+        "value": 100,
+        "dimension": "emotional_resonance"
+      }
+    },
+    {
+      "id": "ach-efficient",
+      "name": "高效修复师",
+      "description": "效率表现维度达到满分",
+      "icon": "⚡",
+      "category": "score",
+      "rarity": "epic",
+      "condition": {
+        "type": "dimension_score",
+        "value": 100,
+        "dimension": "efficiency"
+      }
+    },
+    {
+      "id": "ach-consecutive-good",
+      "name": "连胜修复师",
+      "description": "连续获得3个完美结局",
+      "icon": "🔥",
+      "category": "special",
+      "rarity": "rare",
+      "condition": {
+        "type": "consecutive_good",
+        "value": 3
+      }
+    }
+  ]
+}

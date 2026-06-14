@@ -17,7 +17,9 @@ import type {
   Item,
   Hotspot,
   ItemConfig,
-  HotspotConfig
+  HotspotConfig,
+  AchievementConfig,
+  Achievement
 } from '../types'
 
 import tagsConfig from './config/tags.json'
@@ -27,6 +29,7 @@ import cluesConfig from './config/clues.json'
 import connectionsConfig from './config/connections.json'
 import endingsConfig from './config/endings.json'
 import repairStepsConfig from './config/repairSteps.json'
+import achievementsConfig from './config/achievements.json'
 import dialogueComm001 from './config/dialogues/comm-001.json'
 import dialogueComm002 from './config/dialogues/comm-002.json'
 import dialogueComm003 from './config/dialogues/comm-003.json'
@@ -64,6 +67,8 @@ export const dialogueNodesConfigData: DialogueNode[] = [
   ...loadConfig<DialogueNode[]>(dialogueComm002),
   ...loadConfig<DialogueNode[]>(dialogueComm003)
 ]
+
+export const achievementsConfigData: AchievementConfig[] = loadConfig<AchievementConfig[]>(achievementsConfig)
 
 function createItemWithRuntimeState(config: ItemConfig): Item {
   return {
@@ -124,7 +129,18 @@ function createRepairStepWithRuntimeState(config: RepairStepConfig): RepairStep 
   }
 }
 
+function createAchievementWithRuntimeState(config: AchievementConfig): Achievement {
+  return {
+    ...config,
+    isUnlocked: false,
+    unlockedAt: undefined,
+    progress: 0,
+    target: typeof config.condition.value === 'number' ? config.condition.value : 1
+  }
+}
+
 export const chapters: Chapter[] = chaptersConfigData.map(createChapterWithRuntimeState)
+export const achievements: Achievement[] = achievementsConfigData.map(createAchievementWithRuntimeState)
 
 export const commissions: Commission[] = commissionsConfigData.map(createCommissionWithRuntimeState)
 
@@ -143,7 +159,7 @@ export const repairSteps: Record<string, RepairStep[]> = Object.fromEntries(
 
 export const dialogueNodes: DialogueNode[] = [...dialogueNodesConfigData]
 
-export const gameDataConfig: GameDataConfig = {
+export const gameDataConfig: GameDataConfig & { achievements: AchievementConfig[] } = {
   tags,
   chapters: chaptersConfigData,
   commissions: commissionsConfigData,
@@ -151,10 +167,11 @@ export const gameDataConfig: GameDataConfig = {
   connections: connectionsConfigData,
   endings: endingsConfigData,
   repairSteps: repairStepsConfigData,
-  dialogueNodes: dialogueNodesConfigData
+  dialogueNodes: dialogueNodesConfigData,
+  achievements: achievementsConfigData
 }
 
-export function getGameConfig(): GameDataConfig {
+export function getGameConfig(): GameDataConfig & { achievements: AchievementConfig[] } {
   return {
     tags: [...tags],
     chapters: [...chaptersConfigData],
@@ -163,7 +180,8 @@ export function getGameConfig(): GameDataConfig {
     connections: [...connectionsConfigData],
     endings: [...endingsConfigData],
     repairSteps: { ...repairStepsConfigData },
-    dialogueNodes: [...dialogueNodesConfigData]
+    dialogueNodes: [...dialogueNodesConfigData],
+    achievements: [...achievementsConfigData]
   }
 }
 

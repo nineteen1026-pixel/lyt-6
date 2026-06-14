@@ -105,11 +105,20 @@ function calculateEndingType(): string {
 }
 
 function finishRepair() {
-  const endingType = calculateEndingType()
+  const endingType = calculateEndingType() as 'good' | 'neutral' | 'bad'
   const ending = gameStore.getEndingByType(commissionId.value, endingType)
 
   if (ending) {
     gameStore.unlockEnding(ending.id)
+    
+    const score = gameStore.calculateMultiDimensionalScore(
+      commissionId.value,
+      selectedChoices.value,
+      ending.id,
+      endingType
+    )
+    gameStore.saveScore(score)
+    gameStore.checkAndUnlockAchievements()
   }
 
   gameStore.completeCommission(commissionId.value)

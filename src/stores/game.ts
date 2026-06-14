@@ -33,7 +33,17 @@ import type {
   DialogueEffect,
   DialogueHistoryEntry,
   DialogueSessionState,
-  DialogueNodeType
+  DialogueNodeType,
+  MultiDimensionalScore,
+  DimensionScore,
+  ScoreDimension,
+  ScoreGradeConfig,
+  Achievement,
+  AchievementConfig
+} from '../types'
+import {
+  SCORE_GRADES,
+  SCORE_DIMENSION_CONFIG
 } from '../types'
 import { 
   getInitialGameState, 
@@ -60,7 +70,7 @@ import {
   getEndingReplays,
   getLatestSaveSlotInfo
 } from '../utils/storage'
-import { commissions, clues, connections, endings, repairSteps, chapters, tags, dialogueNodes } from '../data/gameData'
+import { commissions, clues, connections, endings, repairSteps, chapters, tags, dialogueNodes, achievements } from '../data/gameData'
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(getInitialGameState())
@@ -2343,6 +2353,344 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function calculateDimensionScore(
+    dimension: ScoreDimension,
+    commissionId: string,
+    selectedChoices: string[],
+    endingType: 'good' | 'neutral' | 'bad'
+  ): DimensionScore {
+    const config = SCORE_DIMENSION_CONFIG[dimension]
+    const maxScore = 100
+    let score = 0
+
+    switch (dimension) {
+      case 'craftsmanship': {
+        const steps = repairSteps[commissionId] || []
+        let goodChoices = 0
+        let totalChoices = selectedChoices.length
+
+        selectedChoices.forEach((choiceId, index) => {
+          const step = steps[index]
+          const choice = step?.choices.find(c => c.id === choiceId)
+          if (choice) {
+            if (choice.endingType === 'good') goodChoices++
+            else if (choice.endingType === 'bad') goodChoices -= 0.5
+          }
+        })
+
+        score = totalChoices > 0 ? Math.round((goodChoices / totalChoices) * 100) : 0
+        score = Math.max(0, Math.min(100, score))
+        break
+      }
+
+      case 'clue_completeness': {
+        const collected = getCollectedClueCount(commissionId)
+        const total = getTotalClueCount(commissionId)
+        score = total > 0 ? Math.round((collected / total) * 100) : 0
+        break
+      }
+
+      case 'reasoning_depth': {
+        const discovered = getDiscoveredConnectionCount(commissionId)
+        const total = getTotalConnectionCount(commissionId)
+        score = total > 0 ? Math.round((discovered / total) * 100) : 0
+        break
+      }
+
+      case 'emotional_resonance': {
+        if (endingType === 'good') score = 100
+        else if (endingType === 'neutral') score = 70
+        else score = 30
+        break
+      }
+
+      case 'efficiency': {
+        const repairRetries = Object.entries(state.value.repairRetryCounts)
+          .filter(([key]) => key.startsWith(commissionId))
+          .reduce((sum, [, count]) => sum + count, 0)
+        const connectionRetries = state.value.connectionRetryCounts[commissionId] || 0
+        const hintsUsed = state.value.connectionHintsUsed.filter(h => h.startsWith(commissionId)).length
+        const totalRetries = repairRetries + connectionRetries + hintsUsed
+        
+        if (totalRetries === 0) score = 100
+        else if (totalRetries <= 1) score = 85
+        else if (totalRetries <= 3) score = 70
+        else if (totalRetries <= 5) score = 50
+        else score = 30
+        break
+      }
+    }
+
+    return {
+      dimension,
+      name: config.name,
+      description: config.description,
+      score,
+      maxScore,
+      percentage: score,
+      icon: config.icon,
+      color: config.color
+    }
+  }
+
+  function calculateMultiDimensionalScore(
+    commissionId: string,
+    selectedChoices: string[],
+    endingId: string,
+    endingType: 'good' | 'neutral' | 'bad'
+  ): MultiDimensionalScore {
+    const dimensions: DimensionScore[] = []
+    let totalWeightedScore = 0
+    let maxWeightedScore = 0
+
+    const dimensionKeys: ScoreDimension[] = ['craftsmanship', 'clue_completeness', 'reasoning_depth', 'emotional_resonance', 'efficiency']
+    
+    for (const dim of dimensionKeys) {
+      const dimScore = calculateDimensionScore(dim, commissionId, selectedChoices, endingType)
+      dimensions.push(dimScore)
+      
+      const weight = SCORE_DIMENSION_CONFIG[dim].weight
+      totalWeightedScore += dimScore.score * weight
+      maxWeightedScore += dimScore.maxScore * weight
+    }
+
+    const overallPercentage = maxWeightedScore > 0 
+      ? Math.round((totalWeightedScore / maxWeightedScore) * 100) 
+      : 0
+
+    let grade: 'S' | 'A' | 'B' | 'C' | 'D' = 'D'
+    for (const gradeConfig of SCORE_GRADES) {
+      if (overallPercentage >= gradeConfig.minPercentage) {
+        grade = gradeConfig.grade
+        break
+      }
+    }
+
+    const steps = repairSteps[commissionId] || []
+    let goodChoices = 0
+    let neutralChoices = 0
+    let badChoices = 0
+
+    selectedChoices.forEach((choiceId, index) => {
+      const step = steps[index]
+      const choice = step?.choices.find(c => c.id === choiceId)
+      if (choice) {
+        if (choice.endingType === 'good') goodChoices++
+        else if (choice.endingType === 'neutral') neutralChoices++
+        else if (choice.endingType === 'bad') badChoices++
+      }
+    })
+
+    const difficultyCtx = computeDifficultyContext(commissionId)
+
+    const score: MultiDimensionalScore = {
+      id: `score-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      commissionId,
+      endingId,
+      endingType,
+      totalScore: Math.round(totalWeightedScore),
+      maxTotalScore: Math.round(maxWeightedScore),
+      overallPercentage,
+      grade,
+      dimensions,
+      choiceScoreBreakdown: {
+        goodChoices,
+        neutralChoices,
+        badChoices,
+        totalChoices: selectedChoices.length
+      },
+      metadata: {
+        clueCollected: getCollectedClueCount(commissionId),
+        clueTotal: getTotalClueCount(commissionId),
+        connectionsDiscovered: getDiscoveredConnectionCount(commissionId),
+        connectionsTotal: getTotalConnectionCount(commissionId),
+        repairRetries: Object.entries(state.value.repairRetryCounts)
+          .filter(([key]) => key.startsWith(commissionId))
+          .reduce((sum, [, count]) => sum + count, 0),
+        connectionRetries: state.value.connectionRetryCounts[commissionId] || 0,
+        hintsUsed: state.value.connectionHintsUsed.filter(h => h.startsWith(commissionId)).length,
+        difficultyLevel: difficultyCtx.effectiveDifficulty
+      },
+      achievedAt: new Date().toISOString()
+    }
+
+    return score
+  }
+
+  function saveScore(score: MultiDimensionalScore): void {
+    const existingIndex = state.value.scoreHistory.findIndex(
+      s => s.commissionId === score.commissionId && s.endingType === score.endingType
+    )
+    
+    if (existingIndex >= 0) {
+      if (score.overallPercentage > state.value.scoreHistory[existingIndex].overallPercentage) {
+        state.value.scoreHistory[existingIndex] = score
+      }
+    } else {
+      state.value.scoreHistory.push(score)
+    }
+
+    state.value.currentScore = score
+    saveCurrentGame()
+  }
+
+  function getScoreForCommissionAndEnding(commissionId: string, endingType: string): MultiDimensionalScore | null {
+    return state.value.scoreHistory.find(
+      s => s.commissionId === commissionId && s.endingType === endingType
+    ) || null
+  }
+
+  function getBestScoreForCommission(commissionId: string): MultiDimensionalScore | null {
+    const commissionScores = state.value.scoreHistory.filter(s => s.commissionId === commissionId)
+    if (commissionScores.length === 0) return null
+    return commissionScores.reduce((best, current) => 
+      current.overallPercentage > best.overallPercentage ? current : best
+    )
+  }
+
+  function getAllScores(): MultiDimensionalScore[] {
+    return [...state.value.scoreHistory].sort((a, b) => 
+      new Date(b.achievedAt).getTime() - new Date(a.achievedAt).getTime()
+    )
+  }
+
+  function getGradeConfig(grade: string): ScoreGradeConfig | undefined {
+    return SCORE_GRADES.find(g => g.grade === grade)
+  }
+
+  const allAchievements = computed<Achievement[]>(() => 
+    achievements.map(ach => ({
+      ...ach,
+      isUnlocked: state.value.unlockedAchievements.includes(ach.id),
+      progress: getAchievementProgress(ach)
+    }))
+  )
+
+  function getAchievementProgress(achievement: AchievementConfig): number {
+    const condition = achievement.condition
+    
+    switch (condition.type) {
+      case 'ending_count':
+        return state.value.unlockedEndings.length
+      case 'total_score':
+        return Math.max(...state.value.scoreHistory.map(s => s.overallPercentage), 0)
+      case 'dimension_score': {
+        if (!condition.dimension) return 0
+        const dimScores = state.value.scoreHistory.flatMap(s => 
+          s.dimensions.filter(d => d.dimension === condition.dimension).map(d => d.score)
+        )
+        return Math.max(...dimScores, 0)
+      }
+      case 'grade': {
+        if (!condition.commissionId) return 0
+        const scores = state.value.scoreHistory.filter(s => s.commissionId === condition.commissionId)
+        return scores.some(s => s.grade === condition.value) ? 1 : 0
+      }
+      case 'perfect_commission': {
+        const sGrades = new Set(
+          state.value.scoreHistory.filter(s => s.grade === 'S').map(s => s.commissionId)
+        )
+        return sGrades.size
+      }
+      case 'all_endings': {
+        const commId = condition.value as string
+        const commEndings = endings.filter(e => e.commissionId === commId)
+        const unlocked = commEndings.filter(e => state.value.unlockedEndings.includes(e.id)).length
+        return unlocked
+      }
+      case 'no_hints': {
+        const noHintScores = state.value.scoreHistory.filter(s => s.metadata.hintsUsed === 0)
+        return noHintScores.length
+      }
+      case 'consecutive_good': {
+        const goodEndings = state.value.scoreHistory
+          .sort((a, b) => new Date(a.achievedAt).getTime() - new Date(b.achievedAt).getTime())
+          .filter(s => s.endingType === 'good')
+        let maxStreak = 0
+        let currentStreak = 0
+        for (const score of state.value.scoreHistory.sort((a, b) => 
+          new Date(a.achievedAt).getTime() - new Date(b.achievedAt).getTime()
+        )) {
+          if (score.endingType === 'good') {
+            currentStreak++
+            maxStreak = Math.max(maxStreak, currentStreak)
+          } else {
+            currentStreak = 0
+          }
+        }
+        return maxStreak
+      }
+      default:
+        return 0
+    }
+  }
+
+  function checkAndUnlockAchievements(): Achievement[] {
+    const newlyUnlocked: Achievement[] = []
+    
+    for (const ach of achievements) {
+      if (state.value.unlockedAchievements.includes(ach.id)) continue
+      
+      const progress = getAchievementProgress(ach)
+      const target = typeof ach.condition.value === 'number' ? ach.condition.value : 1
+      
+      if (progress >= target) {
+        state.value.unlockedAchievements.push(ach.id)
+        newlyUnlocked.push({
+          ...ach,
+          isUnlocked: true,
+          unlockedAt: new Date().toISOString(),
+          progress,
+          target
+        })
+      }
+    }
+
+    if (newlyUnlocked.length > 0) {
+      saveCurrentGame()
+    }
+
+    return newlyUnlocked
+  }
+
+  function getUnlockedAchievements(): Achievement[] {
+    return allAchievements.value.filter(a => a.isUnlocked)
+  }
+
+  function getAchievementsByCategory(category: string): Achievement[] {
+    return allAchievements.value.filter(a => a.category === category)
+  }
+
+  function getRarityColor(rarity: string): string {
+    switch (rarity) {
+      case 'common': return 'text-stone-600'
+      case 'rare': return 'text-blue-600'
+      case 'epic': return 'text-purple-600'
+      case 'legendary': return 'text-amber-500'
+      default: return 'text-stone-600'
+    }
+  }
+
+  function getRarityBgColor(rarity: string): string {
+    switch (rarity) {
+      case 'common': return 'bg-stone-50 border-stone-200'
+      case 'rare': return 'bg-blue-50 border-blue-200'
+      case 'epic': return 'bg-purple-50 border-purple-200'
+      case 'legendary': return 'bg-amber-50 border-amber-200'
+      default: return 'bg-stone-50 border-stone-200'
+    }
+  }
+
+  function getRarityLabel(rarity: string): string {
+    switch (rarity) {
+      case 'common': return '普通'
+      case 'rare': return '稀有'
+      case 'epic': return '史诗'
+      case 'legendary': return '传说'
+      default: return '普通'
+    }
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -2485,6 +2833,21 @@ export const useGameStore = defineStore('game', () => {
     getBoardCluePositions,
     setBoardCluePosition,
     getConnectionScoreLevelColor,
-    getConnectionScoreLevelLabel
+    getConnectionScoreLevelLabel,
+    calculateDimensionScore,
+    calculateMultiDimensionalScore,
+    saveScore,
+    getScoreForCommissionAndEnding,
+    getBestScoreForCommission,
+    getAllScores,
+    getGradeConfig,
+    allAchievements,
+    getAchievementProgress,
+    checkAndUnlockAchievements,
+    getUnlockedAchievements,
+    getAchievementsByCategory,
+    getRarityColor,
+    getRarityBgColor,
+    getRarityLabel
   }
 })
