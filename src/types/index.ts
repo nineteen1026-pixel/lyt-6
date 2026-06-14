@@ -681,5 +681,51 @@ export interface GameState {
   scoreHistory: MultiDimensionalScore[]
   unlockedAchievements: string[]
   currentScore: MultiDimensionalScore | null
+  branchTreeStates: Record<string, BranchTreeState>
+}
+
+export interface BranchTreeNode {
+  id: string
+  stepId: string
+  stepIndex: number
+  choiceId: string | null
+  choiceLabel: string | null
+  endingType: 'good' | 'neutral' | 'bad' | null
+  parentId: string | null
+  childIds: string[]
+  isCurrentPath: boolean
+  isVisited: boolean
+  depth: number
+}
+
+export interface BranchTreePath {
+  id: string
+  nodeIds: string[]
+  endingType: 'good' | 'neutral' | 'bad' | null
+  endingId: string | null
+  completedAt: string | null
+  isComplete: boolean
+}
+
+export interface BranchTreeState {
+  commissionId: string
+  currentNodeId: string
+  rootNodeId: string
+  nodes: Record<string, BranchTreeNode>
+  paths: BranchTreePath[]
+  currentPathId: string
+  visitedChoiceIds: string[]
+  totalPossiblePaths: number
+  discoveredPaths: number
+}
+
+export interface BranchTreeStats {
+  totalNodes: number
+  visitedNodes: number
+  totalPaths: number
+  discoveredPaths: number
+  discoveryPercentage: number
+  endingsUnlocked: number
+  totalEndings: number
 }
 

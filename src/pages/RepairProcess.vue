@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check } from 'lucide-vue-next'
+import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check, GitBranch, RotateCcw } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
+import BranchTreeView from '../components/BranchTreeView.vue'
 import type { RepairStep, RepairChoice, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
@@ -15,6 +16,7 @@ const currentStepIndex = ref(0)
 const selectedChoices = ref<string[]>([])
 const isAnimating = ref(false)
 const showHistoryPanel = ref(false)
+const showBranchTree = ref(false)
 const pendingEndingType = ref<string | null>(null)
 const awaitingPostDialogue = ref(false)
 
@@ -58,11 +60,25 @@ const progress = computed(() => {
   }
 })
 
+const canGoBack = computed(() => {
+  return gameStore.canGoBack(commissionId.value) && !isAnimating.value
+})
+
 function selectChoice(choice: RepairChoice) {
   if (isAnimating.value) return
+  if (!currentStep.value) return
 
   isAnimating.value = true
   selectedChoices.value.push(choice.id)
+
+  gameStore.recordBranchChoice(
+    commissionId.value,
+    currentStep.value.id,
+    currentStepIndex.value,
+    choice.id,
+    choice.label,
+    choice.endingType
+  )
 
   if (choice.endingType === 'bad' && currentStep.value && commissionId.value) {
     gameStore.incrementRepairRetryCount(commissionId.value, currentStep.value.id)
@@ -76,6 +92,34 @@ function selectChoice(choice: RepairChoice) {
       finishRepair()
     }
   }, 800)
+}
+
+function handleGoBack() {
+  if (isAnimating.value) return
+  if (!gameStore.canGoBack(commissionId.value)) return
+
+  const success = gameStore.goBackOneStep(commissionId.value)
+  if (success) {
+    selectedChoices.value.pop()
+    if (currentStepIndex.value > 0) {
+      currentStepIndex.value--
+    }
+  }
+}
+
+function handleJumpToNode(nodeId: string) {
+  if (isAnimating.value) return
+  
+  const success = gameStore.jumpToBranchNode(commissionId.value, nodeId)
+  if (success) {
+    const newChoices = gameStore.getSelectedChoiceIds(commissionId.value)
+    selectedChoices.value = newChoices
+    currentStepIndex.value = newChoices.length
+  }
+}
+
+function toggleBranchTree() {
+  showBranchTree.value = !showBranchTree.value
 }
 
 function calculateEndingType(): string {
@@ -110,6 +154,7 @@ function finishRepair() {
 
   if (ending) {
     gameStore.unlockEnding(ending.id)
+    gameStore.completeCurrentBranchPath(commissionId.value, endingType, ending.id)
     
     const score = gameStore.calculateMultiDimensionalScore(
       commissionId.value,
@@ -211,6 +256,9 @@ onMounted(() => {
     router.push('/commissions')
     return
   }
+  
+  gameStore.initBranchTree(commissionId.value)
+  
   if (gameStore.hasDialogueForSession(commissionId.value, 'repair_pre')
       && !gameStore.hasCompletedDialogueForType(commissionId.value, 'repair_pre')) {
     gameStore.startDialogueSession(commissionId.value, 'repair_pre')
@@ -231,6 +279,13 @@ onMounted(() => {
         </button>
         <div class="text-sm text-stone-500 font-serif flex items-center gap-3">
           <button
+            class="p-1.5 text-stone-400 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+            title="分支树"
+            @click="toggleBranchTree"
+          >
+            <GitBranch class="w-4 h-4" />
+          </button>
+          <button
             class="p-1.5 text-stone-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
             title="对话记录"
             @click="toggleHistoryPanel"
@@ -238,6 +293,14 @@ onMounted(() => {
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
+          </button>
+          <button
+            v-if="canGoBack"
+            class="flex items-center gap-1 px-2.5 py-1 text-xs text-stone-500 hover:text-amber-600 hover:bg-amber-50 rounded-md transition-colors"
+            @click="handleGoBack"
+          >
+            <RotateCcw class="w-3.5 h-3.5" />
+            <span>回退</span>
           </button>
           <span>步骤 {{ progress.current }} / {{ progress.total }}</span>
           <span v-if="difficultyContext" class="flex items-center gap-1 text-xs" :class="difficultyLabel.color">
@@ -411,6 +474,50 @@ onMounted(() => {
         v-model="showHistoryPanel"
         :commissionId="commissionId"
       />
+
+      <Transition name="slide-right">
+        <div
+          v-if="showBranchTree"
+          class="fixed top-0 right-0 h-full w-80 bg-white shadow-2xl z-50 border-l border-stone-200"
+        >
+          <BranchTreeView
+            :commission-id="commissionId"
+            @close="showBranchTree = false"
+            @jump-to-node="handleJumpToNode"
+            @go-back="handleGoBack"
+          />
+        </div>
+      </Transition>
+
+      <Transition name="fade">
+        <div
+          v-if="showBranchTree"
+          class="fixed inset-0 bg-black/30 z-40"
+          @click="showBranchTree = false"
+        />
+      </Transition>
     </div>
   </div>
 </template>
+
+<style scoped>
+.slide-right-enter-active,
+.slide-right-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-right-enter-from,
+.slide-right-leave-to {
+  transform: translateX(100%);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+</style>

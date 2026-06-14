@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Home, ArrowRight, ScrollText, Award, TrendingUp, Star, CheckCircle, XCircle, MinusCircle } from 'lucide-vue-next'
+import { Home, ArrowRight, ScrollText, Award, TrendingUp, Star, CheckCircle, XCircle, MinusCircle, GitBranch, RotateCcw } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { MultiDimensionalScore, Achievement } from '../types'
+import type { MultiDimensionalScore, Achievement, BranchTreeNode } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +38,14 @@ const endingTypeLabel = computed(() => {
   return map[endingType.value] || { label: '结局', color: 'text-stone-500' }
 })
 
+const branchTreeStats = computed(() => {
+  return gameStore.getBranchTreeStats(commissionId.value)
+})
+
+const currentPathNodes = computed<BranchTreeNode[]>(() => {
+  return gameStore.getCurrentPathNodes(commissionId.value)
+})
+
 function goHome() {
   router.push('/')
 }
@@ -48,6 +56,11 @@ function goToGallery() {
 
 function goToCommissions() {
   router.push('/commissions')
+}
+
+function replayRepair() {
+  gameStore.initBranchTree(commissionId.value)
+  router.push(`/repair/${commissionId.value}`)
 }
 
 function getChoiceIcon(type: string) {
@@ -65,6 +78,15 @@ function getChoiceColor(type: string) {
     case 'neutral': return 'text-amber-500'
     case 'bad': return 'text-rose-500'
     default: return 'text-stone-500'
+  }
+}
+
+function getChoiceBgColor(type: string) {
+  switch (type) {
+    case 'good': return 'bg-green-100 border-green-200'
+    case 'neutral': return 'bg-amber-50 border-amber-200'
+    case 'bad': return 'bg-rose-50 border-rose-200'
+    default: return 'bg-stone-100 border-stone-200'
   }
 }
 
@@ -218,6 +240,44 @@ onMounted(() => {
                   </div>
                 </div>
               </div>
+
+              <div class="bg-stone-50/80 backdrop-blur-sm rounded-xl p-4 border border-stone-200 mt-4">
+                <div class="flex items-center gap-2 mb-3">
+                  <GitBranch class="w-4 h-4 text-amber-500" />
+                  <span class="text-sm font-medium text-stone-700">分支探索</span>
+                </div>
+                <div class="grid grid-cols-3 gap-4 text-sm mb-4">
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-amber-600">{{ branchTreeStats.discoveredPaths }}</div>
+                    <div class="text-xs text-stone-500">已探索路径</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-green-600">{{ branchTreeStats.discoveryPercentage }}%</div>
+                    <div class="text-xs text-stone-500">探索度</div>
+                  </div>
+                  <div class="text-center">
+                    <div class="text-2xl font-bold text-purple-600">{{ branchTreeStats.endingsUnlocked }}/{{ branchTreeStats.totalEndings }}</div>
+                    <div class="text-xs text-stone-500">结局解锁</div>
+                  </div>
+                </div>
+                
+                <div v-if="currentPathNodes.length > 1" class="mt-4 pt-4 border-t border-stone-200">
+                  <div class="text-xs text-stone-500 mb-2">本次选择路径</div>
+                  <div class="flex flex-wrap gap-2">
+                    <div
+                      v-for="node in currentPathNodes.filter(n => n.choiceId)"
+                      :key="node.id"
+                      class="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs"
+                      :class="getChoiceBgColor(node.endingType || 'neutral')"
+                    >
+                      <span class="font-medium" :class="getChoiceColor(node.endingType || 'neutral')">
+                        步骤{{ node.stepIndex + 1 }}
+                      </span>
+                      <span class="text-stone-600 truncate max-w-32">{{ node.choiceLabel }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </Transition>
 
@@ -264,6 +324,13 @@ onMounted(() => {
           </Transition>
 
           <div class="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              class="flex items-center justify-center gap-2 px-6 py-3 bg-purple-500 text-white rounded-xl font-medium shadow-lg hover:bg-purple-600 hover:shadow-xl transition-all duration-300"
+              @click="replayRepair"
+            >
+              <RotateCcw class="w-4 h-4" />
+              <span>重新探索</span>
+            </button>
             <button
               class="flex items-center justify-center gap-2 px-6 py-3 bg-amber-500 text-white rounded-xl font-medium shadow-lg hover:bg-amber-600 hover:shadow-xl transition-all duration-300"
               @click="goToCommissions"

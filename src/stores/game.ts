@@ -39,7 +39,11 @@ import type {
   ScoreDimension,
   ScoreGradeConfig,
   Achievement,
-  AchievementConfig
+  AchievementConfig,
+  BranchTreeNode,
+  BranchTreePath,
+  BranchTreeState,
+  BranchTreeStats
 } from '../types'
 import {
   SCORE_GRADES,
@@ -2691,6 +2695,295 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function generateNodeId(commissionId: string, stepId: string, choiceId: string | null): string {
+    const choicePart = choiceId ? `-${choiceId}` : ''
+    return `node-${commissionId}-${stepId}${choicePart}`
+  }
+
+  function generatePathId(commissionId: string, timestamp: number): string {
+    return `path-${commissionId}-${timestamp}`
+  }
+
+  function calculateTotalPossiblePaths(commissionId: string): number {
+    const steps = repairSteps[commissionId] || []
+    if (steps.length === 0) return 0
+    let total = 1
+    for (const step of steps) {
+      total *= step.choices.length
+    }
+    return total
+  }
+
+  function initBranchTree(commissionId: string): void {
+    if (state.value.branchTreeStates[commissionId]) return
+
+    const steps = repairSteps[commissionId] || []
+    if (steps.length === 0) return
+
+    const rootNode: BranchTreeNode = {
+      id: generateNodeId(commissionId, 'root', null),
+      stepId: 'root',
+      stepIndex: -1,
+      choiceId: null,
+      choiceLabel: null,
+      endingType: null,
+      parentId: null,
+      childIds: [],
+      isCurrentPath: true,
+      isVisited: true,
+      depth: 0
+    }
+
+    const initialPath: BranchTreePath = {
+      id: generatePathId(commissionId, Date.now()),
+      nodeIds: [rootNode.id],
+      endingType: null,
+      endingId: null,
+      completedAt: null,
+      isComplete: false
+    }
+
+    state.value.branchTreeStates[commissionId] = {
+      commissionId,
+      currentNodeId: rootNode.id,
+      rootNodeId: rootNode.id,
+      nodes: { [rootNode.id]: rootNode },
+      paths: [initialPath],
+      currentPathId: initialPath.id,
+      visitedChoiceIds: [],
+      totalPossiblePaths: calculateTotalPossiblePaths(commissionId),
+      discoveredPaths: 0
+    }
+
+    saveCurrentGame()
+  }
+
+  function getBranchTreeState(commissionId: string): BranchTreeState | null {
+    return state.value.branchTreeStates[commissionId] || null
+  }
+
+  function getCurrentBranchNode(commissionId: string): BranchTreeNode | null {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return null
+    return treeState.nodes[treeState.currentNodeId] || null
+  }
+
+  function getCurrentPathNodes(commissionId: string): BranchTreeNode[] {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return []
+    
+    const currentPath = treeState.paths.find(p => p.id === treeState.currentPathId)
+    if (!currentPath) return []
+    
+    return currentPath.nodeIds
+      .map(id => treeState.nodes[id])
+      .filter((n): n is BranchTreeNode => n !== undefined)
+  }
+
+  function recordBranchChoice(
+    commissionId: string,
+    stepId: string,
+    stepIndex: number,
+    choiceId: string,
+    choiceLabel: string,
+    endingType: 'good' | 'neutral' | 'bad'
+  ): void {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) {
+      initBranchTree(commissionId)
+      return recordBranchChoice(commissionId, stepId, stepIndex, choiceId, choiceLabel, endingType)
+    }
+
+    const currentNode = treeState.nodes[treeState.currentNodeId]
+    if (!currentNode) return
+
+    const childNodeId = generateNodeId(commissionId, stepId, choiceId)
+    let childNode = treeState.nodes[childNodeId]
+
+    if (!childNode) {
+      childNode = {
+        id: childNodeId,
+        stepId,
+        stepIndex,
+        choiceId,
+        choiceLabel,
+        endingType,
+        parentId: currentNode.id,
+        childIds: [],
+        isCurrentPath: true,
+        isVisited: true,
+        depth: currentNode.depth + 1
+      }
+      treeState.nodes[childNodeId] = childNode
+      currentNode.childIds.push(childNodeId)
+    } else {
+      childNode.isCurrentPath = true
+      childNode.isVisited = true
+    }
+
+    if (!treeState.visitedChoiceIds.includes(choiceId)) {
+      treeState.visitedChoiceIds.push(choiceId)
+    }
+
+    const currentPath = treeState.paths.find(p => p.id === treeState.currentPathId)
+    if (currentPath && !currentPath.nodeIds.includes(childNodeId)) {
+      currentPath.nodeIds.push(childNodeId)
+    }
+
+    treeState.currentNodeId = childNodeId
+
+    Object.values(treeState.nodes).forEach(node => {
+      node.isCurrentPath = currentPath?.nodeIds.includes(node.id) || false
+    })
+
+    saveCurrentGame()
+  }
+
+  function completeCurrentBranchPath(
+    commissionId: string,
+    endingType: 'good' | 'neutral' | 'bad',
+    endingId: string
+  ): void {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return
+
+    const currentPath = treeState.paths.find(p => p.id === treeState.currentPathId)
+    if (currentPath) {
+      currentPath.endingType = endingType
+      currentPath.endingId = endingId
+      currentPath.completedAt = new Date().toISOString()
+      currentPath.isComplete = true
+    }
+
+    const uniquePathSignatures = new Set(
+      treeState.paths
+        .filter(p => p.isComplete)
+        .map(p => p.nodeIds.join('|'))
+    )
+    treeState.discoveredPaths = uniquePathSignatures.size
+
+    saveCurrentGame()
+  }
+
+  function canGoBack(commissionId: string): boolean {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return false
+    const currentNode = treeState.nodes[treeState.currentNodeId]
+    return currentNode?.parentId !== null && currentNode?.parentId !== undefined
+  }
+
+  function goBackOneStep(commissionId: string): boolean {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return false
+
+    const currentNode = treeState.nodes[treeState.currentNodeId]
+    if (!currentNode?.parentId) return false
+
+    const parentNode = treeState.nodes[currentNode.parentId]
+    if (!parentNode) return false
+
+    treeState.currentNodeId = parentNode.id
+
+    const currentPath = treeState.paths.find(p => p.id === treeState.currentPathId)
+    if (currentPath) {
+      const idx = currentPath.nodeIds.indexOf(currentNode.id)
+      if (idx > -1) {
+        currentPath.nodeIds = currentPath.nodeIds.slice(0, idx)
+      }
+    }
+
+    Object.values(treeState.nodes).forEach(node => {
+      node.isCurrentPath = currentPath?.nodeIds.includes(node.id) || false
+    })
+
+    saveCurrentGame()
+    return true
+  }
+
+  function jumpToBranchNode(commissionId: string, nodeId: string): boolean {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return false
+
+    const targetNode = treeState.nodes[nodeId]
+    if (!targetNode) return false
+
+    const pathToRoot: string[] = []
+    let current: BranchTreeNode | null = targetNode
+    while (current) {
+      pathToRoot.unshift(current.id)
+      current = current.parentId ? treeState.nodes[current.parentId] : null
+    }
+
+    const newPath: BranchTreePath = {
+      id: generatePathId(commissionId, Date.now()),
+      nodeIds: pathToRoot,
+      endingType: targetNode.endingType,
+      endingId: null,
+      completedAt: null,
+      isComplete: false
+    }
+
+    treeState.paths.push(newPath)
+    treeState.currentPathId = newPath.id
+    treeState.currentNodeId = nodeId
+
+    Object.values(treeState.nodes).forEach(node => {
+      node.isCurrentPath = pathToRoot.includes(node.id)
+    })
+
+    saveCurrentGame()
+    return true
+  }
+
+  function getBranchTreeStats(commissionId: string): BranchTreeStats {
+    const treeState = state.value.branchTreeStates[commissionId]
+    const commissionEndings = endings.filter(e => e.commissionId === commissionId)
+    const unlockedCount = commissionEndings.filter(e => 
+      state.value.unlockedEndings.includes(e.id)
+    ).length
+
+    if (!treeState) {
+      return {
+        totalNodes: 0,
+        visitedNodes: 0,
+        totalPaths: calculateTotalPossiblePaths(commissionId),
+        discoveredPaths: 0,
+        discoveryPercentage: 0,
+        endingsUnlocked: unlockedCount,
+        totalEndings: commissionEndings.length
+      }
+    }
+
+    const allNodes = Object.values(treeState.nodes)
+    const visitedNodes = allNodes.filter(n => n.isVisited)
+    const discoveryPercentage = treeState.totalPossiblePaths > 0
+      ? Math.round((treeState.discoveredPaths / treeState.totalPossiblePaths) * 100)
+      : 0
+
+    return {
+      totalNodes: allNodes.length,
+      visitedNodes: visitedNodes.length,
+      totalPaths: treeState.totalPossiblePaths,
+      discoveredPaths: treeState.discoveredPaths,
+      discoveryPercentage,
+      endingsUnlocked: unlockedCount,
+      totalEndings: commissionEndings.length
+    }
+  }
+
+  function getAllCompletePaths(commissionId: string): BranchTreePath[] {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return []
+    return treeState.paths.filter(p => p.isComplete)
+  }
+
+  function getSelectedChoiceIds(commissionId: string): string[] {
+    const pathNodes = getCurrentPathNodes(commissionId)
+    return pathNodes
+      .filter(n => n.choiceId !== null)
+      .map(n => n.choiceId!)
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -2848,6 +3141,18 @@ export const useGameStore = defineStore('game', () => {
     getAchievementsByCategory,
     getRarityColor,
     getRarityBgColor,
-    getRarityLabel
+    getRarityLabel,
+    initBranchTree,
+    getBranchTreeState,
+    getCurrentBranchNode,
+    getCurrentPathNodes,
+    recordBranchChoice,
+    completeCurrentBranchPath,
+    canGoBack,
+    goBackOneStep,
+    jumpToBranchNode,
+    getBranchTreeStats,
+    getAllCompletePaths,
+    getSelectedChoiceIds
   }
 })

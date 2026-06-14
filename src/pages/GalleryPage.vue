@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal } from 'lucide-vue-next'
+import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal, GitBranch } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { Ending, Commission, MultiDimensionalScore, Achievement } from '../types'
 
@@ -18,6 +18,33 @@ const allAchievements = computed(() => gameStore.allAchievements)
 
 const unlockedEndingIds = computed(() => gameStore.state.unlockedEndings)
 const unlockedAchievementCount = computed(() => gameStore.state.unlockedAchievements.length)
+
+const overallBranchStats = computed(() => {
+  let totalPaths = 0
+  let discoveredPaths = 0
+  let totalEndings = 0
+  let unlockedEndings = 0
+  
+  allCommissions.value.forEach(commission => {
+    const stats = gameStore.getBranchTreeStats(commission.id)
+    totalPaths += stats.totalPaths
+    discoveredPaths += stats.discoveredPaths
+    totalEndings += stats.totalEndings
+    unlockedEndings += stats.endingsUnlocked
+  })
+  
+  return {
+    totalPaths,
+    discoveredPaths,
+    totalEndings,
+    unlockedEndings,
+    overallDiscoveryPercentage: totalPaths > 0 ? Math.round((discoveredPaths / totalPaths) * 100) : 0
+  }
+})
+
+function getBranchStats(commissionId: string) {
+  return gameStore.getBranchTreeStats(commissionId)
+}
 
 function isEndingUnlocked(endingId: string): boolean {
   return unlockedEndingIds.value.includes(endingId)
@@ -104,6 +131,37 @@ onMounted(() => {
         <p class="text-stone-500">在这里回顾你修复过的每一件旧物和解锁的结局</p>
       </div>
 
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <div class="card-warm p-4 text-center">
+          <div class="flex justify-center mb-2">
+            <Trophy class="w-6 h-6 text-amber-500" />
+          </div>
+          <div class="text-2xl font-bold text-stone-800">{{ progress.completed }}/{{ progress.total }}</div>
+          <div class="text-xs text-stone-500">已修复委托</div>
+        </div>
+        <div class="card-warm p-4 text-center">
+          <div class="flex justify-center mb-2">
+            <GitBranch class="w-6 h-6 text-purple-500" />
+          </div>
+          <div class="text-2xl font-bold text-stone-800">{{ overallBranchStats.discoveredPaths }}/{{ overallBranchStats.totalPaths }}</div>
+          <div class="text-xs text-stone-500">已探索路径</div>
+        </div>
+        <div class="card-warm p-4 text-center">
+          <div class="flex justify-center mb-2">
+            <Star class="w-6 h-6 text-green-500" />
+          </div>
+          <div class="text-2xl font-bold text-stone-800">{{ overallBranchStats.overallDiscoveryPercentage }}%</div>
+          <div class="text-xs text-stone-500">总体探索度</div>
+        </div>
+        <div class="card-warm p-4 text-center">
+          <div class="flex justify-center mb-2">
+            <Award class="w-6 h-6 text-blue-500" />
+          </div>
+          <div class="text-2xl font-bold text-stone-800">{{ overallBranchStats.unlockedEndings }}/{{ overallBranchStats.totalEndings }}</div>
+          <div class="text-xs text-stone-500">结局解锁</div>
+        </div>
+      </div>
+
       <div class="flex justify-center gap-2 mb-8">
         <button
           v-for="tab in [
@@ -174,6 +232,28 @@ onMounted(() => {
               </div>
               <div v-else class="p-2.5 rounded-lg border border-stone-200 bg-stone-50 text-center text-xs text-stone-400">
                 暂无评分记录
+              </div>
+            </div>
+
+            <div v-if="isCommissionCompleted(commission.id)" class="mb-4 p-3 bg-purple-50 rounded-lg border border-purple-100">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-xs text-purple-600 flex items-center gap-1">
+                  <GitBranch class="w-3 h-3" />
+                  <span>分支探索</span>
+                </div>
+                <span class="text-sm font-bold text-purple-600">
+                  {{ getBranchStats(commission.id).discoveryPercentage }}%
+                </span>
+              </div>
+              <div class="w-full bg-purple-100 rounded-full h-1.5">
+                <div 
+                  class="bg-purple-500 h-1.5 rounded-full transition-all duration-500"
+                  :style="{ width: getBranchStats(commission.id).discoveryPercentage + '%' }"
+                ></div>
+              </div>
+              <div class="flex justify-between mt-2 text-xs text-purple-400">
+                <span>{{ getBranchStats(commission.id).discoveredPaths }} 条路径</span>
+                <span>{{ getBranchStats(commission.id).endingsUnlocked }}/{{ getBranchStats(commission.id).totalEndings }} 结局</span>
               </div>
             </div>
 

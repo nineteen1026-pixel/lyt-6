@@ -69,7 +69,8 @@ export function getInitialGameState(): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -321,7 +322,8 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -388,7 +390,8 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -463,7 +466,8 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -540,7 +544,8 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -620,7 +625,8 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 }
 
@@ -700,7 +706,8 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     discoveredConflicts: [],
     scoreHistory: [],
     unlockedAchievements: [],
-    currentScore: null
+    currentScore: null,
+    branchTreeStates: {}
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
