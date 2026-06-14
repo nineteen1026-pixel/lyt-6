@@ -118,7 +118,8 @@ onMounted(() => {
   }
   localKeyword.value = gameStore.state.searchKeyword
   localTagFilters.value = [...gameStore.state.activeTagFilters]
-  if (gameStore.hasDialogueForSession(commissionId.value, 'commission_intro')) {
+  if (gameStore.hasDialogueForSession(commissionId.value, 'commission_intro')
+      && !gameStore.hasCompletedDialogueForType(commissionId.value, 'commission_intro')) {
     gameStore.startDialogueSession(commissionId.value, 'commission_intro')
   }
 })

@@ -116,7 +116,8 @@ function finishRepair() {
 
   pendingEndingType.value = endingType
 
-  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_post')) {
+  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_post')
+      && !gameStore.hasCompletedDialogueForType(commissionId.value, 'repair_post')) {
     awaitingPostDialogue.value = true
     gameStore.startDialogueSession(commissionId.value, 'repair_post')
   } else {
@@ -201,7 +202,8 @@ onMounted(() => {
     router.push('/commissions')
     return
   }
-  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_pre')) {
+  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_pre')
+      && !gameStore.hasCompletedDialogueForType(commissionId.value, 'repair_pre')) {
     gameStore.startDialogueSession(commissionId.value, 'repair_pre')
   }
 })
