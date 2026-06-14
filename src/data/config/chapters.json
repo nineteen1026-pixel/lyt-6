@@ -1,0 +1,52 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏章节配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "chap-001",
+      "number": 1,
+      "title": "初遇的记忆",
+      "subtitle": "第一章",
+      "description": "欢迎来到记忆修复店。在这里，你将学会如何修复那些承载着珍贵回忆的旧物。",
+      "theme": "warmth",
+      "icon": "🌅",
+      "unlockRule": {
+        "type": "condition",
+        "conditionType": "custom",
+        "conditionValue": "always_unlocked"
+      },
+      "commissionIds": ["comm-001"]
+    },
+    {
+      "id": "chap-002",
+      "number": 2,
+      "title": "家的温度",
+      "subtitle": "第二章",
+      "description": "有些记忆，藏在日常的烟火气里。一碗糖水，一声叮咛，都是家的味道。",
+      "theme": "nostalgia",
+      "icon": "🏠",
+      "unlockRule": {
+        "type": "prerequisites",
+        "prerequisiteCommissionIds": ["comm-001"]
+      },
+      "commissionIds": ["comm-002"]
+    },
+    {
+      "id": "chap-003",
+      "number": 3,
+      "title": "时光的馈赠",
+      "subtitle": "第三章",
+      "description": "时间会带走很多东西，但有些爱，会永远停留在某个瞬间。",
+      "theme": "time",
+      "icon": "⏳",
+      "unlockRule": {
+        "type": "prerequisites",
+        "prerequisiteCommissionIds": ["comm-002"]
+      },
+      "commissionIds": ["comm-003"]
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏配置索引",
+    "lastUpdated": "2026-06-14"
+  },
+  "files": {
+    "tags": "tags.json",
+    "chapters": "chapters.json",
+    "commissions": "commissions.json",
+    "clues": "clues.json",
+    "connections": "connections.json",
+    "endings": "endings.json",
+    "repairSteps": "repairSteps.json",
+    "dialogueNodes": {
+      "pattern": "dialogues/comm-{commissionId}.json",
+      "commissions": ["comm-001", "comm-002", "comm-003"]
+    }
+  },
+  "validation": {
+    "idPrefixes": {
+      "tag": "tag-",
+      "chapter": "chap-",
+      "commission": "comm-",
+      "clue": "clue-",
+      "connection": "conn-",
+      "ending": "end-",
+      "repairStep": "step-",
+      "hotspot": "hot-",
+      "item": "item-",
+      "dialogue": "dlg-",
+      "choice": "choice-"
+    },
+    "requiredReferences": {
+      "commission": ["chapterId"],
+      "clue": ["commissionId"],
+      "connection": ["fromClueId", "toClueId"],
+      "ending": ["commissionId"],
+      "hotspot": ["clueId"],
+      "chapter": ["commissionIds"]
+    }
+  }
+}

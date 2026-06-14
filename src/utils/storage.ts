@@ -12,12 +12,12 @@ import type {
   SnapshotTrigger,
   EndingReplay
 } from '../types'
-import { commissions, clues, connections, chapters } from '../data/gameData'
-import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT } from '../types'
+import { commissions, clues, connections, chapters, endings } from '../data/gameData'
+import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT, CURRENT_SAVE_VERSION } from '../types'
 
 const STORAGE_KEY = 'memory-repair-shop-save'
 const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
-const SAVE_VERSION = '8.0.0'
+const SAVE_VERSION = CURRENT_SAVE_VERSION
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
   const statuses: Record<string, CommissionStatus> = {}
@@ -443,7 +443,266 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
   }
 }
 
-function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGameV4 | SavedGameV5 | SavedGame): GameState | null {
+interface GameStateV6 {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: GameStep
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+  notes: any[]
+  customTags: any[]
+  activeTagFilters: string[]
+  searchKeyword: string
+  searchMatchMode: 'and' | 'or'
+  searchScope: 'all' | 'clue' | 'note'
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: 'tag' | 'clue' | 'time' | 'importance'
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
+  repairRetryCounts: Record<string, number>
+  connectionRetryCounts: Record<string, number>
+}
+
+interface SavedGameV6 {
+  version: string
+  state: GameStateV6
+  savedAt: string
+}
+
+function migrateFromV6ToV7(v6State: GameStateV6): GameState {
+  return {
+    currentCommissionId: v6State.currentCommissionId,
+    currentChapterId: v6State.currentChapterId,
+    currentStep: v6State.currentStep,
+    completedCommissions: [...v6State.completedCommissions],
+    unlockedChapters: [...v6State.unlockedChapters],
+    collectedClues: [...v6State.collectedClues],
+    discoveredConnections: [...v6State.discoveredConnections],
+    unlockedEndings: [...v6State.unlockedEndings],
+    currentEndingType: v6State.currentEndingType,
+    lastSaveTime: v6State.lastSaveTime,
+    totalPlayTime: v6State.totalPlayTime,
+    commissionStatuses: { ...v6State.commissionStatuses },
+    unlockedSteps: { ...v6State.unlockedSteps },
+    notes: [...(v6State.notes || [])],
+    customTags: [...(v6State.customTags || [])],
+    activeTagFilters: [...(v6State.activeTagFilters || [])],
+    searchKeyword: v6State.searchKeyword || '',
+    searchMatchMode: v6State.searchMatchMode || 'or',
+    searchScope: v6State.searchScope || 'all',
+    noteSortBy: v6State.noteSortBy || 'updatedAt',
+    noteSortOrder: v6State.noteSortOrder || 'desc',
+    noteAggregationType: v6State.noteAggregationType || 'tag',
+    connectionHintsUsed: [...(v6State.connectionHintsUsed || [])],
+    discoveredHints: [...(v6State.discoveredHints || [])],
+    progressMilestones: { ...(v6State.progressMilestones || {}) },
+    repairRetryCounts: { ...(v6State.repairRetryCounts || {}) },
+    connectionRetryCounts: { ...(v6State.connectionRetryCounts || {}) },
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
+  }
+}
+
+interface GameStateV7 {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: GameStep
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+  notes: any[]
+  customTags: any[]
+  activeTagFilters: string[]
+  searchKeyword: string
+  searchMatchMode: 'and' | 'or'
+  searchScope: 'all' | 'clue' | 'note'
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: 'tag' | 'clue' | 'time' | 'importance'
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
+  repairRetryCounts: Record<string, number>
+  connectionRetryCounts: Record<string, number>
+  dialogueFlags: Record<string, string | number | boolean>
+  dialogueHistory: any[]
+  completedDialogueNodeIds: string[]
+}
+
+interface SavedGameV7 {
+  version: string
+  state: GameStateV7
+  savedAt: string
+}
+
+function migrateFromV7ToV8(v7State: GameStateV7): GameState {
+  return {
+    currentCommissionId: v7State.currentCommissionId,
+    currentChapterId: v7State.currentChapterId,
+    currentStep: v7State.currentStep,
+    completedCommissions: [...v7State.completedCommissions],
+    unlockedChapters: [...v7State.unlockedChapters],
+    collectedClues: [...v7State.collectedClues],
+    discoveredConnections: [...v7State.discoveredConnections],
+    unlockedEndings: [...v7State.unlockedEndings],
+    currentEndingType: v7State.currentEndingType,
+    lastSaveTime: v7State.lastSaveTime,
+    totalPlayTime: v7State.totalPlayTime,
+    commissionStatuses: { ...v7State.commissionStatuses },
+    unlockedSteps: { ...v7State.unlockedSteps },
+    notes: [...(v7State.notes || [])],
+    customTags: [...(v7State.customTags || [])],
+    activeTagFilters: [...(v7State.activeTagFilters || [])],
+    searchKeyword: v7State.searchKeyword || '',
+    searchMatchMode: v7State.searchMatchMode || 'or',
+    searchScope: v7State.searchScope || 'all',
+    noteSortBy: v7State.noteSortBy || 'updatedAt',
+    noteSortOrder: v7State.noteSortOrder || 'desc',
+    noteAggregationType: v7State.noteAggregationType || 'tag',
+    connectionHintsUsed: [...(v7State.connectionHintsUsed || [])],
+    discoveredHints: [...(v7State.discoveredHints || [])],
+    progressMilestones: { ...(v7State.progressMilestones || {}) },
+    repairRetryCounts: { ...(v7State.repairRetryCounts || {}) },
+    connectionRetryCounts: { ...(v7State.connectionRetryCounts || {}) },
+    dialogueFlags: { ...(v7State.dialogueFlags || {}) },
+    dialogueHistory: [...(v7State.dialogueHistory || [])],
+    completedDialogueNodeIds: [...(v7State.completedDialogueNodeIds || [])]
+  }
+}
+
+interface GameStateV8 {
+  currentCommissionId: string | null
+  currentChapterId: string | null
+  currentStep: GameStep
+  completedCommissions: string[]
+  unlockedChapters: string[]
+  collectedClues: string[]
+  discoveredConnections: string[]
+  unlockedEndings: string[]
+  currentEndingType: string | null
+  lastSaveTime: string | null
+  totalPlayTime: number
+  commissionStatuses: Record<string, CommissionStatus>
+  unlockedSteps: Record<string, GameStep[]>
+  notes: any[]
+  customTags: any[]
+  activeTagFilters: string[]
+  searchKeyword: string
+  searchMatchMode: 'and' | 'or'
+  searchScope: 'all' | 'clue' | 'note'
+  noteSortBy: 'updatedAt' | 'createdAt' | 'importance' | 'title'
+  noteSortOrder: 'asc' | 'desc'
+  noteAggregationType: 'tag' | 'clue' | 'time' | 'importance'
+  connectionHintsUsed: string[]
+  discoveredHints: string[]
+  progressMilestones: Record<string, boolean>
+  repairRetryCounts: Record<string, number>
+  connectionRetryCounts: Record<string, number>
+  dialogueFlags: Record<string, string | number | boolean>
+  dialogueHistory: any[]
+  completedDialogueNodeIds: string[]
+}
+
+interface SavedGameV8 {
+  version: string
+  state: GameStateV8
+  savedAt: string
+}
+
+function migrateFromV8ToV9(v8State: GameStateV8): GameState {
+  const migrated: GameState = {
+    currentCommissionId: v8State.currentCommissionId,
+    currentChapterId: v8State.currentChapterId,
+    currentStep: v8State.currentStep,
+    completedCommissions: [...v8State.completedCommissions],
+    unlockedChapters: [...v8State.unlockedChapters],
+    collectedClues: [...v8State.collectedClues],
+    discoveredConnections: [...v8State.discoveredConnections],
+    unlockedEndings: [...v8State.unlockedEndings],
+    currentEndingType: v8State.currentEndingType,
+    lastSaveTime: v8State.lastSaveTime,
+    totalPlayTime: v8State.totalPlayTime,
+    commissionStatuses: { ...v8State.commissionStatuses },
+    unlockedSteps: { ...v8State.unlockedSteps },
+    notes: [...(v8State.notes || [])],
+    customTags: [...(v8State.customTags || [])],
+    activeTagFilters: [...(v8State.activeTagFilters || [])],
+    searchKeyword: v8State.searchKeyword || '',
+    searchMatchMode: v8State.searchMatchMode || 'or',
+    searchScope: v8State.searchScope || 'all',
+    noteSortBy: v8State.noteSortBy || 'updatedAt',
+    noteSortOrder: v8State.noteSortOrder || 'desc',
+    noteAggregationType: v8State.noteAggregationType || 'tag',
+    connectionHintsUsed: [...(v8State.connectionHintsUsed || [])],
+    discoveredHints: [...(v8State.discoveredHints || [])],
+    progressMilestones: { ...(v8State.progressMilestones || {}) },
+    repairRetryCounts: { ...(v8State.repairRetryCounts || {}) },
+    connectionRetryCounts: { ...(v8State.connectionRetryCounts || {}) },
+    dialogueFlags: { ...(v8State.dialogueFlags || {}) },
+    dialogueHistory: [...(v8State.dialogueHistory || [])],
+    completedDialogueNodeIds: [...(v8State.completedDialogueNodeIds || [])]
+  }
+
+  const configCommissionIds = new Set(commissions.map(c => c.id))
+  for (const [commId, status] of Object.entries(migrated.commissionStatuses)) {
+    if (!configCommissionIds.has(commId)) {
+      delete migrated.commissionStatuses[commId]
+    }
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.commissionStatuses)) {
+      migrated.commissionStatuses[comm.id] = comm.status
+    }
+  }
+
+  const configChapterIds = new Set(chapters.map(c => c.id))
+  migrated.unlockedChapters = migrated.unlockedChapters.filter(id => configChapterIds.has(id))
+  if (migrated.unlockedChapters.length === 0) {
+    migrated.unlockedChapters = ['chap-001']
+  }
+
+  const configClueIds = new Set(clues.map(c => c.id))
+  migrated.collectedClues = migrated.collectedClues.filter(id => configClueIds.has(id))
+
+  const configConnectionIds = new Set(connections.map(c => c.id))
+  migrated.discoveredConnections = migrated.discoveredConnections.filter(id => configConnectionIds.has(id))
+
+  const configEndingIds = new Set(endings.map(e => e.id))
+  migrated.unlockedEndings = migrated.unlockedEndings.filter(id => configEndingIds.has(id))
+
+  for (const commId of Object.keys(migrated.unlockedSteps)) {
+    if (!configCommissionIds.has(commId)) {
+      delete migrated.unlockedSteps[commId]
+    }
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.unlockedSteps)) {
+      migrated.unlockedSteps[comm.id] = ['item']
+    }
+  }
+
+  return migrated
+}
+
+function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGameV4 | SavedGameV5 | SavedGameV6 | SavedGameV7 | SavedGameV8 | SavedGame): GameState | null {
   const version = savedGame.version
   
   if (version === SAVE_VERSION) {
@@ -471,26 +730,53 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     return state
   }
 
+  if (version === '8.0.0') {
+    return migrateFromV8ToV9((savedGame as SavedGameV8).state)
+  }
+
+  if (version === '7.0.0') {
+    const v8 = migrateFromV7ToV8((savedGame as SavedGameV7).state)
+    return migrateFromV8ToV9(v8)
+  }
+
+  if (version === '6.0.0') {
+    const v7 = migrateFromV6ToV7((savedGame as SavedGameV6).state)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
+  }
+
   if (version === '5.0.0') {
-    return migrateFromV5ToV6((savedGame as SavedGameV5).state)
+    const v6 = migrateFromV5ToV6((savedGame as SavedGameV5).state)
+    const v7 = migrateFromV6ToV7(v6)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
   }
 
   if (version === '4.0.0') {
     const v5 = migrateFromV4ToV5((savedGame as SavedGameV4).state)
-    return migrateFromV5ToV6(v5 as any)
+    const v6 = migrateFromV5ToV6(v5 as any)
+    const v7 = migrateFromV6ToV7(v6)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
   }
 
   if (version === '3.0.0') {
     const v4 = migrateFromV3ToV4((savedGame as SavedGameV3).state)
     const v5 = migrateFromV4ToV5(v4 as any)
-    return migrateFromV5ToV6(v5 as any)
+    const v6 = migrateFromV5ToV6(v5 as any)
+    const v7 = migrateFromV6ToV7(v6)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
   }
 
   if (version === '2.0.0') {
     const v3 = migrateFromV2ToV3((savedGame as SavedGameV2).state)
     const v4 = migrateFromV3ToV4(v3 as any)
     const v5 = migrateFromV4ToV5(v4 as any)
-    return migrateFromV5ToV6(v5 as any)
+    const v6 = migrateFromV5ToV6(v5 as any)
+    const v7 = migrateFromV6ToV7(v6)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
   }
 
   if (version === '1.0.0') {
@@ -498,7 +784,10 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     const v3 = migrateFromV2ToV3(v2 as any)
     const v4 = migrateFromV3ToV4(v3 as any)
     const v5 = migrateFromV4ToV5(v4 as any)
-    return migrateFromV5ToV6(v5 as any)
+    const v6 = migrateFromV5ToV6(v5 as any)
+    const v7 = migrateFromV6ToV7(v6)
+    const v8 = migrateFromV7ToV8(v7)
+    return migrateFromV8ToV9(v8)
   }
 
   console.warn(`Unsupported save version: ${version}, starting new game`)

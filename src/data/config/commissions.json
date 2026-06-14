@@ -1,0 +1,335 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏委托配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "comm-001",
+      "chapterId": "chap-001",
+      "title": "褪色的音乐盒",
+      "clientName": "林奶奶",
+      "clientAvatar": "👵",
+      "description": "这是我老伴生前送给我的定情信物，音乐盒还能转动，但上面的漆都掉了，照片也模糊了……能不能帮我找回那些年轻时的记忆？",
+      "difficulty": "simple",
+      "status": "pending",
+      "unlockRules": [
+        {
+          "type": "chapter",
+          "chapterId": "chap-001"
+        }
+      ],
+      "prerequisiteCommissionIds": [],
+      "stepDependencies": [
+        { "step": "item", "dependencyType": "always" },
+        { "step": "deduction", "dependencyType": "clue_count", "minCount": 3 },
+        { "step": "repair", "dependencyType": "connection_count", "minCount": 1 }
+      ],
+      "orderInChapter": 1,
+      "item": {
+        "id": "item-001",
+        "name": "老式音乐盒",
+        "description": "一个木制的老式音乐盒，表面的红漆已经褪色，盖子上嵌着一张模糊的老照片。打开时会播放一段走调的旋律。",
+        "image": "🎵",
+        "hotspots": [
+          {
+            "id": "hot-001-1",
+            "name": "表面的划痕",
+            "x": 25,
+            "y": 30,
+            "width": 15,
+            "height": 20,
+            "description": "盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。",
+            "clueId": "clue-001-1",
+            "hints": {
+              "assisted": "盒盖上有几道深浅不一的划痕，像是有人反复用手指沿着同一个方向摩挲。这种磨损暗示着主人对某处细节的眷恋——也许和旋钮上的刻字有关？",
+              "standard": "盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。",
+              "challenging": "划痕。深浅不一，方向一致。"
+            }
+          },
+          {
+            "id": "hot-001-2",
+            "name": "模糊的照片",
+            "x": 50,
+            "y": 45,
+            "width": 30,
+            "height": 25,
+            "description": "照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。",
+            "clueId": "clue-001-2",
+            "hints": {
+              "assisted": "照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。虽然画面泛黄模糊，但这显然是一段珍贵的爱情记忆——和盒底那行「永远」的承诺遥相呼应。",
+              "standard": "照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。",
+              "challenging": "泛黄。两个人的轮廓，模糊的笑。"
+            }
+          },
+          {
+            "id": "hot-001-3",
+            "name": "发条旋钮",
+            "x": 80,
+            "y": 60,
+            "width": 12,
+            "height": 15,
+            "description": "铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。",
+            "clueId": "clue-001-3",
+            "hints": {
+              "assisted": "铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母——这是某个人名字的首字母，也许和盒盖上的划痕有着关联？",
+              "standard": "铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。",
+              "challenging": "发黑。还能转。底部有个字母。"
+            }
+          },
+          {
+            "id": "hot-001-4",
+            "name": "底部的纸条",
+            "x": 35,
+            "y": 75,
+            "width": 25,
+            "height": 10,
+            "description": "音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。",
+            "clueId": "clue-001-4",
+            "hints": {
+              "assisted": "音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。这一定是某个人写下的承诺——和照片里那对恋人的故事有关。",
+              "standard": "音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。",
+              "challenging": "纸条。胶水晕开。两个字。"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "comm-002",
+      "chapterId": "chap-002",
+      "title": "破碎的陶瓷碗",
+      "clientName": "小陈",
+      "clientAvatar": "👨",
+      "description": "这是我外婆生前用的碗，小时候她总用这个碗给我盛糖水。搬家时不小心打碎了，我粘回去过，但怎么看都不对……",
+      "difficulty": "medium",
+      "status": "locked",
+      "unlockRules": [
+        {
+          "type": "chapter",
+          "chapterId": "chap-002"
+        },
+        {
+          "type": "prerequisites",
+          "prerequisiteCommissionIds": ["comm-001"]
+        }
+      ],
+      "prerequisiteCommissionIds": ["comm-001"],
+      "stepDependencies": [
+        { "step": "item", "dependencyType": "always" },
+        { "step": "deduction", "dependencyType": "clue_count", "minCount": 3 },
+        { "step": "repair", "dependencyType": "connection_count", "minCount": 2 }
+      ],
+      "orderInChapter": 1,
+      "item": {
+        "id": "item-002",
+        "name": "青瓷碗",
+        "description": "一只青瓷小碗，碗身有几道裂痕，是用胶水笨拙地粘起来的。碗底有一个小小的印章。",
+        "image": "🍜",
+        "hotspots": [
+          {
+            "id": "hot-002-1",
+            "name": "碗口的缺口",
+            "x": 45,
+            "y": 15,
+            "width": 25,
+            "height": 10,
+            "description": "碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。",
+            "clueId": "clue-002-1",
+            "hints": {
+              "assisted": "碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。这样整齐的断面，更像是被牙齿磕出来的——也许是谁小时候用这个碗喝东西时留下的？",
+              "standard": "碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。",
+              "challenging": "缺口。断面整齐。非碎裂。"
+            }
+          },
+          {
+            "id": "hot-002-2",
+            "name": "碗壁的裂纹",
+            "x": 30,
+            "y": 40,
+            "width": 35,
+            "height": 30,
+            "description": "碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。",
+            "clueId": "clue-002-2",
+            "hints": {
+              "assisted": "碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹，闻起来有淡淡的甜味——是糖水常年渗入留下的印记吧。",
+              "standard": "碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。",
+              "challenging": "长裂纹。口到底。黄褐色。"
+            }
+          },
+          {
+            "id": "hot-002-3",
+            "name": "碗底的印章",
+            "x": 55,
+            "y": 70,
+            "width": 15,
+            "height": 15,
+            "description": "碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。",
+            "clueId": "clue-002-3",
+            "hints": {
+              "assisted": "碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。这是陈家的传家之物，印章旁的年号说明这只碗有着久远的历史。",
+              "standard": "碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。",
+              "challenging": "方印。「陈」。旁有小字。"
+            }
+          },
+          {
+            "id": "hot-002-4",
+            "name": "内壁的图案",
+            "x": 40,
+            "y": 35,
+            "width": 20,
+            "height": 20,
+            "description": "碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。",
+            "clueId": "clue-002-4",
+            "hints": {
+              "assisted": "碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。磨损最重的地方正对碗口——那是每次喝东西时嘴唇触碰的位置。",
+              "standard": "碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。",
+              "challenging": "内壁花纹。梅花。磨损。"
+            }
+          },
+          {
+            "id": "hot-002-5",
+            "name": "胶水的痕迹",
+            "x": 20,
+            "y": 50,
+            "width": 10,
+            "height": 25,
+            "description": "裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。",
+            "clueId": "clue-002-5",
+            "hints": {
+              "assisted": "裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。修补的人虽然手笨，但每一道胶痕都透着小心翼翼——这分明是怀着爱在修补啊。",
+              "standard": "裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。",
+              "challenging": "胶水。厚重。不均匀。"
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "comm-003",
+      "chapterId": "chap-003",
+      "title": "沉默的怀表",
+      "clientName": "周先生",
+      "clientAvatar": "🧔",
+      "description": "这块怀表是我父亲留给我的，他走得突然，什么都没来得及说。表停了，我想知道……它停在了什么时候。",
+      "difficulty": "complex",
+      "status": "locked",
+      "unlockRules": [
+        {
+          "type": "chapter",
+          "chapterId": "chap-003"
+        },
+        {
+          "type": "prerequisites",
+          "prerequisiteCommissionIds": ["comm-002"]
+        }
+      ],
+      "prerequisiteCommissionIds": ["comm-002"],
+      "stepDependencies": [
+        { "step": "item", "dependencyType": "always" },
+        { "step": "deduction", "dependencyType": "clue_count", "minCount": 4 },
+        { "step": "repair", "dependencyType": "connection_count", "minCount": 2 }
+      ],
+      "orderInChapter": 1,
+      "item": {
+        "id": "item-003",
+        "name": "银质怀表",
+        "description": "一块银色的老怀表，表盖上面刻着精致的花纹。表已经停走了，表蒙子上有一道裂痕。",
+        "image": "⌚",
+        "hotspots": [
+          {
+            "id": "hot-003-1",
+            "name": "表盖的刻字",
+            "x": 50,
+            "y": 25,
+            "width": 30,
+            "height": 20,
+            "description": "表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」",
+            "clueId": "clue-003-1",
+            "hints": {
+              "assisted": "表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」这块表承载着父亲对儿子深沉的爱和期许，和他无数次摩挲表链的习惯一样，都是无声的关怀。",
+              "standard": "表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」",
+              "challenging": "内侧有字。父亲的。每一秒。"
+            }
+          },
+          {
+            "id": "hot-003-2",
+            "name": "停止的指针",
+            "x": 45,
+            "y": 50,
+            "width": 25,
+            "height": 25,
+            "description": "指针停在了三点十七分。秒针停在第十二格的位置，很整齐。",
+            "clueId": "clue-003-2",
+            "hints": {
+              "assisted": "指针停在了三点十七分。秒针停在第十二格的位置，很整齐。这个精确到秒的时间一定有着特殊的意义——也许和某个重要的人的出生有关？",
+              "standard": "指针停在了三点十七分。秒针停在第十二格的位置，很整齐。",
+              "challenging": "3:17。秒针归位。整齐。"
+            }
+          },
+          {
+            "id": "hot-003-3",
+            "name": "表蒙的裂痕",
+            "x": 30,
+            "y": 35,
+            "width": 40,
+            "height": 30,
+            "description": "表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。",
+            "clueId": "clue-003-3",
+            "hints": {
+              "assisted": "表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。但裂缝之下，机芯的齿轮看起来还完好——也许这块表还有重新走动的可能。",
+              "standard": "表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。",
+              "challenging": "蛛网裂。右上至中心。撞击。"
+            }
+          },
+          {
+            "id": "hot-003-4",
+            "name": "表链的磨损",
+            "x": 15,
+            "y": 55,
+            "width": 15,
+            "height": 30,
+            "description": "表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。",
+            "clueId": "clue-003-4",
+            "hints": {
+              "assisted": "表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。是父亲一遍遍握着它，想象着给儿子的赠言？这磨损里藏着多少无声的思念。",
+              "standard": "表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。",
+              "challenging": "磨损。棱角磨圆。常被握着。"
+            }
+          },
+          {
+            "id": "hot-003-5",
+            "name": "背面的照片",
+            "x": 55,
+            "y": 60,
+            "width": 20,
+            "height": 20,
+            "description": "表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。",
+            "clueId": "clue-003-5",
+            "hints": {
+              "assisted": "表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期——这个日期和指针停住的时间有着惊人的巧合。原来，这块表定格的那一刻，就是他来到这个世界的瞬间。",
+              "standard": "表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。",
+              "challenging": "后盖。婴儿笑脸。日期。"
+            }
+          },
+          {
+            "id": "hot-003-6",
+            "name": "机芯的锈迹",
+            "x": 40,
+            "y": 65,
+            "width": 25,
+            "height": 15,
+            "description": "透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。",
+            "clueId": "clue-003-6",
+            "hints": {
+              "assisted": "透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。表面虽已锈蚀，核心却依然完好——就像有些爱，虽然经历了风雨，却从未真正损坏。",
+              "standard": "透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。",
+              "challenging": "锈迹。齿轮完好。"
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

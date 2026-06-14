@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "check": "vue-tsc -b",
     "lint": "eslint . --ext .ts,.vue",
-    "lint:fix": "eslint . --ext .ts,.vue --fix"
+    "lint:fix": "eslint . --ext .ts,.vue --fix",
+    "verify:config": "node scripts/verify-config-migration.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

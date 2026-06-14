@@ -1,0 +1,167 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "委托 002 对话节点配置",
+    "commissionId": "comm-002",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "dlg-comm-002-accept-1",
+      "commissionId": "comm-002",
+      "nodeType": "commission_accept",
+      "order": 1,
+      "speaker": "client",
+      "speakerName": "小陈",
+      "speakerAvatar": "👨",
+      "content": "老板你好……我姓陈。这只碗是我外婆生前一直用的，小时候她总用它给我盛糖水。",
+      "mood": "sad",
+      "nextNodeId": "dlg-comm-002-accept-2"
+    },
+    {
+      "id": "dlg-comm-002-accept-2",
+      "commissionId": "comm-002",
+      "nodeType": "commission_accept",
+      "order": 2,
+      "speaker": "client",
+      "speakerName": "小陈",
+      "speakerAvatar": "👨",
+      "content": "搬家时不小心打碎了，我自己粘回去过，但怎么看都不对……我想让它变回原来的样子。",
+      "mood": "worried",
+      "nextNodeId": "dlg-comm-002-accept-3"
+    },
+    {
+      "id": "dlg-comm-002-accept-3",
+      "commissionId": "comm-002",
+      "nodeType": "commission_accept",
+      "order": 3,
+      "speaker": "shopkeeper",
+      "speakerName": "店主",
+      "speakerAvatar": "🏪",
+      "content": "我懂了。每一道裂痕里都藏着回忆，我会尽力把它们拼回去的。",
+      "mood": "hopeful",
+      "effects": [{ "type": "set_flag", "flagKey": "comm002_accepted", "flagValue": true }],
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-002-intro-1",
+      "commissionId": "comm-002",
+      "nodeType": "commission_intro",
+      "order": 1,
+      "speaker": "narrator",
+      "speakerName": "旁白",
+      "speakerAvatar": "📖",
+      "content": "青瓷小碗静静地躺在工作台上。透明的胶水痕迹像一条条丑陋的伤疤，破坏了它原本温润的美感。",
+      "mood": "neutral",
+      "nextNodeId": "dlg-comm-002-intro-2"
+    },
+    {
+      "id": "dlg-comm-002-intro-2",
+      "commissionId": "comm-002",
+      "nodeType": "commission_intro",
+      "order": 2,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "小陈说这是外婆的碗。从这些裂痕里，我好像能看到一个小男孩趴在灶台边，眼巴巴地等着外婆端来糖水的样子……",
+      "mood": "mysterious",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-002-repair-pre-1",
+      "commissionId": "comm-002",
+      "nodeType": "repair_pre",
+      "order": 1,
+      "speaker": "shopkeeper",
+      "speakerName": "店主",
+      "speakerAvatar": "🏪",
+      "content": "所有线索都串起来了。这只碗的故事，比我想象的更动人——",
+      "mood": "hopeful",
+      "nextNodeId": "dlg-comm-002-repair-pre-branch"
+    },
+    {
+      "id": "dlg-comm-002-repair-pre-branch",
+      "commissionId": "comm-002",
+      "nodeType": "repair_pre",
+      "order": 2,
+      "speaker": "player",
+      "speakerName": "你",
+      "speakerAvatar": "🧑",
+      "content": "关于这只碗的最终选择——",
+      "mood": "neutral",
+      "choices": [
+        {
+          "id": "choice-comm002-kintsugi",
+          "label": "用金缮工艺修补",
+          "description": "让金色的纹路成为碗独特的风景",
+          "nextNodeId": "dlg-comm002-kintsugi",
+          "conditions": [{ "type": "connection_count", "minCount": 2 }],
+          "effects": [{ "type": "set_flag", "flagKey": "comm002_technique", "flagValue": "kintsugi" }]
+        },
+        {
+          "id": "choice-comm002-traditional",
+          "label": "传统瓷粉修补",
+          "description": "用瓷粉和大漆修补，尽量还原碗本来的样子",
+          "nextNodeId": "dlg-comm002-traditional",
+          "effects": [{ "type": "set_flag", "flagKey": "comm002_technique", "flagValue": "traditional" }]
+        },
+        {
+          "id": "choice-comm002-flavor",
+          "label": "先煮一碗糖水找找灵感",
+          "description": "也许先回味一下记忆中的味道，会有更好的想法",
+          "nextNodeId": "dlg-comm002-flavor",
+          "conditions": [{ "type": "clue_collected", "clueId": "clue-002-2" }],
+          "effects": [{ "type": "set_flag", "flagKey": "comm002_technique", "flagValue": "inspired" }]
+        }
+      ]
+    },
+    {
+      "id": "dlg-comm002-kintsugi",
+      "commissionId": "comm-002",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "金缮——把残缺化作独特的美。就像外婆的爱，就算经历了破碎，也依然闪耀着金色的光。",
+      "mood": "happy",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm002-traditional",
+      "commissionId": "comm-002",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "传统修补法，像把记忆一片片小心地放回原位。让它看起来像从前那样，也挺好的。",
+      "mood": "neutral",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm002-flavor",
+      "commissionId": "comm-002",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "焦糖的甜香从裂纹深处飘出来……原来，真正的修补不只是碗的本身，更是留住那股熟悉的味道。",
+      "mood": "hopeful",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-002-repair-post",
+      "commissionId": "comm-002",
+      "nodeType": "repair_post",
+      "order": 1,
+      "speaker": "narrator",
+      "speakerName": "旁白",
+      "speakerAvatar": "📖",
+      "content": "修补完成。那只碗静静地在灯光下闪烁着不同的光泽——",
+      "mood": "hopeful",
+      "isEndNode": true
+    }
+  ]
+}

@@ -1,0 +1,411 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏修复步骤配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": {
+    "comm-001": [
+      {
+        "id": "step-001-1",
+        "title": "清洁表面",
+        "description": "首先需要清洁音乐盒的表面，去除岁月积累的灰尘和污渍。",
+        "choices": [
+          {
+            "id": "choice-001-1a",
+            "label": "用湿布仔细擦拭",
+            "description": "温柔地清洁，保留包浆和岁月感",
+            "endingType": "neutral"
+          },
+          {
+            "id": "choice-001-1b",
+            "label": "用专业清洁剂彻底清洁",
+            "description": "深度清洁，让音乐盒焕然一新",
+            "endingType": "good"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "也许可以用更温和的方式来清洁，比如用湿布慢慢擦拭？这样既能去掉灰尘，也能保留岁月的痕迹。",
+            "extraChoices": [
+              {
+                "id": "choice-001-1c",
+                "label": "用柔软的丝绸布轻拭",
+                "description": "最温和的方式，既清洁又保护",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "清洁表面。方法决定了结果。",
+            "extraChoices": [
+              {
+                "id": "choice-001-1d",
+                "label": "大胆尝试化学溶剂",
+                "description": "高风险高回报，可能完全清除也可能损坏",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-001-2",
+        "title": "修复照片",
+        "description": "盖子上的照片已经模糊泛黄，需要想办法恢复。",
+        "choices": [
+          {
+            "id": "choice-001-2a",
+            "label": "用修复技术还原照片",
+            "description": "尽可能还原照片原本的清晰度",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-001-2b",
+            "label": "保留朦胧感，只做基础修复",
+            "description": "让照片保留岁月的朦胧美感",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "照片虽然模糊了，但如果小心地用数码技术辅助修复，也许能还原更多细节。记得要耐心，别急。",
+            "extraChoices": [
+              {
+                "id": "choice-001-2c",
+                "label": "参考同期照片逐步还原",
+                "description": "借助老照片的色调参考，细致还原每一处",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "照片模糊。选择决定一切。",
+            "extraChoices": [
+              {
+                "id": "choice-001-2d",
+                "label": "直接刮开表层看底层",
+                "description": "也许底下还有另一幅画面，也可能什么都没有",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-001-3",
+        "title": "调试机芯",
+        "description": "音乐盒的机芯需要调试，让旋律重新变得动听。",
+        "choices": [
+          {
+            "id": "choice-001-3a",
+            "label": "精确调音，还原原曲",
+            "description": "让音乐盒发出最完美的旋律",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-001-3b",
+            "label": "保留一点走调的味道",
+            "description": "让音乐带有一点复古的质感",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "机芯虽然有些生锈，但齿轮看起来还完好。也许可以先听听原曲的录音，再根据参考来调音？这样不容易出错。",
+            "extraChoices": [
+              {
+                "id": "choice-001-3c",
+                "label": "先找原曲录音再微调",
+                "description": "对照原曲精确校准，确保旋律完美还原",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "调音。听天由命。",
+            "extraChoices": [
+              {
+                "id": "choice-001-3d",
+                "label": "用力拧紧发条试试极限",
+                "description": "也许调到极致会有惊喜，也可能崩断发条",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "comm-002": [
+      {
+        "id": "step-002-1",
+        "title": "清理碎片",
+        "description": "需要先把所有碎片清理干净，才能开始修补。",
+        "choices": [
+          {
+            "id": "choice-002-1a",
+            "label": "仔细清洗每一块碎片",
+            "description": "确保每一片都干净，为修复做准备",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-002-1b",
+            "label": "简单擦拭即可",
+            "description": "保留一些旧痕迹，增加年代感",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "碎片上有残留的胶水和糖渍，用温水慢慢泡软会更好清理。别着急，每一片都承载着回忆。",
+            "extraChoices": [
+              {
+                "id": "choice-002-1c",
+                "label": "用温水逐片浸泡清理",
+                "description": "温柔的方式，不会伤到瓷片上的花纹",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "碎片。清理。时间不等人。",
+            "extraChoices": [
+              {
+                "id": "choice-002-1d",
+                "label": "用钢丝球快速刷洗",
+                "description": "效率最高，但可能刮花釉面",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-002-2",
+        "title": "选择修补方式",
+        "description": "这是最重要的一步，决定了碗最终的样子。",
+        "choices": [
+          {
+            "id": "choice-002-2a",
+            "label": "金缮工艺",
+            "description": "用金粉填补裂缝，让残缺成为一种美",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-002-2b",
+            "label": "传统修补",
+            "description": "用瓷粉和胶水修补，尽量看不出痕迹",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "金缮工艺虽然费时，但能让裂缝变成金色的河流，赋予残缺新的美。也可以试试传统的大漆工艺，更古朴一些。",
+            "extraChoices": [
+              {
+                "id": "choice-002-2c",
+                "label": "金缮结合大漆，层层髹涂",
+                "description": "最用心的方式，让裂缝成为碗上最美的纹路",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "修补。一锤定音。",
+            "extraChoices": [
+              {
+                "id": "choice-002-2d",
+                "label": "用502胶水快速粘合",
+                "description": "最快最省事，但胶痕会永远留下",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-002-3",
+        "title": "最终打磨",
+        "description": "修补完成后，需要进行最后的打磨处理。",
+        "choices": [
+          {
+            "id": "choice-002-3a",
+            "label": "精细打磨，确保完美",
+            "description": "让每一处都光滑圆润",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-002-3b",
+            "label": "轻微打磨，保留手感",
+            "description": "保留一些手工的质感",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "打磨要轻柔，像抚摸孩子的脸颊一样。特别是金缮的部分，需要用极细的砂纸慢慢打磨，才能让金色自然地融入釉面。",
+            "extraChoices": [
+              {
+                "id": "choice-002-3c",
+                "label": "用鹿皮手工细磨",
+                "description": "最温柔的方式，让每一处都温润如初",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "打磨。快即是好。",
+            "extraChoices": [
+              {
+                "id": "choice-002-3d",
+                "label": "上砂轮机快速抛光",
+                "description": "一眨眼就搞定，但可能磨掉修补的细节",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "comm-003": [
+      {
+        "id": "step-003-1",
+        "title": "拆卸检查",
+        "description": "需要先拆开怀表，检查机芯的损坏程度。",
+        "choices": [
+          {
+            "id": "choice-003-1a",
+            "label": "完全拆卸，彻底检查",
+            "description": "仔细检查每一个零件",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-003-1b",
+            "label": "简单拆开看看",
+            "description": "粗略检查，保留原表的完整性",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "拆卸怀表需要非常小心，零件又小又精密。建议每拆一个零件就拍照记录位置，这样装回去的时候才不会弄错。",
+            "extraChoices": [
+              {
+                "id": "choice-003-1c",
+                "label": "逐一拍照记录再拆卸",
+                "description": "最稳妥的方式，确保每个零件都有据可查",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "拆。快。",
+            "extraChoices": [
+              {
+                "id": "choice-003-1d",
+                "label": "直接撬开后盖",
+                "description": "最快的方式，但可能损坏密封结构",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-003-2",
+        "title": "修复表蒙",
+        "description": "表蒙上的裂痕需要处理。",
+        "choices": [
+          {
+            "id": "choice-003-2a",
+            "label": "更换新的表蒙",
+            "description": "换一块全新的，完美无瑕",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-003-2b",
+            "label": "修复但保留一道细纹",
+            "description": "保留一点岁月的痕迹",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "表蒙的裂痕虽然碍眼，但那是时间的印记。如果找一块同年代的老矿物玻璃来替换，既能让表蒙完整，又能保留怀表原有的气质。",
+            "extraChoices": [
+              {
+                "id": "choice-003-2c",
+                "label": "寻找同年代矿物玻璃替换",
+                "description": "既完美又保持时代气息，最用心的选择",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "表蒙裂了。换掉。",
+            "extraChoices": [
+              {
+                "id": "choice-003-2d",
+                "label": "用廉价亚克力替代",
+                "description": "又轻又便宜，但和银质怀表格格不入",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      },
+      {
+        "id": "step-003-3",
+        "title": "决定走留",
+        "description": "最关键的一步：这块怀表，应该让它重新走起来吗？",
+        "choices": [
+          {
+            "id": "choice-003-3a",
+            "label": "修好它，让时间继续",
+            "description": "让怀表重新滴答作响",
+            "endingType": "good"
+          },
+          {
+            "id": "choice-003-3b",
+            "label": "就让它停在那一刻",
+            "description": "3点17分，是最好的纪念",
+            "endingType": "neutral"
+          }
+        ],
+        "difficultyVariants": {
+          "assisted": {
+            "description": "这是最关键的决定。怀表停在3点17分，那是周先生出生的时刻。如果让它重新走动，也许可以从3点17分开始——让时间从那个充满爱的瞬间延续下去。",
+            "extraChoices": [
+              {
+                "id": "choice-003-3c",
+                "label": "从3点17分重新启动",
+                "description": "让爱从那个瞬间延续，时间从未停止",
+                "endingType": "good"
+              }
+            ]
+          },
+          "standard": {},
+          "challenging": {
+            "description": "走？留？只有一次机会。",
+            "extraChoices": [
+              {
+                "id": "choice-003-3d",
+                "label": "强行调快发条让表飞速运转",
+                "description": "让时间疯狂奔跑，也许能忘掉停摆的痛苦",
+                "endingType": "bad"
+              }
+            ]
+          }
+        }
+      }
+    ]
+  }
+}

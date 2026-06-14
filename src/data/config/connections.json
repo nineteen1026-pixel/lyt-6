@@ -1,0 +1,65 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏线索关联配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "conn-001-1",
+      "fromClueId": "clue-001-2",
+      "toClueId": "clue-001-4",
+      "conclusion": "照片上的情侣就是林奶奶和她的老伴，他们年轻时相爱并许下了永远的约定。",
+      "repairHint": "修复照片，还原他们年轻时的模样"
+    },
+    {
+      "id": "conn-001-2",
+      "fromClueId": "clue-001-1",
+      "toClueId": "clue-001-3",
+      "conclusion": "划痕的位置正好对应着旋钮上的 L 字母，林奶奶一定是无数次摸着这个字母思念老伴。",
+      "repairHint": "重新镀金旋钮，让 L 字母重新闪耀"
+    },
+    {
+      "id": "conn-002-1",
+      "fromClueId": "clue-002-2",
+      "toClueId": "clue-002-4",
+      "conclusion": "糖水从梅花图案的位置渗进去，说明每次喝糖水都是从这个方向。外婆一定是看着小陈喝糖水的。",
+      "repairHint": "清理裂纹中的糖渍，保留岁月的痕迹"
+    },
+    {
+      "id": "conn-002-2",
+      "fromClueId": "clue-002-1",
+      "toClueId": "clue-002-5",
+      "conclusion": "缺口是小时候小陈不小心咬的，长大后他笨拙地想把碗粘好，却越弄越糟。",
+      "repairHint": "用金缮工艺修补缺口，让残缺也成为美"
+    },
+    {
+      "id": "conn-002-3",
+      "fromClueId": "clue-002-3",
+      "toClueId": "clue-002-4",
+      "conclusion": "这只梅花碗是陈家的传家宝，从民国传到现在，每一代都用它喝过糖水。",
+      "repairHint": "修复碗底的印章，让家族的印记清晰可见"
+    },
+    {
+      "id": "conn-003-1",
+      "fromClueId": "clue-003-2",
+      "toClueId": "clue-003-5",
+      "conclusion": "怀表停在3点17分，而周先生正好是3月17日凌晨3点17分出生的。这块表记录了他生命开始的时刻。",
+      "repairHint": "让怀表重新走动，但永远保留3点17分的记忆"
+    },
+    {
+      "id": "conn-003-2",
+      "fromClueId": "clue-003-1",
+      "toClueId": "clue-003-4",
+      "conclusion": "父亲无数次摩挲着这块表，想象着儿子的未来。他把所有的爱和期望都寄托在了这块怀表里。",
+      "repairHint": "修复表链的磨损，保留那些爱的痕迹"
+    },
+    {
+      "id": "conn-003-3",
+      "fromClueId": "clue-003-3",
+      "toClueId": "clue-003-6",
+      "conclusion": "表虽然被撞裂了，但机芯完好。就像父亲虽然走了，但他的爱一直完好无损。",
+      "repairHint": "修复表蒙，但保留一道细微的裂纹作为纪念"
+    }
+  ]
+}

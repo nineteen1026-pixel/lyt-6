@@ -1,0 +1,171 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "委托 003 对话节点配置",
+    "commissionId": "comm-003",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "dlg-comm-003-accept-1",
+      "commissionId": "comm-003",
+      "nodeType": "commission_accept",
+      "order": 1,
+      "speaker": "client",
+      "speakerName": "周先生",
+      "speakerAvatar": "🧔",
+      "content": "老板……这是我父亲的怀表。他走得很突然，什么话都没留下。",
+      "mood": "sad",
+      "nextNodeId": "dlg-comm-003-accept-2"
+    },
+    {
+      "id": "dlg-comm-003-accept-2",
+      "commissionId": "comm-003",
+      "nodeType": "commission_accept",
+      "order": 2,
+      "speaker": "client",
+      "speakerName": "周先生",
+      "speakerAvatar": "🧔",
+      "content": "表停了，停在3点17分。我就是想知道……这个时间，对他来说意味着什么？",
+      "mood": "mysterious",
+      "nextNodeId": "dlg-comm-003-accept-3"
+    },
+    {
+      "id": "dlg-comm-003-accept-3",
+      "commissionId": "comm-003",
+      "nodeType": "commission_accept",
+      "order": 3,
+      "speaker": "shopkeeper",
+      "speakerName": "店主",
+      "speakerAvatar": "🏪",
+      "content": "我懂了。表停了，但它记录的那一刻，也许就是您父亲最想告诉您的话。",
+      "mood": "hopeful",
+      "effects": [{ "type": "set_flag", "flagKey": "comm003_accepted", "flagValue": true }],
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-003-intro-1",
+      "commissionId": "comm-003",
+      "nodeType": "commission_intro",
+      "order": 1,
+      "speaker": "narrator",
+      "speakerName": "旁白",
+      "speakerAvatar": "📖",
+      "content": "银质的怀表静静躺在丝绒衬布上。表蒙上的蛛网状裂痕让它看起来像一颗被冰封的星球。",
+      "mood": "mysterious",
+      "nextNodeId": "dlg-comm-003-intro-2"
+    },
+    {
+      "id": "dlg-comm-003-intro-2",
+      "commissionId": "comm-003",
+      "nodeType": "commission_intro",
+      "order": 2,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "3点17分……这个精确到分钟的时间，一定不是偶然。我要从每一个细节里，找出这块怀表藏着的秘密。",
+      "mood": "mysterious",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-003-repair-pre-1",
+      "commissionId": "comm-003",
+      "nodeType": "repair_pre",
+      "order": 1,
+      "speaker": "shopkeeper",
+      "speakerName": "店主",
+      "speakerAvatar": "🏪",
+      "content": "所有的线索都连起来了……答案已经很清楚了。现在，最后一步是——",
+      "mood": "hopeful",
+      "nextNodeId": "dlg-comm-003-repair-pre-branch"
+    },
+    {
+      "id": "dlg-comm-003-repair-pre-branch",
+      "commissionId": "comm-003",
+      "nodeType": "repair_pre",
+      "order": 2,
+      "speaker": "player",
+      "speakerName": "你",
+      "speakerAvatar": "🧑",
+      "content": "关于这块怀表的最终选择——",
+      "mood": "neutral",
+      "choices": [
+        {
+          "id": "choice-comm003-restart",
+          "label": "修好它，让时间继续",
+          "description": "让怀表从3点17分开始，重新滴答作响",
+          "nextNodeId": "dlg-comm003-restart",
+          "conditions": [{ "type": "connection_count", "minCount": 2 }],
+          "effects": [{ "type": "set_flag", "flagKey": "comm003_final_decision", "flagValue": "restart" }]
+        },
+        {
+          "id": "choice-comm003-keepstill",
+          "label": "就让它停在那一刻",
+          "description": "3点17分是最珍贵的瞬间，值得被永远定格",
+          "nextNodeId": "dlg-comm003-keepstill",
+          "effects": [{ "type": "set_flag", "flagKey": "comm003_final_decision", "flagValue": "still" }]
+        },
+        {
+          "id": "choice-comm003-birthday",
+          "label": "把出生时刻刻在表壳上",
+          "description": "把那个特殊的日期永远留在怀表上，纪念那一刻",
+          "nextNodeId": "dlg-comm003-birthday",
+          "conditions": [
+            { "type": "clue_collected", "clueId": "clue-003-2" },
+            { "type": "clue_collected", "clueId": "clue-003-5" }
+          ],
+          "conditionOperator": "and",
+          "effects": [{ "type": "set_flag", "flagKey": "comm003_final_decision", "flagValue": "engrave" }]
+        }
+      ]
+    },
+    {
+      "id": "dlg-comm003-restart",
+      "commissionId": "comm-003",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "让时间从3点17分继续……这样，父亲的爱就会随着秒针，永远陪着他。",
+      "mood": "happy",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm003-keepstill",
+      "commissionId": "comm-003",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "有些瞬间值得被永远定格。3点17分，是一个父亲成为父亲的时刻——就停在这里吧。",
+      "mood": "grateful",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm003-birthday",
+      "commissionId": "comm-003",
+      "nodeType": "repair_pre",
+      "order": 3,
+      "speaker": "inner_thought",
+      "speakerName": "内心独白",
+      "speakerAvatar": "💭",
+      "content": "把那个日期刻在表壳内侧……当周先生再打开表盖时，就能看到——这一切，从他出生的那一刻就已经开始了。",
+      "mood": "happy",
+      "isEndNode": true
+    },
+    {
+      "id": "dlg-comm-003-repair-post",
+      "commissionId": "comm-003",
+      "nodeType": "repair_post",
+      "order": 1,
+      "speaker": "narrator",
+      "speakerName": "旁白",
+      "speakerAvatar": "📖",
+      "content": "怀表的修复完成了。它的命运，最终由你的选择决定——",
+      "mood": "mysterious",
+      "isEndNode": true
+    }
+  ]
+}

@@ -13,7 +13,7 @@ export interface UnlockRule {
   conditionValue?: string | number
 }
 
-export interface Chapter {
+export interface ChapterConfig {
   id: string
   number: number
   title: string
@@ -23,6 +23,9 @@ export interface Chapter {
   icon: string
   unlockRule: UnlockRule
   commissionIds: string[]
+}
+
+export interface Chapter extends ChapterConfig {
   isUnlocked: boolean
   unlockedAt?: string
 }
@@ -38,7 +41,7 @@ export interface StepDependency {
   requiredIds?: string[]
 }
 
-export interface Commission {
+export interface CommissionConfig {
   id: string
   chapterId: string
   title: string
@@ -46,21 +49,29 @@ export interface Commission {
   clientAvatar: string
   description: string
   difficulty: 'simple' | 'medium' | 'complex'
-  item: Item
-  status: CommissionStatus
+  item: ItemConfig
   unlockRules: UnlockRule[]
   prerequisiteCommissionIds: string[]
   stepDependencies: StepDependency[]
-  unlockedAt?: string
-  completedAt?: string
   orderInChapter: number
 }
 
-export interface Item {
+export interface Commission extends CommissionConfig {
+  status: CommissionStatus
+  item: Item
+  unlockedAt?: string
+  completedAt?: string
+}
+
+export interface ItemConfig {
   id: string
   name: string
   description: string
   image: string
+  hotspots: HotspotConfig[]
+}
+
+export interface Item extends ItemConfig {
   hotspots: Hotspot[]
 }
 
@@ -73,7 +84,7 @@ export interface DifficultyContext {
   effectiveDifficulty: DynamicDifficultyLevel
 }
 
-export interface Hotspot {
+export interface HotspotConfig {
   id: string
   name: string
   x: number
@@ -82,8 +93,11 @@ export interface Hotspot {
   height: number
   description: string
   clueId?: string
-  isDiscovered: boolean
   hints?: Record<DynamicDifficultyLevel, string>
+}
+
+export interface Hotspot extends HotspotConfig {
+  isDiscovered: boolean
 }
 
 export interface Tag {
@@ -159,16 +173,19 @@ export interface Note {
   isImportant: boolean
 }
 
-export interface Clue {
+export interface ClueConfig {
   id: string
   commissionId: string
   title: string
   content: string
   icon: string
   category: 'object' | 'memory' | 'emotion' | 'time'
-  isCollected: boolean
   hotspotId?: string
   tagIds: string[]
+}
+
+export interface Clue extends ClueConfig {
+  isCollected: boolean
 }
 
 export type ConnectionErrorCode = 
@@ -208,16 +225,19 @@ export interface ConnectionGraphNode {
   isHub: boolean
 }
 
-export interface ClueConnection {
+export interface ClueConnectionConfig {
   id: string
   fromClueId: string
   toClueId: string
   conclusion: string
-  isDiscovered: boolean
   repairHint: string
 }
 
-export interface Ending {
+export interface ClueConnection extends ClueConnectionConfig {
+  isDiscovered: boolean
+}
+
+export interface EndingConfig {
   id: string
   commissionId: string
   type: 'good' | 'neutral' | 'bad'
@@ -225,20 +245,26 @@ export interface Ending {
   story: string
   choiceCondition: string
   image: string
+}
+
+export interface Ending extends EndingConfig {
   isUnlocked: boolean
 }
 
-export interface RepairStep {
+export interface RepairStepConfig {
   id: string
   title: string
   description: string
   choices: RepairChoice[]
-  isCompleted: boolean
-  selectedChoice?: string
   difficultyVariants?: Record<DynamicDifficultyLevel, {
     description?: string
     extraChoices?: RepairChoice[]
   }>
+}
+
+export interface RepairStep extends RepairStepConfig {
+  isCompleted: boolean
+  selectedChoice?: string
 }
 
 export interface RepairChoice {
@@ -444,4 +470,18 @@ export interface DialogueSessionState {
   order: number
   completedNodeIds: string[]
 }
+
+export interface GameDataConfig {
+  tags: Tag[]
+  chapters: ChapterConfig[]
+  commissions: CommissionConfig[]
+  clues: ClueConfig[]
+  connections: ClueConnectionConfig[]
+  endings: EndingConfig[]
+  repairSteps: Record<string, RepairStepConfig[]>
+  dialogueNodes: DialogueNode[]
+}
+
+export const CURRENT_CONFIG_VERSION = '9.0.0'
+export const CURRENT_SAVE_VERSION = '9.0.0'
 

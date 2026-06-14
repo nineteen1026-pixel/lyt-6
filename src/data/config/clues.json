@@ -1,0 +1,159 @@
+{
+  "version": "9.0.0",
+  "meta": {
+    "description": "游戏线索配置",
+    "lastUpdated": "2026-06-14"
+  },
+  "data": [
+    {
+      "id": "clue-001-1",
+      "commissionId": "comm-001",
+      "title": "反复的划痕",
+      "content": "音乐盒盖上的划痕是反复摩擦形成的，像是有人经常用手指沿着同一个方向摩挲。也许是因为思念？",
+      "icon": "〰️",
+      "category": "object",
+      "hotspotId": "hot-001-1",
+      "tagIds": ["tag-damage", "tag-important", "tag-memory"]
+    },
+    {
+      "id": "clue-001-2",
+      "commissionId": "comm-001",
+      "title": "年轻的情侣",
+      "content": "照片上的女孩穿着白色连衣裙，男孩抱着一把吉他。他们站在一片草地上，笑得很灿烂。这一定是他们年轻时的样子。",
+      "icon": "📸",
+      "category": "memory",
+      "hotspotId": "hot-001-2",
+      "tagIds": ["tag-love", "tag-memory", "tag-important"]
+    },
+    {
+      "id": "clue-001-3",
+      "commissionId": "comm-001",
+      "title": "L 字母",
+      "content": "发条旋钮底部刻着一个「L」。林奶奶的姓氏是林，那这个 L 是她的名字？还是……另一个人的？",
+      "icon": "🔤",
+      "category": "object",
+      "hotspotId": "hot-001-3",
+      "tagIds": ["tag-secret"]
+    },
+    {
+      "id": "clue-001-4",
+      "commissionId": "comm-001",
+      "title": "永远的约定",
+      "content": "纸条上的字虽然被胶水晕开了，但能看出是「永远爱你」四个字。字迹很清秀，应该是男孩子写的。",
+      "icon": "📝",
+      "category": "emotion",
+      "hotspotId": "hot-001-4",
+      "tagIds": ["tag-love", "tag-important", "tag-proof"]
+    },
+    {
+      "id": "clue-002-1",
+      "commissionId": "comm-002",
+      "title": "整齐的断面",
+      "content": "碗口的缺口断面很整齐，不像摔碎的，倒像是被什么东西咬掉的……或者是被什么坚硬的东西磕碰的？",
+      "icon": "⚡",
+      "category": "object",
+      "hotspotId": "hot-002-1",
+      "tagIds": ["tag-damage"]
+    },
+    {
+      "id": "clue-002-2",
+      "commissionId": "comm-002",
+      "title": "黄褐色痕迹",
+      "content": "裂纹里的黄褐色痕迹……闻起来有一股淡淡的焦糖味。难道是小时候装过的糖水渗进去了？",
+      "icon": "🍯",
+      "category": "object",
+      "hotspotId": "hot-002-2",
+      "tagIds": ["tag-time", "tag-memory"]
+    },
+    {
+      "id": "clue-002-3",
+      "commissionId": "comm-002",
+      "title": "家传的印章",
+      "content": "碗底的「陈」字印章旁边还有一行小字：「民国三十年制」。这碗的年纪比外婆还大呢。",
+      "icon": "🔲",
+      "category": "time",
+      "hotspotId": "hot-002-3",
+      "tagIds": ["tag-time", "tag-family"]
+    },
+    {
+      "id": "clue-002-4",
+      "commissionId": "comm-002",
+      "title": "梅花图案",
+      "content": "碗内壁的梅花图案磨损得很厉害，特别是正对着碗口的那一朵。看来经常有人从这个方向喝东西。",
+      "icon": "🌸",
+      "category": "object",
+      "hotspotId": "hot-002-4",
+      "tagIds": ["tag-memory", "tag-family"]
+    },
+    {
+      "id": "clue-002-5",
+      "commissionId": "comm-002",
+      "title": "笨拙的修补",
+      "content": "胶水涂得歪歪扭扭的，还有些溢出来的痕迹。能看出来修补的人很用心，但手很笨。是小陈自己粘的吗？",
+      "icon": "🔧",
+      "category": "emotion",
+      "hotspotId": "hot-002-5",
+      "tagIds": ["tag-damage", "tag-family"]
+    },
+    {
+      "id": "clue-003-1",
+      "commissionId": "comm-003",
+      "title": "父亲的赠言",
+      "content": "「给我的儿子，愿你的每一秒都有意义。——父亲」 这块表是父亲送给儿子的礼物，承载着父亲的期望。",
+      "icon": "💌",
+      "category": "emotion",
+      "hotspotId": "hot-003-1",
+      "tagIds": ["tag-family", "tag-important"]
+    },
+    {
+      "id": "clue-003-2",
+      "commissionId": "comm-003",
+      "title": "三点十七分",
+      "content": "指针停在三点十七分。这个时间有什么特殊的意义吗？是一个人的出生时间？还是……什么重要的时刻？",
+      "icon": "🕒",
+      "category": "time",
+      "hotspotId": "hot-003-2",
+      "tagIds": ["tag-time", "tag-important"]
+    },
+    {
+      "id": "clue-003-3",
+      "commissionId": "comm-003",
+      "title": "撞击的裂痕",
+      "content": "表蒙上的裂痕是撞击造成的，而且力度不小。怀表是怎么被撞击的？掉在地上了？还是……遇到了什么意外？",
+      "icon": "💥",
+      "category": "object",
+      "hotspotId": "hot-003-3",
+      "tagIds": ["tag-damage", "tag-secret"]
+    },
+    {
+      "id": "clue-003-4",
+      "commissionId": "comm-003",
+      "title": "摩挲的痕迹",
+      "content": "表链扣环磨损得很厉害，说明这块表经常被人拿在手里把玩、摩挲。是父亲？还是儿子？",
+      "icon": "✋",
+      "category": "emotion",
+      "hotspotId": "hot-003-4",
+      "tagIds": ["tag-family", "tag-memory"]
+    },
+    {
+      "id": "clue-003-5",
+      "commissionId": "comm-003",
+      "title": "婴儿的照片",
+      "content": "后盖上藏着一张婴儿照片，背面写着出生日期：1985年3月17日，凌晨3点17分。哦……原来如此。",
+      "icon": "👶",
+      "category": "memory",
+      "hotspotId": "hot-003-5",
+      "tagIds": ["tag-memory", "tag-proof", "tag-important"]
+    },
+    {
+      "id": "clue-003-6",
+      "commissionId": "comm-003",
+      "title": "完好的机芯",
+      "content": "虽然表蒙裂了，也生了点锈，但机芯的齿轮看起来还完好。也许……这块表还能修好，重新走起来？",
+      "icon": "⚙️",
+      "category": "object",
+      "hotspotId": "hot-003-6",
+      "tagIds": ["tag-damage", "tag-proof"]
+    }
+  ]
+}

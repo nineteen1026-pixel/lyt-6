@@ -1,1647 +1,274 @@
-import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter, Tag, DialogueNode } from '../types'
+import type {
+  CommissionConfig,
+  ClueConfig,
+  ClueConnectionConfig,
+  EndingConfig,
+  RepairStepConfig,
+  ChapterConfig,
+  Tag,
+  DialogueNode,
+  GameDataConfig,
+  Commission,
+  Clue,
+  ClueConnection,
+  Ending,
+  RepairStep,
+  Chapter,
+  Item,
+  Hotspot,
+  ItemConfig,
+  HotspotConfig
+} from '../types'
 
-export const tags: Tag[] = [
-  { id: 'tag-important', name: '重要', color: '#ef4444', description: '关键线索，需要重点关注' },
-  { id: 'tag-love', name: '爱情', color: '#ec4899', description: '与爱情相关的线索' },
-  { id: 'tag-family', name: '亲情', color: '#f97316', description: '与家人亲情相关的线索' },
-  { id: 'tag-time', name: '时间', color: '#eab308', description: '与时间、年代相关的线索' },
-  { id: 'tag-damage', name: '损坏', color: '#84cc16', description: '关于物品损坏的线索' },
-  { id: 'tag-memory', name: '回忆', color: '#06b6d4', description: '承载着珍贵回忆的线索' },
-  { id: 'tag-secret', name: '秘密', color: '#8b5cf6', description: '隐藏着秘密的线索' },
-  { id: 'tag-proof', name: '证据', color: '#10b981', description: '可以证明某个结论的线索' }
-]
+import tagsConfig from './config/tags.json'
+import chaptersConfig from './config/chapters.json'
+import commissionsConfig from './config/commissions.json'
+import cluesConfig from './config/clues.json'
+import connectionsConfig from './config/connections.json'
+import endingsConfig from './config/endings.json'
+import repairStepsConfig from './config/repairSteps.json'
+import dialogueComm001 from './config/dialogues/comm-001.json'
+import dialogueComm002 from './config/dialogues/comm-002.json'
+import dialogueComm003 from './config/dialogues/comm-003.json'
 
-export const chapters: Chapter[] = [
-  {
-    id: 'chap-001',
-    number: 1,
-    title: '初遇的记忆',
-    subtitle: '第一章',
-    description: '欢迎来到记忆修复店。在这里，你将学会如何修复那些承载着珍贵回忆的旧物。',
-    theme: 'warmth',
-    icon: '🌅',
-    unlockRule: {
-      type: 'condition',
-      conditionType: 'custom',
-      conditionValue: 'always_unlocked'
-    },
-    commissionIds: ['comm-001'],
-    isUnlocked: true
-  },
-  {
-    id: 'chap-002',
-    number: 2,
-    title: '家的温度',
-    subtitle: '第二章',
-    description: '有些记忆，藏在日常的烟火气里。一碗糖水，一声叮咛，都是家的味道。',
-    theme: 'nostalgia',
-    icon: '🏠',
-    unlockRule: {
-      type: 'prerequisites',
-      prerequisiteCommissionIds: ['comm-001']
-    },
-    commissionIds: ['comm-002'],
-    isUnlocked: false
-  },
-  {
-    id: 'chap-003',
-    number: 3,
-    title: '时光的馈赠',
-    subtitle: '第三章',
-    description: '时间会带走很多东西，但有些爱，会永远停留在某个瞬间。',
-    theme: 'time',
-    icon: '⏳',
-    unlockRule: {
-      type: 'prerequisites',
-      prerequisiteCommissionIds: ['comm-002']
-    },
-    commissionIds: ['comm-003'],
-    isUnlocked: false
+export const CONFIG_VERSION = '9.0.0'
+
+function loadConfig<T>(config: unknown): T {
+  const cfg = config as { version: string; data: T }
+  if (cfg.version !== CONFIG_VERSION) {
+    console.warn(
+      `Config version mismatch: expected ${CONFIG_VERSION}, got ${cfg.version}. ` +
+      `This may cause compatibility issues.`
+    )
   }
-]
-
-export const commissions: Commission[] = [
-  {
-    id: 'comm-001',
-    chapterId: 'chap-001',
-    title: '褪色的音乐盒',
-    clientName: '林奶奶',
-    clientAvatar: '👵',
-    description: '这是我老伴生前送给我的定情信物，音乐盒还能转动，但上面的漆都掉了，照片也模糊了……能不能帮我找回那些年轻时的记忆？',
-    difficulty: 'simple',
-    status: 'pending',
-    unlockRules: [
-      {
-        type: 'chapter',
-        chapterId: 'chap-001'
-      }
-    ],
-    prerequisiteCommissionIds: [],
-    stepDependencies: [
-      { step: 'item', dependencyType: 'always' },
-      { step: 'deduction', dependencyType: 'clue_count', minCount: 3 },
-      { step: 'repair', dependencyType: 'connection_count', minCount: 1 }
-    ],
-    orderInChapter: 1,
-    item: {
-      id: 'item-001',
-      name: '老式音乐盒',
-      description: '一个木制的老式音乐盒，表面的红漆已经褪色，盖子上嵌着一张模糊的老照片。打开时会播放一段走调的旋律。',
-      image: '🎵',
-      hotspots: [
-        {
-          id: 'hot-001-1',
-          name: '表面的划痕',
-          x: 25,
-          y: 30,
-          width: 15,
-          height: 20,
-          description: '盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。',
-          clueId: 'clue-001-1',
-          hints: {
-            assisted: '盒盖上有几道深浅不一的划痕，像是有人反复用手指沿着同一个方向摩挲。这种磨损暗示着主人对某处细节的眷恋——也许和旋钮上的刻字有关？',
-            standard: '盒盖上有几道深浅不一的划痕，像是被什么东西反复摩擦过。',
-            challenging: '划痕。深浅不一，方向一致。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-001-2',
-          name: '模糊的照片',
-          x: 50,
-          y: 45,
-          width: 30,
-          height: 25,
-          description: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。',
-          clueId: 'clue-001-2',
-          hints: {
-            assisted: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。虽然画面泛黄模糊，但这显然是一段珍贵的爱情记忆——和盒底那行「永远」的承诺遥相呼应。',
-            standard: '照片里是一对年轻的情侣，女孩穿着白裙子，男孩抱着吉他。但画面已经泛黄模糊。',
-            challenging: '泛黄。两个人的轮廓，模糊的笑。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-001-3',
-          name: '发条旋钮',
-          x: 80,
-          y: 60,
-          width: 12,
-          height: 15,
-          description: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。',
-          clueId: 'clue-001-3',
-          hints: {
-            assisted: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母——这是某个人名字的首字母，也许和盒盖上的划痕有着关联？',
-            standard: '铜制的发条旋钮已经氧化发黑，但还能转动。旋钮底部刻着一个小小的「L」字母。',
-            challenging: '发黑。还能转。底部有个字母。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-001-4',
-          name: '底部的纸条',
-          x: 35,
-          y: 75,
-          width: 25,
-          height: 10,
-          description: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。',
-          clueId: 'clue-001-4',
-          hints: {
-            assisted: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。这一定是某个人写下的承诺——和照片里那对恋人的故事有关。',
-            standard: '音乐盒底部粘着一张小纸条，上面的字迹被胶水晕开了，只能隐约看到「永远」两个字。',
-            challenging: '纸条。胶水晕开。两个字。'
-          },
-          isDiscovered: false
-        }
-      ]
-    }
-  },
-  {
-    id: 'comm-002',
-    chapterId: 'chap-002',
-    title: '破碎的陶瓷碗',
-    clientName: '小陈',
-    clientAvatar: '👨',
-    description: '这是我外婆生前用的碗，小时候她总用这个碗给我盛糖水。搬家时不小心打碎了，我粘回去过，但怎么看都不对……',
-    difficulty: 'medium',
-    status: 'locked',
-    unlockRules: [
-      {
-        type: 'chapter',
-        chapterId: 'chap-002'
-      },
-      {
-        type: 'prerequisites',
-        prerequisiteCommissionIds: ['comm-001']
-      }
-    ],
-    prerequisiteCommissionIds: ['comm-001'],
-    stepDependencies: [
-      { step: 'item', dependencyType: 'always' },
-      { step: 'deduction', dependencyType: 'clue_count', minCount: 3 },
-      { step: 'repair', dependencyType: 'connection_count', minCount: 2 }
-    ],
-    orderInChapter: 1,
-    item: {
-      id: 'item-002',
-      name: '青瓷碗',
-      description: '一只青瓷小碗，碗身有几道裂痕，是用胶水笨拙地粘起来的。碗底有一个小小的印章。',
-      image: '🍜',
-      hotspots: [
-        {
-          id: 'hot-002-1',
-          name: '碗口的缺口',
-          x: 45,
-          y: 15,
-          width: 25,
-          height: 10,
-          description: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。',
-          clueId: 'clue-002-1',
-          hints: {
-            assisted: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。这样整齐的断面，更像是被牙齿磕出来的——也许是谁小时候用这个碗喝东西时留下的？',
-            standard: '碗口边缘缺了一小块，断面很整齐，不像是自然碎裂的。',
-            challenging: '缺口。断面整齐。非碎裂。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-002-2',
-          name: '碗壁的裂纹',
-          x: 30,
-          y: 40,
-          width: 35,
-          height: 30,
-          description: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。',
-          clueId: 'clue-002-2',
-          hints: {
-            assisted: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹，闻起来有淡淡的甜味——是糖水常年渗入留下的印记吧。',
-            standard: '碗壁上有一道长长的裂纹，从碗口一直延伸到底部。裂纹里还残留着一些黄褐色的痕迹。',
-            challenging: '长裂纹。口到底。黄褐色。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-002-3',
-          name: '碗底的印章',
-          x: 55,
-          y: 70,
-          width: 15,
-          height: 15,
-          description: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。',
-          clueId: 'clue-002-3',
-          hints: {
-            assisted: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。这是陈家的传家之物，印章旁的年号说明这只碗有着久远的历史。',
-            standard: '碗底有一个小小的方形印章，上面刻着「陈」字，旁边还有一行小字。',
-            challenging: '方印。「陈」。旁有小字。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-002-4',
-          name: '内壁的图案',
-          x: 40,
-          y: 35,
-          width: 20,
-          height: 20,
-          description: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。',
-          clueId: 'clue-002-4',
-          hints: {
-            assisted: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。磨损最重的地方正对碗口——那是每次喝东西时嘴唇触碰的位置。',
-            standard: '碗的内壁有一圈淡淡的花纹，是一朵小小的梅花。花瓣有些磨损，但还能辨认出形状。',
-            challenging: '内壁花纹。梅花。磨损。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-002-5',
-          name: '胶水的痕迹',
-          x: 20,
-          y: 50,
-          width: 10,
-          height: 25,
-          description: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。',
-          clueId: 'clue-002-5',
-          hints: {
-            assisted: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。修补的人虽然手笨，但每一道胶痕都透着小心翼翼——这分明是怀着爱在修补啊。',
-            standard: '裂缝上涂着厚厚的透明胶水，涂抹得很不均匀，看得出来是个生手粘的。',
-            challenging: '胶水。厚重。不均匀。'
-          },
-          isDiscovered: false
-        }
-      ]
-    }
-  },
-  {
-    id: 'comm-003',
-    chapterId: 'chap-003',
-    title: '沉默的怀表',
-    clientName: '周先生',
-    clientAvatar: '🧔',
-    description: '这块怀表是我父亲留给我的，他走得突然，什么都没来得及说。表停了，我想知道……它停在了什么时候。',
-    difficulty: 'complex',
-    status: 'locked',
-    unlockRules: [
-      {
-        type: 'chapter',
-        chapterId: 'chap-003'
-      },
-      {
-        type: 'prerequisites',
-        prerequisiteCommissionIds: ['comm-002']
-      }
-    ],
-    prerequisiteCommissionIds: ['comm-002'],
-    stepDependencies: [
-      { step: 'item', dependencyType: 'always' },
-      { step: 'deduction', dependencyType: 'clue_count', minCount: 4 },
-      { step: 'repair', dependencyType: 'connection_count', minCount: 2 }
-    ],
-    orderInChapter: 1,
-    item: {
-      id: 'item-003',
-      name: '银质怀表',
-      description: '一块银色的老怀表，表盖上面刻着精致的花纹。表已经停走了，表蒙子上有一道裂痕。',
-      image: '⌚',
-      hotspots: [
-        {
-          id: 'hot-003-1',
-          name: '表盖的刻字',
-          x: 50,
-          y: 25,
-          width: 30,
-          height: 20,
-          description: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」',
-          clueId: 'clue-003-1',
-          hints: {
-            assisted: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」这块表承载着父亲对儿子深沉的爱和期许，和他无数次摩挲表链的习惯一样，都是无声的关怀。',
-            standard: '表盖内侧刻着一行小字：「给我的儿子，愿你的每一秒都有意义。——父亲」',
-            challenging: '内侧有字。父亲的。每一秒。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-003-2',
-          name: '停止的指针',
-          x: 45,
-          y: 50,
-          width: 25,
-          height: 25,
-          description: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。',
-          clueId: 'clue-003-2',
-          hints: {
-            assisted: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。这个精确到秒的时间一定有着特殊的意义——也许和某个重要的人的出生有关？',
-            standard: '指针停在了三点十七分。秒针停在第十二格的位置，很整齐。',
-            challenging: '3:17。秒针归位。整齐。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-003-3',
-          name: '表蒙的裂痕',
-          x: 30,
-          y: 35,
-          width: 40,
-          height: 30,
-          description: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。',
-          clueId: 'clue-003-3',
-          hints: {
-            assisted: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。但裂缝之下，机芯的齿轮看起来还完好——也许这块表还有重新走动的可能。',
-            standard: '表蒙子上有一道蛛网状的裂痕，从右上角延伸到中心。像是被什么东西撞击过。',
-            challenging: '蛛网裂。右上至中心。撞击。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-003-4',
-          name: '表链的磨损',
-          x: 15,
-          y: 55,
-          width: 15,
-          height: 30,
-          description: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。',
-          clueId: 'clue-003-4',
-          hints: {
-            assisted: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。是父亲一遍遍握着它，想象着给儿子的赠言？这磨损里藏着多少无声的思念。',
-            standard: '表链的扣环处磨损得很厉害，棱角都磨圆了。看来这块表经常被拿在手里摩挲。',
-            challenging: '磨损。棱角磨圆。常被握着。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-003-5',
-          name: '背面的照片',
-          x: 55,
-          y: 60,
-          width: 20,
-          height: 20,
-          description: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。',
-          clueId: 'clue-003-5',
-          hints: {
-            assisted: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期——这个日期和指针停住的时间有着惊人的巧合。原来，这块表定格的那一刻，就是他来到这个世界的瞬间。',
-            standard: '表的后盖可以打开，里面藏着一张小小的照片，是一个婴儿的笑脸。照片背面写着出生日期。',
-            challenging: '后盖。婴儿笑脸。日期。'
-          },
-          isDiscovered: false
-        },
-        {
-          id: 'hot-003-6',
-          name: '机芯的锈迹',
-          x: 40,
-          y: 65,
-          width: 25,
-          height: 15,
-          description: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。',
-          clueId: 'clue-003-6',
-          hints: {
-            assisted: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。表面虽已锈蚀，核心却依然完好——就像有些爱，虽然经历了风雨，却从未真正损坏。',
-            standard: '透过裂缝能看到一点机芯，上面有些褐色的锈迹。但齿轮看起来还完好。',
-            challenging: '锈迹。齿轮完好。'
-          },
-          isDiscovered: false
-        }
-      ]
-    }
-  }
-]
-
-export const clues: Clue[] = [
-  {
-    id: 'clue-001-1',
-    commissionId: 'comm-001',
-    title: '反复的划痕',
-    content: '音乐盒盖上的划痕是反复摩擦形成的，像是有人经常用手指沿着同一个方向摩挲。也许是因为思念？',
-    icon: '〰️',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-001-1',
-    tagIds: ['tag-damage', 'tag-important', 'tag-memory']
-  },
-  {
-    id: 'clue-001-2',
-    commissionId: 'comm-001',
-    title: '年轻的情侣',
-    content: '照片上的女孩穿着白色连衣裙，男孩抱着一把吉他。他们站在一片草地上，笑得很灿烂。这一定是他们年轻时的样子。',
-    icon: '📸',
-    category: 'memory',
-    isCollected: false,
-    hotspotId: 'hot-001-2',
-    tagIds: ['tag-love', 'tag-memory', 'tag-important']
-  },
-  {
-    id: 'clue-001-3',
-    commissionId: 'comm-001',
-    title: 'L 字母',
-    content: '发条旋钮底部刻着一个「L」。林奶奶的姓氏是林，那这个 L 是她的名字？还是……另一个人的？',
-    icon: '🔤',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-001-3',
-    tagIds: ['tag-secret']
-  },
-  {
-    id: 'clue-001-4',
-    commissionId: 'comm-001',
-    title: '永远的约定',
-    content: '纸条上的字虽然被胶水晕开了，但能看出是「永远爱你」四个字。字迹很清秀，应该是男孩子写的。',
-    icon: '📝',
-    category: 'emotion',
-    isCollected: false,
-    hotspotId: 'hot-001-4',
-    tagIds: ['tag-love', 'tag-important', 'tag-proof']
-  },
-  {
-    id: 'clue-002-1',
-    commissionId: 'comm-002',
-    title: '整齐的断面',
-    content: '碗口的缺口断面很整齐，不像摔碎的，倒像是被什么东西咬掉的……或者是被什么坚硬的东西磕碰的？',
-    icon: '⚡',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-002-1',
-    tagIds: ['tag-damage']
-  },
-  {
-    id: 'clue-002-2',
-    commissionId: 'comm-002',
-    title: '黄褐色痕迹',
-    content: '裂纹里的黄褐色痕迹……闻起来有一股淡淡的焦糖味。难道是小时候装过的糖水渗进去了？',
-    icon: '🍯',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-002-2',
-    tagIds: ['tag-time', 'tag-memory']
-  },
-  {
-    id: 'clue-002-3',
-    commissionId: 'comm-002',
-    title: '家传的印章',
-    content: '碗底的「陈」字印章旁边还有一行小字：「民国三十年制」。这碗的年纪比外婆还大呢。',
-    icon: '🔲',
-    category: 'time',
-    isCollected: false,
-    hotspotId: 'hot-002-3',
-    tagIds: ['tag-time', 'tag-family']
-  },
-  {
-    id: 'clue-002-4',
-    commissionId: 'comm-002',
-    title: '梅花图案',
-    content: '碗内壁的梅花图案磨损得很厉害，特别是正对着碗口的那一朵。看来经常有人从这个方向喝东西。',
-    icon: '🌸',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-002-4',
-    tagIds: ['tag-memory', 'tag-family']
-  },
-  {
-    id: 'clue-002-5',
-    commissionId: 'comm-002',
-    title: '笨拙的修补',
-    content: '胶水涂得歪歪扭扭的，还有些溢出来的痕迹。能看出来修补的人很用心，但手很笨。是小陈自己粘的吗？',
-    icon: '🔧',
-    category: 'emotion',
-    isCollected: false,
-    hotspotId: 'hot-002-5',
-    tagIds: ['tag-damage', 'tag-family']
-  },
-  {
-    id: 'clue-003-1',
-    commissionId: 'comm-003',
-    title: '父亲的赠言',
-    content: '「给我的儿子，愿你的每一秒都有意义。——父亲」 这块表是父亲送给儿子的礼物，承载着父亲的期望。',
-    icon: '💌',
-    category: 'emotion',
-    isCollected: false,
-    hotspotId: 'hot-003-1',
-    tagIds: ['tag-family', 'tag-important']
-  },
-  {
-    id: 'clue-003-2',
-    commissionId: 'comm-003',
-    title: '三点十七分',
-    content: '指针停在三点十七分。这个时间有什么特殊的意义吗？是一个人的出生时间？还是……什么重要的时刻？',
-    icon: '🕒',
-    category: 'time',
-    isCollected: false,
-    hotspotId: 'hot-003-2',
-    tagIds: ['tag-time', 'tag-important']
-  },
-  {
-    id: 'clue-003-3',
-    commissionId: 'comm-003',
-    title: '撞击的裂痕',
-    content: '表蒙上的裂痕是撞击造成的，而且力度不小。怀表是怎么被撞击的？掉在地上了？还是……遇到了什么意外？',
-    icon: '💥',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-003-3',
-    tagIds: ['tag-damage', 'tag-secret']
-  },
-  {
-    id: 'clue-003-4',
-    commissionId: 'comm-003',
-    title: '摩挲的痕迹',
-    content: '表链扣环磨损得很厉害，说明这块表经常被人拿在手里把玩、摩挲。是父亲？还是儿子？',
-    icon: '✋',
-    category: 'emotion',
-    isCollected: false,
-    hotspotId: 'hot-003-4',
-    tagIds: ['tag-family', 'tag-memory']
-  },
-  {
-    id: 'clue-003-5',
-    commissionId: 'comm-003',
-    title: '婴儿的照片',
-    content: '后盖上藏着一张婴儿照片，背面写着出生日期：1985年3月17日，凌晨3点17分。哦……原来如此。',
-    icon: '👶',
-    category: 'memory',
-    isCollected: false,
-    hotspotId: 'hot-003-5',
-    tagIds: ['tag-memory', 'tag-proof', 'tag-important']
-  },
-  {
-    id: 'clue-003-6',
-    commissionId: 'comm-003',
-    title: '完好的机芯',
-    content: '虽然表蒙裂了，也生了点锈，但机芯的齿轮看起来还完好。也许……这块表还能修好，重新走起来？',
-    icon: '⚙️',
-    category: 'object',
-    isCollected: false,
-    hotspotId: 'hot-003-6',
-    tagIds: ['tag-damage', 'tag-proof']
-  }
-]
-
-export const connections: ClueConnection[] = [
-  {
-    id: 'conn-001-1',
-    fromClueId: 'clue-001-2',
-    toClueId: 'clue-001-4',
-    conclusion: '照片上的情侣就是林奶奶和她的老伴，他们年轻时相爱并许下了永远的约定。',
-    isDiscovered: false,
-    repairHint: '修复照片，还原他们年轻时的模样'
-  },
-  {
-    id: 'conn-001-2',
-    fromClueId: 'clue-001-1',
-    toClueId: 'clue-001-3',
-    conclusion: '划痕的位置正好对应着旋钮上的 L 字母，林奶奶一定是无数次摸着这个字母思念老伴。',
-    isDiscovered: false,
-    repairHint: '重新镀金旋钮，让 L 字母重新闪耀'
-  },
-  {
-    id: 'conn-002-1',
-    fromClueId: 'clue-002-2',
-    toClueId: 'clue-002-4',
-    conclusion: '糖水从梅花图案的位置渗进去，说明每次喝糖水都是从这个方向。外婆一定是看着小陈喝糖水的。',
-    isDiscovered: false,
-    repairHint: '清理裂纹中的糖渍，保留岁月的痕迹'
-  },
-  {
-    id: 'conn-002-2',
-    fromClueId: 'clue-002-1',
-    toClueId: 'clue-002-5',
-    conclusion: '缺口是小时候小陈不小心咬的，长大后他笨拙地想把碗粘好，却越弄越糟。',
-    isDiscovered: false,
-    repairHint: '用金缮工艺修补缺口，让残缺也成为美'
-  },
-  {
-    id: 'conn-002-3',
-    fromClueId: 'clue-002-3',
-    toClueId: 'clue-002-4',
-    conclusion: '这只梅花碗是陈家的传家宝，从民国传到现在，每一代都用它喝过糖水。',
-    isDiscovered: false,
-    repairHint: '修复碗底的印章，让家族的印记清晰可见'
-  },
-  {
-    id: 'conn-003-1',
-    fromClueId: 'clue-003-2',
-    toClueId: 'clue-003-5',
-    conclusion: '怀表停在3点17分，而周先生正好是3月17日凌晨3点17分出生的。这块表记录了他生命开始的时刻。',
-    isDiscovered: false,
-    repairHint: '让怀表重新走动，但永远保留3点17分的记忆'
-  },
-  {
-    id: 'conn-003-2',
-    fromClueId: 'clue-003-1',
-    toClueId: 'clue-003-4',
-    conclusion: '父亲无数次摩挲着这块表，想象着儿子的未来。他把所有的爱和期望都寄托在了这块怀表里。',
-    isDiscovered: false,
-    repairHint: '修复表链的磨损，保留那些爱的痕迹'
-  },
-  {
-    id: 'conn-003-3',
-    fromClueId: 'clue-003-3',
-    toClueId: 'clue-003-6',
-    conclusion: '表虽然被撞裂了，但机芯完好。就像父亲虽然走了，但他的爱一直完好无损。',
-    isDiscovered: false,
-    repairHint: '修复表蒙，但保留一道细微的裂纹作为纪念'
-  }
-]
-
-export const endings: Ending[] = [
-  {
-    id: 'end-001-good',
-    commissionId: 'comm-001',
-    type: 'good',
-    title: '永恒的旋律',
-    story: '音乐盒修好了。当熟悉的旋律再次响起，林奶奶的眼眶湿润了。\n\n「和当年一模一样……他就是用这首曲子向我表白的。」\n\n她轻轻抚摸着重新变得清晰的照片，照片上的年轻人笑得那样灿烂。\n\n「谢谢你，让我又想起了那些日子。原来有些记忆，从来都没有褪色。」\n\n林奶奶抱着音乐盒，嘴角带着微笑，像是回到了十八岁的那个夏天。',
-    choiceCondition: '选择完整修复音乐盒和照片',
-    image: '🎶',
-    isUnlocked: false
-  },
-  {
-    id: 'end-001-neutral',
-    commissionId: 'comm-001',
-    type: 'neutral',
-    title: '时光的印记',
-    story: '音乐盒能发出声音了，但你选择保留了一些岁月的痕迹。\n\n林奶奶接过音乐盒，轻轻笑了：「这样也好，旧旧的，才像我们一起走过的日子。」\n\n她打开盖子，旋律有些走调，却别有一番风味。\n\n「人老了，声音也会变嘛。这音乐盒跟我一样，都老了。」\n\n她轻轻哼着走调的旋律，脸上满是温柔。',
-    choiceCondition: '选择只修复功能，保留外观的岁月痕迹',
-    image: '🎼',
-    isUnlocked: false
-  },
-  {
-    id: 'end-001-bad',
-    commissionId: 'comm-001',
-    type: 'bad',
-    title: '遗失的音符',
-    story: '你尝试修复音乐盒，但照片损坏得太严重了，怎么也恢复不了原来的样子。\n\n林奶奶看着模糊的照片，沉默了很久。\n\n「没关系……」她轻声说，「我记不清他年轻时的样子了，但我记得……他对我很好。」\n\n她把音乐盒抱在怀里，像是抱着一个珍贵的秘密。\n\n有些记忆，也许注定要随着时间慢慢模糊。',
-    choiceCondition: '没有收集到足够的线索就进行修复',
-    image: '📻',
-    isUnlocked: false
-  },
-  {
-    id: 'end-002-good',
-    commissionId: 'comm-002',
-    type: 'good',
-    title: '金缮之碗',
-    story: '你用金缮工艺修补了瓷碗，金色的纹路像河流一样在青瓷上流淌。\n\n小陈接过碗，眼睛亮了：「好美啊……原来碎了的东西，也能变得这么美。」\n\n他用手指轻轻摸着金色的纹路，想起了小时候外婆喂他喝糖水的样子。\n\n「外婆常说，人就像这碗一样，就算碎了，也能好好地拼回去。」\n\n他笑了，眼眶红红的。「我现在懂了。」\n\n金色的纹路在阳光下闪闪发光，像是外婆的微笑。',
-    choiceCondition: '选择金缮工艺修补，保留残缺的美',
-    image: '✨',
-    isUnlocked: false
-  },
-  {
-    id: 'end-002-neutral',
-    commissionId: 'comm-002',
-    type: 'neutral',
-    title: '糖水的记忆',
-    story: '碗修好了，虽然还能看出裂痕，但已经不漏水了。\n\n小陈当天就用这个碗冲了一碗糖水。\n\n「就是这个味道！」他惊喜地说，「和外婆冲的一模一样！」\n\n他喝了一口，甜丝丝的暖流从嘴里流进心里。\n\n「原来味道是有记忆的。就算碗碎了，味道还记得。」\n\n他抱着碗，像是抱着整个童年。',
-    choiceCondition: '选择实用修复，确保碗能正常使用',
-    image: '🥣',
-    isUnlocked: false
-  },
-  {
-    id: 'end-002-bad',
-    commissionId: 'comm-002',
-    type: 'bad',
-    title: '拼不回的碎片',
-    story: '你尽力了，但碗碎得太厉害，怎么拼都拼不回原来的样子。\n\n小陈看着拼得歪歪扭扭的碗，沉默了很久。\n\n「也许……我不该勉强的。」他轻声说，「外婆走了，碗也碎了……有些东西，就是留不住的。」\n\n他把碎片小心地收进盒子里。\n\n「谢谢你至少让我知道，我曾经努力过。」\n\n盒子盖上的那一刻，像是一个时代结束了。',
-    choiceCondition: '没有收集到足够的线索就进行修复',
-    image: '💔',
-    isUnlocked: false
-  },
-  {
-    id: 'end-003-good',
-    commissionId: 'comm-003',
-    type: 'good',
-    title: '重新开始的时间',
-    story: '怀表修好了。你让它在3点17分重新开始走动——那是周先生出生的时刻。\n\n「滴答、滴答……」\n\n秒针移动的声音，像是心脏在跳动。\n\n周先生把怀表贴在胸口，泪水无声地滑落。\n\n「爸，我听到了。」他轻声说，「你的爱，一直在走。」\n\n怀表的滴答声和心跳声重合在一起，像是父亲的脉搏，继续在儿子的身体里跳动。\n\n「我会带着你的时间，好好走下去的。」',
-    choiceCondition: '选择让怀表重新走动，延续父亲的爱',
-    image: '⏰',
-    isUnlocked: false
-  },
-  {
-    id: 'end-003-neutral',
-    commissionId: 'comm-003',
-    type: 'neutral',
-    title: '永恒的瞬间',
-    story: '你没有让怀表重新走动，而是让它永远停在3点17分——那是他出生的时刻，也是父亲的爱定格的瞬间。\n\n「这样也好。」周先生说，「爸爸的时间，就停在我出生的那一刻吧。」\n\n他把怀表放在床头，每天醒来都能看到。\n\n「他的爱，从那一秒开始，就再也没有停过。」\n\n静止的指针，却讲述着一个从未停止的爱的故事。',
-    choiceCondition: '选择保留停止的状态，纪念那个特殊的时刻',
-    image: '🕐',
-    isUnlocked: false
-  },
-  {
-    id: 'end-003-bad',
-    commissionId: 'comm-003',
-    type: 'bad',
-    title: '走散的时间',
-    story: '怀表没能修好，机芯损坏得比想象中严重。\n\n周先生接过怀表，轻轻叹了口气。\n\n「也许……这就是命运吧。」他说，「爸爸走得突然，这块表也走得突然。」\n\n他把怀表放进抽屉最里面。\n\n「有些时间，就是会忽然停下来。」\n\n抽屉关上了，把所有关于父亲的记忆，都关在了黑暗里。',
-    choiceCondition: '没有收集到足够的线索就进行修复',
-    image: '⌛',
-    isUnlocked: false
-  }
-]
-
-export const repairSteps: Record<string, RepairStep[]> = {
-  'comm-001': [
-    {
-      id: 'step-001-1',
-      title: '清洁表面',
-      description: '首先需要清洁音乐盒的表面，去除岁月积累的灰尘和污渍。',
-      choices: [
-        {
-          id: 'choice-001-1a',
-          label: '用湿布仔细擦拭',
-          description: '温柔地清洁，保留包浆和岁月感',
-          endingType: 'neutral'
-        },
-        {
-          id: 'choice-001-1b',
-          label: '用专业清洁剂彻底清洁',
-          description: '深度清洁，让音乐盒焕然一新',
-          endingType: 'good'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '也许可以用更温和的方式来清洁，比如用湿布慢慢擦拭？这样既能去掉灰尘，也能保留岁月的痕迹。',
-          extraChoices: [
-            {
-              id: 'choice-001-1c',
-              label: '用柔软的丝绸布轻拭',
-              description: '最温和的方式，既清洁又保护',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '清洁表面。方法决定了结果。',
-          extraChoices: [
-            {
-              id: 'choice-001-1d',
-              label: '大胆尝试化学溶剂',
-              description: '高风险高回报，可能完全清除也可能损坏',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-001-2',
-      title: '修复照片',
-      description: '盖子上的照片已经模糊泛黄，需要想办法恢复。',
-      choices: [
-        {
-          id: 'choice-001-2a',
-          label: '用修复技术还原照片',
-          description: '尽可能还原照片原本的清晰度',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-001-2b',
-          label: '保留朦胧感，只做基础修复',
-          description: '让照片保留岁月的朦胧美感',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '照片虽然模糊了，但如果小心地用数码技术辅助修复，也许能还原更多细节。记得要耐心，别急。',
-          extraChoices: [
-            {
-              id: 'choice-001-2c',
-              label: '参考同期照片逐步还原',
-              description: '借助老照片的色调参考，细致还原每一处',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '照片模糊。选择决定一切。',
-          extraChoices: [
-            {
-              id: 'choice-001-2d',
-              label: '直接刮开表层看底层',
-              description: '也许底下还有另一幅画面，也可能什么都没有',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-001-3',
-      title: '调试机芯',
-      description: '音乐盒的机芯需要调试，让旋律重新变得动听。',
-      choices: [
-        {
-          id: 'choice-001-3a',
-          label: '精确调音，还原原曲',
-          description: '让音乐盒发出最完美的旋律',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-001-3b',
-          label: '保留一点走调的味道',
-          description: '让音乐带有一点复古的质感',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '机芯虽然有些生锈，但齿轮看起来还完好。也许可以先听听原曲的录音，再根据参考来调音？这样不容易出错。',
-          extraChoices: [
-            {
-              id: 'choice-001-3c',
-              label: '先找原曲录音再微调',
-              description: '对照原曲精确校准，确保旋律完美还原',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '调音。听天由命。',
-          extraChoices: [
-            {
-              id: 'choice-001-3d',
-              label: '用力拧紧发条试试极限',
-              description: '也许调到极致会有惊喜，也可能崩断发条',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    }
-  ],
-  'comm-002': [
-    {
-      id: 'step-002-1',
-      title: '清理碎片',
-      description: '需要先把所有碎片清理干净，才能开始修补。',
-      choices: [
-        {
-          id: 'choice-002-1a',
-          label: '仔细清洗每一块碎片',
-          description: '确保每一片都干净，为修复做准备',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-002-1b',
-          label: '简单擦拭即可',
-          description: '保留一些旧痕迹，增加年代感',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '碎片上有残留的胶水和糖渍，用温水慢慢泡软会更好清理。别着急，每一片都承载着回忆。',
-          extraChoices: [
-            {
-              id: 'choice-002-1c',
-              label: '用温水逐片浸泡清理',
-              description: '温柔的方式，不会伤到瓷片上的花纹',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '碎片。清理。时间不等人。',
-          extraChoices: [
-            {
-              id: 'choice-002-1d',
-              label: '用钢丝球快速刷洗',
-              description: '效率最高，但可能刮花釉面',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-002-2',
-      title: '选择修补方式',
-      description: '这是最重要的一步，决定了碗最终的样子。',
-      choices: [
-        {
-          id: 'choice-002-2a',
-          label: '金缮工艺',
-          description: '用金粉填补裂缝，让残缺成为一种美',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-002-2b',
-          label: '传统修补',
-          description: '用瓷粉和胶水修补，尽量看不出痕迹',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '金缮工艺虽然费时，但能让裂缝变成金色的河流，赋予残缺新的美。也可以试试传统的大漆工艺，更古朴一些。',
-          extraChoices: [
-            {
-              id: 'choice-002-2c',
-              label: '金缮结合大漆，层层髹涂',
-              description: '最用心的方式，让裂缝成为碗上最美的纹路',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '修补。一锤定音。',
-          extraChoices: [
-            {
-              id: 'choice-002-2d',
-              label: '用502胶水快速粘合',
-              description: '最快最省事，但胶痕会永远留下',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-002-3',
-      title: '最终打磨',
-      description: '修补完成后，需要进行最后的打磨处理。',
-      choices: [
-        {
-          id: 'choice-002-3a',
-          label: '精细打磨，确保完美',
-          description: '让每一处都光滑圆润',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-002-3b',
-          label: '轻微打磨，保留手感',
-          description: '保留一些手工的质感',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '打磨要轻柔，像抚摸孩子的脸颊一样。特别是金缮的部分，需要用极细的砂纸慢慢打磨，才能让金色自然地融入釉面。',
-          extraChoices: [
-            {
-              id: 'choice-002-3c',
-              label: '用鹿皮手工细磨',
-              description: '最温柔的方式，让每一处都温润如初',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '打磨。快即是好。',
-          extraChoices: [
-            {
-              id: 'choice-002-3d',
-              label: '上砂轮机快速抛光',
-              description: '一眨眼就搞定，但可能磨掉修补的细节',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    }
-  ],
-  'comm-003': [
-    {
-      id: 'step-003-1',
-      title: '拆卸检查',
-      description: '需要先拆开怀表，检查机芯的损坏程度。',
-      choices: [
-        {
-          id: 'choice-003-1a',
-          label: '完全拆卸，彻底检查',
-          description: '仔细检查每一个零件',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-003-1b',
-          label: '简单拆开看看',
-          description: '粗略检查，保留原表的完整性',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '拆卸怀表需要非常小心，零件又小又精密。建议每拆一个零件就拍照记录位置，这样装回去的时候才不会弄错。',
-          extraChoices: [
-            {
-              id: 'choice-003-1c',
-              label: '逐一拍照记录再拆卸',
-              description: '最稳妥的方式，确保每个零件都有据可查',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '拆。快。',
-          extraChoices: [
-            {
-              id: 'choice-003-1d',
-              label: '直接撬开后盖',
-              description: '最快的方式，但可能损坏密封结构',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-003-2',
-      title: '修复表蒙',
-      description: '表蒙上的裂痕需要处理。',
-      choices: [
-        {
-          id: 'choice-003-2a',
-          label: '更换新的表蒙',
-          description: '换一块全新的，完美无瑕',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-003-2b',
-          label: '修复但保留一道细纹',
-          description: '保留一点岁月的痕迹',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '表蒙的裂痕虽然碍眼，但那是时间的印记。如果找一块同年代的老矿物玻璃来替换，既能让表蒙完整，又能保留怀表原有的气质。',
-          extraChoices: [
-            {
-              id: 'choice-003-2c',
-              label: '寻找同年代矿物玻璃替换',
-              description: '既完美又保持时代气息，最用心的选择',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '表蒙裂了。换掉。',
-          extraChoices: [
-            {
-              id: 'choice-003-2d',
-              label: '用廉价亚克力替代',
-              description: '又轻又便宜，但和银质怀表格格不入',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    },
-    {
-      id: 'step-003-3',
-      title: '决定走留',
-      description: '最关键的一步：这块怀表，应该让它重新走起来吗？',
-      choices: [
-        {
-          id: 'choice-003-3a',
-          label: '修好它，让时间继续',
-          description: '让怀表重新滴答作响',
-          endingType: 'good'
-        },
-        {
-          id: 'choice-003-3b',
-          label: '就让它停在那一刻',
-          description: '3点17分，是最好的纪念',
-          endingType: 'neutral'
-        }
-      ],
-      isCompleted: false,
-      difficultyVariants: {
-        assisted: {
-          description: '这是最关键的决定。怀表停在3点17分，那是周先生出生的时刻。如果让它重新走动，也许可以从3点17分开始——让时间从那个充满爱的瞬间延续下去。',
-          extraChoices: [
-            {
-              id: 'choice-003-3c',
-              label: '从3点17分重新启动',
-              description: '让爱从那个瞬间延续，时间从未停止',
-              endingType: 'good'
-            }
-          ]
-        },
-        standard: {},
-        challenging: {
-          description: '走？留？只有一次机会。',
-          extraChoices: [
-            {
-              id: 'choice-003-3d',
-              label: '强行调快发条让表飞速运转',
-              description: '让时间疯狂奔跑，也许能忘掉停摆的痛苦',
-              endingType: 'bad'
-            }
-          ]
-        }
-      }
-    }
-  ]
+  return cfg.data
 }
 
-export const dialogueNodes: DialogueNode[] = [
-  {
-    id: 'dlg-comm-001-accept-1',
-    commissionId: 'comm-001',
-    nodeType: 'commission_accept',
-    order: 1,
-    speaker: 'client',
-    speakerName: '林奶奶',
-    speakerAvatar: '👵',
-    content: '小伙子，你就是这家店的老板吧？听说你能修好那些老物件……我这有个音乐盒，是我老伴生前送给我的。',
-    mood: 'sad',
-    nextNodeId: 'dlg-comm-001-accept-2'
-  },
-  {
-    id: 'dlg-comm-001-accept-2',
-    commissionId: 'comm-001',
-    nodeType: 'commission_accept',
-    order: 2,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '林奶奶您坐，慢慢说。这个音乐盒对您一定很重要吧？',
-    mood: 'hopeful',
-    nextNodeId: 'dlg-comm-001-accept-3'
-  },
-  {
-    id: 'dlg-comm-001-accept-3',
-    commissionId: 'comm-001',
-    nodeType: 'commission_accept',
-    order: 3,
-    speaker: 'client',
-    speakerName: '林奶奶',
-    speakerAvatar: '👵',
-    content: '是啊……这是他向我表白时送的。你看，漆都掉了，照片也模糊了……我怕再这样下去，我连他年轻时的样子都记不清了。',
-    mood: 'worried',
-    nextNodeId: 'dlg-comm-001-accept-4'
-  },
-  {
-    id: 'dlg-comm-001-accept-4',
-    commissionId: 'comm-001',
-    nodeType: 'commission_accept',
-    order: 4,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '我明白了。放心交给我吧，我会尽力找回那些被时光藏起来的记忆。',
-    mood: 'hopeful',
-    effects: [{ type: 'set_flag', flagKey: 'comm001_accepted', flagValue: true }],
-    isEndNode: true
-  },
+export const tags: Tag[] = loadConfig<Tag[]>(tagsConfig)
 
-  {
-    id: 'dlg-comm-001-intro-1',
-    commissionId: 'comm-001',
-    nodeType: 'commission_intro',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '林奶奶离开后，你把音乐盒轻轻放在工作台上。木制的盒身散发着淡淡的檀木香，那是岁月沉淀的味道。',
-    mood: 'mysterious',
-    nextNodeId: 'dlg-comm-001-intro-2'
-  },
-  {
-    id: 'dlg-comm-001-intro-2',
-    commissionId: 'comm-001',
-    nodeType: 'commission_intro',
-    order: 2,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '这音乐盒虽然老旧，但做工极其精致。我得仔细检查每一个角落，说不定能发现林奶奶没注意到的细节……',
-    mood: 'neutral',
-    isEndNode: true
-  },
+export const chaptersConfigData: ChapterConfig[] = loadConfig<ChapterConfig[]>(chaptersConfig)
 
-  {
-    id: 'dlg-comm-001-repair-pre-1',
-    commissionId: 'comm-001',
-    nodeType: 'repair_pre',
-    order: 1,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '线索都整理得差不多了。是时候开始动手修复了——',
-    mood: 'hopeful',
-    nextNodeId: 'dlg-comm-001-repair-pre-branch'
-  },
-  {
-    id: 'dlg-comm-001-repair-pre-branch',
-    commissionId: 'comm-001',
-    nodeType: 'repair_pre',
-    order: 2,
-    speaker: 'player',
-    speakerName: '你',
-    speakerAvatar: '🧑',
-    content: '在开始修复之前，我需要先确定修复的方向——',
-    mood: 'neutral',
-    choices: [
-      {
-        id: 'choice-comm001-repair-good-hint',
-        label: '尽可能还原到全新状态',
-        description: '让音乐盒和照片都恢复到最完美的样子',
-        nextNodeId: 'dlg-comm-001-repair-pre-good',
-        conditions: [{ type: 'connection_count', minCount: 1 }],
-        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'perfect' }]
-      },
-      {
-        id: 'choice-comm001-repair-neutral-hint',
-        label: '保留岁月的痕迹',
-        description: '修复功能为主，外观保留一些旧时光的味道',
-        nextNodeId: 'dlg-comm-001-repair-pre-neutral',
-        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'nostalgic' }]
-      },
-      {
-        id: 'choice-comm001-repair-unsure',
-        label: '先听听林奶奶的想法再说',
-        description: '先不急着动手，确认一下委托人的真实期望',
-        nextNodeId: 'dlg-comm-001-repair-pre-unsure',
-        conditions: [{ type: 'clue_count', minCount: 4 }],
-        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'thoughtful' }]
-      }
-    ]
-  },
-  {
-    id: 'dlg-comm-001-repair-pre-good',
-    commissionId: 'comm-001',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '既然已经掌握了足够的线索，就尽全力让它焕然一新吧！林奶奶看到年轻时的照片，一定会很开心的。',
-    mood: 'happy',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm-001-repair-pre-neutral',
-    commissionId: 'comm-001',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '旧物之所以珍贵，不正是因为它承载了时光吗？让旋律重新响起就好，外表的旧痕就留给岁月吧。',
-    mood: 'neutral',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm-001-repair-pre-unsure',
-    commissionId: 'comm-001',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '我好像从所有线索里拼凑出了他们的故事……也许真正的修复，是让林奶奶感受到那份从未褪色的爱。',
-    mood: 'mysterious',
-    isEndNode: true
-  },
+export const commissionsConfigData: CommissionConfig[] = loadConfig<CommissionConfig[]>(commissionsConfig)
 
-  {
-    id: 'dlg-comm-002-accept-1',
-    commissionId: 'comm-002',
-    nodeType: 'commission_accept',
-    order: 1,
-    speaker: 'client',
-    speakerName: '小陈',
-    speakerAvatar: '👨',
-    content: '老板你好……我姓陈。这只碗是我外婆生前一直用的，小时候她总用它给我盛糖水。',
-    mood: 'sad',
-    nextNodeId: 'dlg-comm-002-accept-2'
-  },
-  {
-    id: 'dlg-comm-002-accept-2',
-    commissionId: 'comm-002',
-    nodeType: 'commission_accept',
-    order: 2,
-    speaker: 'client',
-    speakerName: '小陈',
-    speakerAvatar: '👨',
-    content: '搬家时不小心打碎了，我试着自己粘回去过……结果越弄越糟。我怕如果连这只碗都没了，外婆就真的……走了。',
-    mood: 'worried',
-    nextNodeId: 'dlg-comm-002-accept-3'
-  },
-  {
-    id: 'dlg-comm-002-accept-3',
-    commissionId: 'comm-002',
-    nodeType: 'commission_accept',
-    order: 3,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '陈先生，碗碎了可以修，记忆也是一样。交给我吧，我会让它好好地回来。',
-    mood: 'hopeful',
-    effects: [{ type: 'set_flag', flagKey: 'comm002_accepted', flagValue: true }],
-    isEndNode: true
-  },
+export const cluesConfigData: ClueConfig[] = loadConfig<ClueConfig[]>(cluesConfig)
 
-  {
-    id: 'dlg-comm-002-intro-1',
-    commissionId: 'comm-002',
-    nodeType: 'commission_intro',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '碎片被小心翼翼地拼在棉布上。青瓷的质地依然温润，只是那些裂纹像一道道泪痕划过碗身。',
-    mood: 'sad',
-    nextNodeId: 'dlg-comm-002-intro-2'
-  },
-  {
-    id: 'dlg-comm-002-intro-2',
-    commissionId: 'comm-002',
-    nodeType: 'commission_intro',
-    order: 2,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '胶水涂得歪歪扭扭的，看得出来小陈真是个生手……但这份笨拙里藏着的心意，我好像能感受到。我得用最适合的方式来修。',
-    mood: 'neutral',
-    isEndNode: true
-  },
+export const connectionsConfigData: ClueConnectionConfig[] = loadConfig<ClueConnectionConfig[]>(connectionsConfig)
 
-  {
-    id: 'dlg-comm-002-repair-pre-1',
-    commissionId: 'comm-002',
-    nodeType: 'repair_pre',
-    order: 1,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '碎片都清理干净了。接下来，就是最关键的一步——',
-    mood: 'neutral',
-    nextNodeId: 'dlg-comm-002-repair-pre-branch'
-  },
-  {
-    id: 'dlg-comm-002-repair-pre-branch',
-    commissionId: 'comm-002',
-    nodeType: 'repair_pre',
-    order: 2,
-    speaker: 'player',
-    speakerName: '你',
-    speakerAvatar: '🧑',
-    content: '关于这只碗的修补方式，我想好了——',
-    mood: 'neutral',
-    choices: [
-      {
-        id: 'choice-comm002-kintsugi',
-        label: '用金缮工艺',
-        description: '以金粉填补裂缝，让残缺成为独特的美',
-        nextNodeId: 'dlg-comm002-kintsugi',
-        conditions: [{ type: 'connection_count', minCount: 2 }],
-        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'kintsugi' }]
-      },
-      {
-        id: 'choice-comm002-traditional',
-        label: '传统瓷粉修补',
-        description: '用瓷粉和大漆修补，尽量还原碗本来的样子',
-        nextNodeId: 'dlg-comm002-traditional',
-        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'traditional' }]
-      },
-      {
-        id: 'choice-comm002-flavor',
-        label: '先煮一碗糖水找找灵感',
-        description: '也许先回味一下记忆中的味道，会有更好的想法',
-        nextNodeId: 'dlg-comm002-flavor',
-        conditions: [{ type: 'clue_collected', clueId: 'clue-002-2' }],
-        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'inspired' }]
-      }
-    ]
-  },
-  {
-    id: 'dlg-comm002-kintsugi',
-    commissionId: 'comm-002',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '金缮——把残缺化作独特的美。就像外婆的爱，就算经历了破碎，也依然闪耀着金色的光。',
-    mood: 'happy',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm002-traditional',
-    commissionId: 'comm-002',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '传统修补法，像把记忆一片片小心地放回原位。让它看起来像从前那样，也挺好的。',
-    mood: 'neutral',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm002-flavor',
-    commissionId: 'comm-002',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '焦糖的甜香从裂纹深处飘出来……原来，真正的修补不只是碗的本身，更是留住那股熟悉的味道。',
-    mood: 'hopeful',
-    isEndNode: true
-  },
+export const endingsConfigData: EndingConfig[] = loadConfig<EndingConfig[]>(endingsConfig)
 
-  {
-    id: 'dlg-comm-003-accept-1',
-    commissionId: 'comm-003',
-    nodeType: 'commission_accept',
-    order: 1,
-    speaker: 'client',
-    speakerName: '周先生',
-    speakerAvatar: '🧔',
-    content: '老板……这是我父亲的怀表。他走得很突然，什么话都没留下。',
-    mood: 'sad',
-    nextNodeId: 'dlg-comm-003-accept-2'
-  },
-  {
-    id: 'dlg-comm-003-accept-2',
-    commissionId: 'comm-003',
-    nodeType: 'commission_accept',
-    order: 2,
-    speaker: 'client',
-    speakerName: '周先生',
-    speakerAvatar: '🧔',
-    content: '表停了，停在3点17分。我就是想知道……这个时间，对他来说意味着什么？',
-    mood: 'mysterious',
-    nextNodeId: 'dlg-comm-003-accept-3'
-  },
-  {
-    id: 'dlg-comm-003-accept-3',
-    commissionId: 'comm-003',
-    nodeType: 'commission_accept',
-    order: 3,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '我懂了。表停了，但它记录的那一刻，也许就是您父亲最想告诉您的话。',
-    mood: 'hopeful',
-    effects: [{ type: 'set_flag', flagKey: 'comm003_accepted', flagValue: true }],
-    isEndNode: true
-  },
+export const repairStepsConfigData: Record<string, RepairStepConfig[]> =
+  loadConfig<Record<string, RepairStepConfig[]>>(repairStepsConfig)
 
-  {
-    id: 'dlg-comm-003-intro-1',
-    commissionId: 'comm-003',
-    nodeType: 'commission_intro',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '银质的怀表静静躺在丝绒衬布上。表蒙上的蛛网状裂痕让它看起来像一颗被冰封的星球。',
-    mood: 'mysterious',
-    nextNodeId: 'dlg-comm-003-intro-2'
-  },
-  {
-    id: 'dlg-comm-003-intro-2',
-    commissionId: 'comm-003',
-    nodeType: 'commission_intro',
-    order: 2,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '3点17分……这个精确到分钟的时间，一定不是偶然。我要从每一个细节里，找出这块怀表藏着的秘密。',
-    mood: 'mysterious',
-    isEndNode: true
-  },
-
-  {
-    id: 'dlg-comm-003-repair-pre-1',
-    commissionId: 'comm-003',
-    nodeType: 'repair_pre',
-    order: 1,
-    speaker: 'shopkeeper',
-    speakerName: '店主',
-    speakerAvatar: '🏪',
-    content: '所有的线索都连起来了……答案已经很清楚了。现在，最后一步是——',
-    mood: 'hopeful',
-    nextNodeId: 'dlg-comm-003-repair-pre-branch'
-  },
-  {
-    id: 'dlg-comm-003-repair-pre-branch',
-    commissionId: 'comm-003',
-    nodeType: 'repair_pre',
-    order: 2,
-    speaker: 'player',
-    speakerName: '你',
-    speakerAvatar: '🧑',
-    content: '关于这块怀表的最终选择——',
-    mood: 'neutral',
-    choices: [
-      {
-        id: 'choice-comm003-restart',
-        label: '修好它，让时间继续',
-        description: '让怀表从3点17分开始，重新滴答作响',
-        nextNodeId: 'dlg-comm003-restart',
-        conditions: [{ type: 'connection_count', minCount: 2 }],
-        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'restart' }]
-      },
-      {
-        id: 'choice-comm003-keepstill',
-        label: '就让它停在那一刻',
-        description: '3点17分是最珍贵的瞬间，值得被永远定格',
-        nextNodeId: 'dlg-comm003-keepstill',
-        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'still' }]
-      },
-      {
-        id: 'choice-comm003-birthday',
-        label: '把出生时刻刻在表壳上',
-        description: '把那个特殊的日期永远留在怀表上，纪念那一刻',
-        nextNodeId: 'dlg-comm003-birthday',
-        conditions: [
-          { type: 'clue_collected', clueId: 'clue-003-2' },
-          { type: 'clue_collected', clueId: 'clue-003-5' }
-        ],
-        conditionOperator: 'and',
-        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'engrave' }]
-      }
-    ]
-  },
-  {
-    id: 'dlg-comm003-restart',
-    commissionId: 'comm-003',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '让时间从3点17分继续……这样，父亲的爱就会随着秒针，永远陪着他。',
-    mood: 'happy',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm003-keepstill',
-    commissionId: 'comm-003',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '有些瞬间值得被永远定格。3点17分，是一个父亲成为父亲的时刻——就停在这里吧。',
-    mood: 'grateful',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm003-birthday',
-    commissionId: 'comm-003',
-    nodeType: 'repair_pre',
-    order: 3,
-    speaker: 'inner_thought',
-    speakerName: '内心独白',
-    speakerAvatar: '💭',
-    content: '把那个日期刻在表壳内侧……当周先生再打开表盖时，就能看到——这一切，从他出生的那一刻就已经开始了。',
-    mood: 'happy',
-    isEndNode: true
-  },
-
-  {
-    id: 'dlg-comm-001-repair-post',
-    commissionId: 'comm-001',
-    nodeType: 'repair_post',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '修复工作完成了。音乐盒静静地躺在工作台上，阳光透过窗户洒在它身上——',
-    mood: 'happy',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm-002-repair-post',
-    commissionId: 'comm-002',
-    nodeType: 'repair_post',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '修补完成。那只碗静静地在灯光下闪烁着不同的光泽——',
-    mood: 'hopeful',
-    isEndNode: true
-  },
-  {
-    id: 'dlg-comm-003-repair-post',
-    commissionId: 'comm-003',
-    nodeType: 'repair_post',
-    order: 1,
-    speaker: 'narrator',
-    speakerName: '旁白',
-    speakerAvatar: '📖',
-    content: '怀表的修复完成了。它的命运，最终由你的选择决定——',
-    mood: 'mysterious',
-    isEndNode: true
-  }
+export const dialogueNodesConfigData: DialogueNode[] = [
+  ...loadConfig<DialogueNode[]>(dialogueComm001),
+  ...loadConfig<DialogueNode[]>(dialogueComm002),
+  ...loadConfig<DialogueNode[]>(dialogueComm003)
 ]
 
+function createItemWithRuntimeState(config: ItemConfig): Item {
+  return {
+    ...config,
+    hotspots: config.hotspots.map(createHotspotWithRuntimeState)
+  }
+}
+
+function createHotspotWithRuntimeState(config: HotspotConfig): Hotspot {
+  return {
+    ...config,
+    isDiscovered: false
+  }
+}
+
+function createCommissionWithRuntimeState(config: CommissionConfig): Commission {
+  return {
+    ...config,
+    status: 'pending' as const,
+    item: createItemWithRuntimeState(config.item)
+  }
+}
+
+function createChapterWithRuntimeState(config: ChapterConfig): Chapter {
+  return {
+    ...config,
+    isUnlocked: config.id === 'chap-001',
+    unlockedAt: undefined
+  }
+}
+
+function createClueWithRuntimeState(config: ClueConfig): Clue {
+  return {
+    ...config,
+    isCollected: false
+  }
+}
+
+function createConnectionWithRuntimeState(config: ClueConnectionConfig): ClueConnection {
+  return {
+    ...config,
+    isDiscovered: false
+  }
+}
+
+function createEndingWithRuntimeState(config: EndingConfig): Ending {
+  return {
+    ...config,
+    isUnlocked: false
+  }
+}
+
+function createRepairStepWithRuntimeState(config: RepairStepConfig): RepairStep {
+  return {
+    ...config,
+    isCompleted: false,
+    selectedChoice: undefined
+  }
+}
+
+export const chapters: Chapter[] = chaptersConfigData.map(createChapterWithRuntimeState)
+
+export const commissions: Commission[] = commissionsConfigData.map(createCommissionWithRuntimeState)
+
+export const clues: Clue[] = cluesConfigData.map(createClueWithRuntimeState)
+
+export const connections: ClueConnection[] = connectionsConfigData.map(createConnectionWithRuntimeState)
+
+export const endings: Ending[] = endingsConfigData.map(createEndingWithRuntimeState)
+
+export const repairSteps: Record<string, RepairStep[]> = Object.fromEntries(
+  Object.entries(repairStepsConfigData).map(([commissionId, steps]) => [
+    commissionId,
+    steps.map(createRepairStepWithRuntimeState)
+  ])
+)
+
+export const dialogueNodes: DialogueNode[] = [...dialogueNodesConfigData]
+
+export const gameDataConfig: GameDataConfig = {
+  tags,
+  chapters: chaptersConfigData,
+  commissions: commissionsConfigData,
+  clues: cluesConfigData,
+  connections: connectionsConfigData,
+  endings: endingsConfigData,
+  repairSteps: repairStepsConfigData,
+  dialogueNodes: dialogueNodesConfigData
+}
+
+export function getGameConfig(): GameDataConfig {
+  return {
+    tags: [...tags],
+    chapters: [...chaptersConfigData],
+    commissions: [...commissionsConfigData],
+    clues: [...cluesConfigData],
+    connections: [...connectionsConfigData],
+    endings: [...endingsConfigData],
+    repairSteps: { ...repairStepsConfigData },
+    dialogueNodes: [...dialogueNodesConfigData]
+  }
+}
+
+export function validateConfigIntegrity(): { valid: boolean; errors: string[]; warnings: string[] } {
+  const errors: string[] = []
+  const warnings: string[] = []
+
+  const tagIds = new Set(tags.map(t => t.id))
+  const chapterIds = new Set(chaptersConfigData.map(c => c.id))
+  const commissionIds = new Set(commissionsConfigData.map(c => c.id))
+  const clueIds = new Set(cluesConfigData.map(c => c.id))
+  const endingIds = new Set(endingsConfigData.map(e => e.id))
+  const hotspotIds = new Set<string>()
+
+  commissionsConfigData.forEach(comm => {
+    comm.item.hotspots.forEach(h => {
+      if (hotspotIds.has(h.id)) {
+        errors.push(`Duplicate hotspot ID: ${h.id}`)
+      }
+      hotspotIds.add(h.id)
+    })
+  })
+
+  chaptersConfigData.forEach(chapter => {
+    chapter.commissionIds.forEach(commId => {
+      if (!commissionIds.has(commId)) {
+        errors.push(`Chapter ${chapter.id} references non-existent commission: ${commId}`)
+      }
+    })
+  })
+
+  commissionsConfigData.forEach(comm => {
+    if (!chapterIds.has(comm.chapterId)) {
+      errors.push(`Commission ${comm.id} references non-existent chapter: ${comm.chapterId}`)
+    }
+
+    comm.prerequisiteCommissionIds.forEach(prereqId => {
+      if (!commissionIds.has(prereqId)) {
+        errors.push(`Commission ${comm.id} references non-existent prerequisite: ${prereqId}`)
+      }
+    })
+
+    comm.item.hotspots.forEach(h => {
+      if (h.clueId && !clueIds.has(h.clueId)) {
+        errors.push(`Hotspot ${h.id} references non-existent clue: ${h.clueId}`)
+      }
+    })
+  })
+
+  cluesConfigData.forEach(clue => {
+    if (!commissionIds.has(clue.commissionId)) {
+      errors.push(`Clue ${clue.id} references non-existent commission: ${clue.commissionId}`)
+    }
+
+    if (clue.hotspotId && !hotspotIds.has(clue.hotspotId)) {
+      warnings.push(`Clue ${clue.id} references non-existent hotspot: ${clue.hotspotId}`)
+    }
+
+    clue.tagIds.forEach(tagId => {
+      if (!tagIds.has(tagId)) {
+        warnings.push(`Clue ${clue.id} references non-existent tag: ${tagId}`)
+      }
+    })
+  })
+
+  connectionsConfigData.forEach(conn => {
+    if (!clueIds.has(conn.fromClueId)) {
+      errors.push(`Connection ${conn.id} references non-existent fromClue: ${conn.fromClueId}`)
+    }
+    if (!clueIds.has(conn.toClueId)) {
+      errors.push(`Connection ${conn.id} references non-existent toClue: ${conn.toClueId}`)
+    }
+  })
+
+  endingsConfigData.forEach(ending => {
+    if (!commissionIds.has(ending.commissionId)) {
+      errors.push(`Ending ${ending.id} references non-existent commission: ${ending.commissionId}`)
+    }
+  })
+
+  Object.entries(repairStepsConfigData).forEach(([commId, steps]) => {
+    if (!commissionIds.has(commId)) {
+      warnings.push(`Repair steps exist for non-existent commission: ${commId}`)
+    }
+  })
+
+  dialogueNodesConfigData.forEach(node => {
+    if (!commissionIds.has(node.commissionId)) {
+      warnings.push(`Dialogue node ${node.id} references non-existent commission: ${node.commissionId}`)
+    }
+  })
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    warnings
+  }
+}
+
+if (import.meta.env.DEV) {
+  const validation = validateConfigIntegrity()
+  if (!validation.valid) {
+    console.error('Config validation errors:', validation.errors)
+  }
+  if (validation.warnings.length > 0) {
+    console.warn('Config validation warnings:', validation.warnings)
+  }
+}
