@@ -63,7 +63,10 @@ export function getInitialGameState(): GameState {
     connectionRetryCounts: {},
     dialogueFlags: {},
     dialogueHistory: [],
-    completedDialogueNodeIds: []
+    completedDialogueNodeIds: [],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -309,7 +312,10 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     connectionRetryCounts: {},
     dialogueFlags: {},
     dialogueHistory: [],
-    completedDialogueNodeIds: []
+    completedDialogueNodeIds: [],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -370,7 +376,10 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     connectionRetryCounts: {},
     dialogueFlags: {},
     dialogueHistory: [],
-    completedDialogueNodeIds: []
+    completedDialogueNodeIds: [],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -439,7 +448,10 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     connectionRetryCounts: {},
     dialogueFlags: {},
     dialogueHistory: [],
-    completedDialogueNodeIds: []
+    completedDialogueNodeIds: [],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -510,7 +522,10 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     connectionRetryCounts: { ...(v6State.connectionRetryCounts || {}) },
     dialogueFlags: {},
     dialogueHistory: [],
-    completedDialogueNodeIds: []
+    completedDialogueNodeIds: [],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -584,7 +599,10 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     connectionRetryCounts: { ...(v7State.connectionRetryCounts || {}) },
     dialogueFlags: { ...(v7State.dialogueFlags || {}) },
     dialogueHistory: [...(v7State.dialogueHistory || [])],
-    completedDialogueNodeIds: [...(v7State.completedDialogueNodeIds || [])]
+    completedDialogueNodeIds: [...(v7State.completedDialogueNodeIds || [])],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 }
 
@@ -658,7 +676,10 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     connectionRetryCounts: { ...(v8State.connectionRetryCounts || {}) },
     dialogueFlags: { ...(v8State.dialogueFlags || {}) },
     dialogueHistory: [...(v8State.dialogueHistory || [])],
-    completedDialogueNodeIds: [...(v8State.completedDialogueNodeIds || [])]
+    completedDialogueNodeIds: [...(v8State.completedDialogueNodeIds || [])],
+    archivedConclusions: [],
+    boardCluePositions: {},
+    discoveredConflicts: []
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
@@ -727,6 +748,9 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     if (!(state as any).dialogueFlags) (state as any).dialogueFlags = {}
     if (!(state as any).dialogueHistory) (state as any).dialogueHistory = []
     if (!(state as any).completedDialogueNodeIds) (state as any).completedDialogueNodeIds = []
+    if (!(state as any).archivedConclusions) (state as any).archivedConclusions = []
+    if (!(state as any).boardCluePositions) (state as any).boardCluePositions = {}
+    if (!(state as any).discoveredConflicts) (state as any).discoveredConflicts = []
     return state
   }
 

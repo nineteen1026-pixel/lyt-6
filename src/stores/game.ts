@@ -2148,6 +2148,201 @@ export const useGameStore = defineStore('game', () => {
     saveCurrentGame()
   }
 
+  function computeConnectionScore(connectionId: string): import('../types').ConnectionScoreResult | null {
+    const connection = connections.find(c => c.id === connectionId)
+    if (!connection) return null
+
+    const fromClue = clues.find(c => c.id === connection.fromClueId)
+    const toClue = clues.find(c => c.id === connection.toClueId)
+    if (!fromClue || !toClue) return null
+
+    const scoreConfig = connection.scoreConfig || {}
+    const baseScore = scoreConfig.baseScore ?? 50
+    const tagOverlapBonus = scoreConfig.tagOverlapBonus ?? 5
+    const categoryMatchBonus = scoreConfig.categoryMatchBonus ?? 10
+    const narrativeWeight = scoreConfig.narrativeWeight ?? 0
+    const conflictPenalty = scoreConfig.conflictPenalty ?? 0
+
+    const sharedTagIds = fromClue.tagIds.filter(tid => toClue.tagIds.includes(tid))
+    const sharedTagNames = sharedTagIds.map(tid => getTagById(tid)?.name || tid)
+    const tagOverlapScore = sharedTagIds.length * tagOverlapBonus
+
+    const isCategoryMatch = fromClue.category === toClue.category
+    const categoryMatchScore = isCategoryMatch ? categoryMatchBonus : 0
+
+    const narrativeWeightScore = narrativeWeight
+
+    const hasConflict = (connection.conflictsWith || []).some(cid =>
+      state.value.discoveredConnections.includes(cid)
+    )
+    const conflictPenaltyScore = hasConflict ? conflictPenalty : 0
+
+    const totalScore = baseScore + tagOverlapScore + categoryMatchScore + narrativeWeightScore - conflictPenaltyScore
+
+    let level: import('../types').ConnectionScoreLevel = 'weak'
+    if (totalScore >= 90) level = 'critical'
+    else if (totalScore >= 70) level = 'strong'
+    else if (totalScore >= 50) level = 'moderate'
+
+    return {
+      totalScore,
+      baseScore,
+      tagOverlapScore,
+      categoryMatchScore,
+      narrativeWeightScore,
+      conflictPenaltyScore,
+      level,
+      sharedTagIds,
+      sharedTagNames,
+      isCategoryMatch
+    }
+  }
+
+  function detectConflictsForCommission(commissionId: string): import('../types').ConnectionConflict[] {
+    const commissionConns = connections.filter(c => {
+      const fromClue = clues.find(cl => cl.id === c.fromClueId)
+      return fromClue?.commissionId === commissionId &&
+        state.value.discoveredConnections.includes(c.id)
+    })
+
+    const conflicts: import('../types').ConnectionConflict[] = []
+
+    for (const conn of commissionConns) {
+      if (!conn.conflictsWith || conn.conflictsWith.length === 0) continue
+
+      for (const conflictConnId of conn.conflictsWith) {
+        if (!state.value.discoveredConnections.includes(conflictConnId)) continue
+        if (conflicts.some(cf =>
+          (cf.connectionA.id === conn.id && cf.connectionB.id === conflictConnId) ||
+          (cf.connectionA.id === conflictConnId && cf.connectionB.id === conn.id)
+        )) continue
+
+        const conflictConn = connections.find(c => c.id === conflictConnId)
+        if (!conflictConn) continue
+
+        const fromClueA = clues.find(c => c.id === conn.fromClueId)
+        const toClueA = clues.find(c => c.id === conn.toClueId)
+        const fromClueB = clues.find(c => c.id === conflictConn.fromClueId)
+        const toClueB = clues.find(c => c.id === conflictConn.toClueId)
+
+        conflicts.push({
+          id: `conflict-${conn.id}-${conflictConnId}`,
+          type: 'logical_contradiction',
+          connectionA: conn,
+          connectionB: conflictConn,
+          description: `「${fromClueA?.title}↔${toClueA?.title}」与「${fromClueB?.title}↔${toClueB?.title}」之间存在逻辑矛盾`,
+          hint: '请仔细审视两条推理，判断哪一条更符合证据链',
+          severity: 'warning',
+          isActive: true
+        })
+      }
+    }
+
+    return conflicts
+  }
+
+  function archiveConclusion(connectionId: string): import('../types').DeductionConclusion | null {
+    const connection = connections.find(c => c.id === connectionId)
+    if (!connection) return null
+
+    const commissionId = connection ? (clues.find(c => c.id === connection.fromClueId)?.commissionId) : null
+    if (!commissionId) return null
+
+    const existing = state.value.archivedConclusions.find(a => a.connectionId === connectionId)
+    if (existing) return existing
+
+    const score = computeConnectionScore(connectionId)
+    if (!score) return null
+
+    const order = state.value.archivedConclusions.filter(a => a.commissionId === commissionId).length + 1
+
+    const conclusion: import('../types').DeductionConclusion = {
+      id: `concl-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      commissionId,
+      connectionId,
+      fromClueId: connection.fromClueId,
+      toClueId: connection.toClueId,
+      conclusionText: connection.conclusion,
+      score,
+      archivedAt: new Date().toISOString(),
+      order,
+      isKeyConclusion: connection.isKeyConnection || score.level === 'critical' || score.level === 'strong'
+    }
+
+    state.value.archivedConclusions.push(conclusion)
+    saveCurrentGame()
+    checkAndUnlockMilestones(commissionId)
+    return conclusion
+  }
+
+  function getArchivedConclusionsForCommission(commissionId: string): import('../types').DeductionConclusion[] {
+    return state.value.archivedConclusions
+      .filter(a => a.commissionId === commissionId)
+      .sort((a, b) => a.order - b.order)
+  }
+
+  function getCommissionProgressArchive(commissionId: string): import('../types').CommissionProgressArchive {
+    const conclusions = getArchivedConclusionsForCommission(commissionId)
+    const conflicts = detectConflictsForCommission(commissionId)
+
+    const totalScore = conclusions.reduce((sum, c) => sum + c.score.totalScore, 0)
+    const averageScore = conclusions.length > 0
+      ? Math.round(totalScore / conclusions.length)
+      : 0
+    const keyConclusionCount = conclusions.filter(c => c.isKeyConclusion).length
+    const lastArchivedAt = conclusions.length > 0
+      ? conclusions[conclusions.length - 1].archivedAt
+      : null
+
+    return {
+      commissionId,
+      conclusions,
+      averageScore,
+      totalScore,
+      keyConclusionCount,
+      totalConclusionCount: conclusions.length,
+      conflictCount: conflicts.length,
+      lastArchivedAt
+    }
+  }
+
+  function getBoardCluePositions(commissionId: string): import('../types').BoardCluePosition[] {
+    return state.value.boardCluePositions[commissionId] || []
+  }
+
+  function setBoardCluePosition(commissionId: string, clueId: string, x: number, y: number): void {
+    if (!state.value.boardCluePositions[commissionId]) {
+      state.value.boardCluePositions[commissionId] = []
+    }
+    const positions = state.value.boardCluePositions[commissionId]
+    const existing = positions.find(p => p.clueId === clueId)
+    if (existing) {
+      existing.x = x
+      existing.y = y
+    } else {
+      positions.push({ clueId, x, y })
+    }
+    saveCurrentGame()
+  }
+
+  function getConnectionScoreLevelColor(level: import('../types').ConnectionScoreLevel): string {
+    switch (level) {
+      case 'critical': return 'text-rose-600'
+      case 'strong': return 'text-emerald-600'
+      case 'moderate': return 'text-amber-600'
+      case 'weak': return 'text-stone-500'
+    }
+  }
+
+  function getConnectionScoreLevelLabel(level: import('../types').ConnectionScoreLevel): string {
+    switch (level) {
+      case 'critical': return '关键'
+      case 'strong': return '强关联'
+      case 'moderate': return '中等'
+      case 'weak': return '弱关联'
+    }
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -2281,6 +2476,15 @@ export const useGameStore = defineStore('game', () => {
     endDialogueSession,
     skipDialogueSession,
     getDialogueHistoryForCommission,
-    clearDialogueHistoryForCommission
+    clearDialogueHistoryForCommission,
+    computeConnectionScore,
+    detectConflictsForCommission,
+    archiveConclusion,
+    getArchivedConclusionsForCommission,
+    getCommissionProgressArchive,
+    getBoardCluePositions,
+    setBoardCluePosition,
+    getConnectionScoreLevelColor,
+    getConnectionScoreLevelLabel
   }
 })

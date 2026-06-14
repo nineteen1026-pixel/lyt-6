@@ -231,6 +231,9 @@ export interface ClueConnectionConfig {
   toClueId: string
   conclusion: string
   repairHint: string
+  scoreConfig?: Partial<ConnectionScoreConfig>
+  isKeyConnection?: boolean
+  conflictsWith?: string[]
 }
 
 export interface ClueConnection extends ClueConnectionConfig {
@@ -305,6 +308,9 @@ export interface GameState {
   dialogueFlags: Record<string, string | number | boolean>
   dialogueHistory: DialogueHistoryEntry[]
   completedDialogueNodeIds: string[]
+  archivedConclusions: DeductionConclusion[]
+  boardCluePositions: Record<string, BoardCluePosition[]>
+  discoveredConflicts: string[]
 }
 
 export interface SavedGame {
@@ -484,4 +490,95 @@ export interface GameDataConfig {
 
 export const CURRENT_CONFIG_VERSION = '9.0.0'
 export const CURRENT_SAVE_VERSION = '9.0.0'
+
+export type ConnectionScoreLevel = 'weak' | 'moderate' | 'strong' | 'critical'
+
+export interface ConnectionScoreConfig {
+  baseScore: number
+  tagOverlapBonus: number
+  categoryMatchBonus: number
+  narrativeWeight: number
+  conflictPenalty: number
+}
+
+export interface ConnectionScoreResult {
+  totalScore: number
+  baseScore: number
+  tagOverlapScore: number
+  categoryMatchScore: number
+  narrativeWeightScore: number
+  conflictPenaltyScore: number
+  level: ConnectionScoreLevel
+  sharedTagIds: string[]
+  sharedTagNames: string[]
+  isCategoryMatch: boolean
+}
+
+export type ConflictType = 
+  | 'logical_contradiction'
+  | 'mutually_exclusive'
+  | 'timeline_conflict'
+  | 'evidence_conflict'
+  | 'redundant_connection'
+
+export interface ConnectionConflictConfig {
+  id: string
+  type: ConflictType
+  connectionAId: string
+  connectionBId: string
+  description: string
+  hint: string
+  severity: 'warning' | 'error'
+}
+
+export interface ConnectionConflict {
+  id: string
+  type: ConflictType
+  connectionA: ClueConnection
+  connectionB: ClueConnection
+  description: string
+  hint: string
+  severity: 'warning' | 'error'
+  isActive: boolean
+}
+
+export interface BoardCluePosition {
+  clueId: string
+  x: number
+  y: number
+}
+
+export interface DragLineState {
+  isDragging: boolean
+  fromClueId: string | null
+  fromX: number
+  fromY: number
+  toX: number
+  toY: number
+  targetClueId: string | null
+}
+
+export interface DeductionConclusion {
+  id: string
+  commissionId: string
+  connectionId: string
+  fromClueId: string
+  toClueId: string
+  conclusionText: string
+  score: ConnectionScoreResult
+  archivedAt: string
+  order: number
+  isKeyConclusion: boolean
+}
+
+export interface CommissionProgressArchive {
+  commissionId: string
+  conclusions: DeductionConclusion[]
+  averageScore: number
+  totalScore: number
+  keyConclusionCount: number
+  totalConclusionCount: number
+  conflictCount: number
+  lastArchivedAt: string | null
+}
 

@@ -1,18 +1,27 @@
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Link, Lightbulb, ChevronRight, Sparkles, X, Lock, Plus, Edit2, Trash2, Star, FolderKanban, Search, AlertCircle, RefreshCw, Repeat, AlertTriangle } from 'lucide-vue-next'
+import {
+  ArrowLeft, Link, Lightbulb, ChevronRight, Sparkles, X, Lock,
+  Plus, Edit2, Trash2, Star, FolderKanban, Search, AlertCircle,
+  RefreshCw, Repeat, AlertTriangle, Move, Archive, Trophy,
+  Zap, Shield, TrendingUp, ChevronDown, ChevronUp
+} from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { Clue, ClueConnection, ConnectionValidationResult, Tag, Note, DynamicDifficultyLevel } from '../types'
+import type {
+  Clue, ClueConnection, ConnectionValidationResult, Tag, Note,
+  DynamicDifficultyLevel, ConnectionScoreResult, ConnectionConflict,
+  DeductionConclusion, BoardCluePosition, DragLineState, ConnectionScoreLevel
+} from '../types'
 
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
 
-const selectedClue1 = ref<Clue | null>(null)
-const selectedClue2 = ref<Clue | null>(null)
 const showConclusion = ref<ClueConnection | null>(null)
+const conclusionScore = ref<ConnectionScoreResult | null>(null)
 const validationToast = ref<{ result: ConnectionValidationResult; type: 'error' | 'info' } | null>(null)
+const conflictToast = ref<ConnectionConflict | null>(null)
 
 const localKeyword = ref('')
 const localTagFilters = ref<string[]>([])
@@ -20,12 +29,26 @@ const noteModalOpen = ref(false)
 const editingNote = ref<Note | null>(null)
 const activeClueForNote = ref<string | null>(null)
 const aggregationMode = ref<'list' | 'tag'>('list')
+const sidebarTab = ref<'connections' | 'conflicts' | 'archive'>('connections')
 const noteForm = ref({
   title: '',
   content: '',
   tagIds: [] as string[],
   isImportant: false
 })
+
+const boardRef = ref<HTMLElement | null>(null)
+const dragLine = reactive<DragLineState>({
+  isDragging: false,
+  fromClueId: null,
+  fromX: 0,
+  fromY: 0,
+  toX: 0,
+  toY: 0,
+  targetClueId: null
+})
+const draggingClueId = ref<string | null>(null)
+const dragOffset = reactive({ x: 0, y: 0 })
 
 const commissionId = computed(() => route.params.id as string)
 const commission = computed(() => gameStore.getCommissionById(commissionId.value))
@@ -45,6 +68,18 @@ const filteredClues = computed(() => {
 const allConnections = computed(() => gameStore.getConnectionsForCommission(commissionId.value))
 const discoveredConnections = computed(() =>
   allConnections.value.filter(conn => gameStore.state.discoveredConnections.includes(conn.id))
+)
+
+const activeConflicts = computed(() =>
+  commissionId.value ? gameStore.detectConflictsForCommission(commissionId.value) : []
+)
+
+const archivedConclusions = computed(() =>
+  commissionId.value ? gameStore.getArchivedConclusionsForCommission(commissionId.value) : []
+)
+
+const progressArchive = computed(() =>
+  commissionId.value ? gameStore.getCommissionProgressArchive(commissionId.value) : null
 )
 
 const unifiedProgress = computed(() =>
@@ -86,6 +121,33 @@ const difficultyLabel = computed<{ text: string; color: string; icon: string }>(
   }
 })
 
+const cluePositions = computed<BoardCluePosition[]>(() => {
+  if (!commissionId.value) return []
+  const saved = gameStore.getBoardCluePositions(commissionId.value)
+  if (saved.length > 0) return saved
+  return computeDefaultPositions(allCollectedClues.value)
+})
+
+function computeDefaultPositions(cluesList: Clue[]): BoardCluePosition[] {
+  const positions: BoardCluePosition[] = []
+  const cols = Math.min(Math.ceil(Math.sqrt(cluesList.length)), 3)
+  cluesList.forEach((clue, i) => {
+    const col = i % cols
+    const row = Math.floor(i / cols)
+    positions.push({
+      clueId: clue.id,
+      x: 60 + col * 260,
+      y: 60 + row * 180
+    })
+  })
+  return positions
+}
+
+function getCluePos(clueId: string): { x: number; y: number } {
+  const pos = cluePositions.value.find(p => p.clueId === clueId)
+  return pos ? { x: pos.x, y: pos.y } : { x: 0, y: 0 }
+}
+
 watch(localKeyword, (v) => gameStore.setSearchKeyword(v))
 watch(localTagFilters, (v) => gameStore.setActiveTagFilters(v), { deep: true })
 
@@ -94,37 +156,89 @@ function showValidationToast(result: ConnectionValidationResult, type: 'error' |
   setTimeout(() => { validationToast.value = null }, 2800)
 }
 
-function selectClue(clue: Clue) {
-  if (selectedClue1.value?.id === clue.id) {
-    selectedClue1.value = null
-    return
-  }
-  if (selectedClue2.value?.id === clue.id) {
-    selectedClue2.value = null
+function startDragLine(clueId: string, event: PointerEvent) {
+  event.preventDefault()
+  event.stopPropagation()
+  const boardEl = boardRef.value
+  if (!boardEl) return
+  const rect = boardEl.getBoundingClientRect()
+  const pos = getCluePos(clueId)
+  dragLine.isDragging = true
+  dragLine.fromClueId = clueId
+  dragLine.fromX = pos.x + 80
+  dragLine.fromY = pos.y + 40
+  dragLine.toX = event.clientX - rect.left + boardEl.scrollLeft
+  dragLine.toY = event.clientY - rect.top + boardEl.scrollTop
+  dragLine.targetClueId = null
+}
+
+function onBoardPointerMove(event: PointerEvent) {
+  const boardEl = boardRef.value
+  if (!boardEl) return
+
+  if (dragLine.isDragging) {
+    const rect = boardEl.getBoundingClientRect()
+    dragLine.toX = event.clientX - rect.left + boardEl.scrollLeft
+    dragLine.toY = event.clientY - rect.top + boardEl.scrollTop
+    dragLine.targetClueId = findClueUnderPoint(event.clientX, event.clientY)
     return
   }
 
-  if (!selectedClue1.value) {
-    selectedClue1.value = clue
-  } else if (!selectedClue2.value) {
-    selectedClue2.value = clue
-    checkConnection()
-  } else {
-    selectedClue1.value = clue
-    selectedClue2.value = null
+  if (draggingClueId.value) {
+    const rect = boardEl.getBoundingClientRect()
+    const x = event.clientX - rect.left + boardEl.scrollLeft - dragOffset.x
+    const y = event.clientY - rect.top + boardEl.scrollTop - dragOffset.y
+    gameStore.setBoardCluePosition(commissionId.value, draggingClueId.value, Math.max(0, x), Math.max(0, y))
   }
 }
 
-function checkConnection() {
-  if (!selectedClue1.value || !selectedClue2.value) return
-  const result = gameStore.validateConnection(selectedClue1.value.id, selectedClue2.value.id)
+function onBoardPointerUp() {
+  if (dragLine.isDragging && dragLine.fromClueId && dragLine.targetClueId) {
+    const fromId = dragLine.fromClueId
+    const toId = dragLine.targetClueId
+    if (fromId !== toId) {
+      checkConnection(fromId, toId)
+    }
+  }
+  dragLine.isDragging = false
+  dragLine.fromClueId = null
+  dragLine.targetClueId = null
+  draggingClueId.value = null
+}
+
+function startDragClue(clueId: string, event: PointerEvent) {
+  if (dragLine.isDragging) return
+  event.preventDefault()
+  const boardEl = boardRef.value
+  if (!boardEl) return
+  const rect = boardEl.getBoundingClientRect()
+  const pos = getCluePos(clueId)
+  const mx = event.clientX - rect.left + boardEl.scrollLeft
+  const my = event.clientY - rect.top + boardEl.scrollTop
+  dragOffset.x = mx - pos.x
+  dragOffset.y = my - pos.y
+  draggingClueId.value = clueId
+}
+
+function findClueUnderPoint(clientX: number, clientY: number): string | null {
+  const elements = document.querySelectorAll('[data-clue-node]')
+  for (const el of elements) {
+    const rect = el.getBoundingClientRect()
+    if (clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom) {
+      return (el as HTMLElement).dataset.clueNode || null
+    }
+  }
+  return null
+}
+
+function checkConnection(fromId?: string, toId?: string) {
+  const fid = fromId
+  const tid = toId
+  if (!fid || !tid) return
+  const result = gameStore.validateConnection(fid, tid)
 
   if (!result.isValid) {
     showValidationToast(result, 'error')
-    setTimeout(() => {
-      selectedClue1.value = null
-      selectedClue2.value = null
-    }, 1200)
     return
   }
 
@@ -133,20 +247,32 @@ function checkConnection() {
     if (conn) {
       if (!gameStore.state.discoveredConnections.includes(conn.id)) {
         gameStore.discoverConnection(conn.id)
+        const archived = gameStore.archiveConclusion(conn.id)
+        if (archived) {
+          conclusionScore.value = archived.score
+        }
+        const newConflicts = gameStore.detectConflictsForCommission(commissionId.value)
+        const relatedConflict = newConflicts.find(c =>
+          c.connectionA.id === conn.id || c.connectionB.id === conn.id
+        )
+        if (relatedConflict) {
+          setTimeout(() => {
+            conflictToast.value = relatedConflict
+            setTimeout(() => { conflictToast.value = null }, 4000)
+          }, 1500)
+        }
       }
       showConclusion.value = conn
+      if (!conclusionScore.value) {
+        conclusionScore.value = gameStore.computeConnectionScore(conn.id)
+      }
     }
   }
 }
 
-function isClueSelected(clueId: string): boolean {
-  return selectedClue1.value?.id === clueId || selectedClue2.value?.id === clueId
-}
-
 function closeConclusion() {
   showConclusion.value = null
-  selectedClue1.value = null
-  selectedClue2.value = null
+  conclusionScore.value = null
 }
 
 function goBack() { router.push(`/commission/${commissionId.value}`) }
@@ -225,6 +351,44 @@ function getTagById(tagId: string): Tag | null {
   return gameStore.getTagById(tagId)
 }
 
+function getConnectionLinePath(fromPos: { x: number; y: number }, toPos: { x: number; y: number }): string {
+  const fx = fromPos.x + 80
+  const fy = fromPos.y + 40
+  const tx = toPos.x + 80
+  const ty = toPos.y + 40
+  const dx = Math.abs(tx - fx) * 0.4
+  return `M ${fx} ${fy} C ${fx + dx} ${fy}, ${tx - dx} ${ty}, ${tx} ${ty}`
+}
+
+function getScoreLevelBg(level: ConnectionScoreLevel): string {
+  switch (level) {
+    case 'critical': return 'bg-rose-100 text-rose-700 border-rose-300'
+    case 'strong': return 'bg-emerald-100 text-emerald-700 border-emerald-300'
+    case 'moderate': return 'bg-amber-100 text-amber-700 border-amber-300'
+    case 'weak': return 'bg-stone-100 text-stone-600 border-stone-300'
+  }
+}
+
+function getScoreLevelDot(level: ConnectionScoreLevel): string {
+  switch (level) {
+    case 'critical': return '#e11d48'
+    case 'strong': return '#059669'
+    case 'moderate': return '#d97706'
+    case 'weak': return '#78716c'
+  }
+}
+
+function getConflictTypeLabel(type: string): string {
+  switch (type) {
+    case 'logical_contradiction': return '逻辑矛盾'
+    case 'mutually_exclusive': return '互斥关联'
+    case 'timeline_conflict': return '时间线冲突'
+    case 'evidence_conflict': return '证据冲突'
+    case 'redundant_connection': return '冗余关联'
+    default: return '冲突'
+  }
+}
+
 const categoryColors: Record<string, string> = {
   object: 'bg-blue-50 border-blue-200 text-blue-700',
   memory: 'bg-purple-50 border-purple-200 text-purple-700',
@@ -252,6 +416,19 @@ function getErrorIcon(code?: string) {
   return (errorIcons[code] as any) || AlertCircle
 }
 
+function isClueInConflict(clueId: string): boolean {
+  return activeConflicts.value.some(c =>
+    c.connectionA.fromClueId === clueId || c.connectionA.toClueId === clueId ||
+    c.connectionB.fromClueId === clueId || c.connectionB.toClueId === clueId
+  )
+}
+
+function isConnectionConflicted(connId: string): boolean {
+  return activeConflicts.value.some(c =>
+    c.connectionA.id === connId || c.connectionB.id === connId
+  )
+}
+
 onMounted(() => {
   gameStore.loadSavedGame()
   if (!commission.value) {
@@ -263,7 +440,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen py-8 px-4 paper-texture">
+  <div class="min-h-screen py-8 px-4 paper-texture" @pointerup="onBoardPointerUp" @pointercancel="onBoardPointerUp">
     <div class="max-w-7xl mx-auto">
       <div class="flex items-center justify-between mb-6">
         <button
@@ -290,23 +467,23 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="text-center mb-8">
-        <h1 class="text-2xl font-display font-bold text-stone-800 mb-2 text-shadow-warm">
-          线索推理板
+      <div class="text-center mb-6">
+        <h1 class="text-2xl font-display font-bold text-stone-800 mb-1 text-shadow-warm">
+          推理板 2.0
         </h1>
         <p class="text-stone-500 text-sm font-serif">
-          尝试将相关的线索连接起来，发现隐藏的真相
+          拖拽线索卡片排列布局 · 从连接点拖出线条建立关联
         </p>
         <div class="divider-ornament mt-3" />
       </div>
 
       <div class="grid lg:grid-cols-3 gap-6">
         <div class="lg:col-span-2 space-y-6">
-          <div class="card-warm p-5 min-h-96">
+          <div class="card-warm p-5">
             <div class="flex flex-wrap items-center gap-2 mb-4">
               <Lightbulb class="w-5 h-5 text-amber-500" />
-              <h3 class="font-serif font-bold text-stone-800">收集到的线索</h3>
-              <span class="text-xs text-stone-400">（点击两个线索尝试关联）</span>
+              <h3 class="font-serif font-bold text-stone-800">推理画布</h3>
+              <span class="text-xs text-stone-400">（拖拽排列 · 连线推理）</span>
 
               <div class="flex-1" />
 
@@ -339,101 +516,180 @@ onMounted(() => {
             </div>
 
             <div
-              v-if="selectedClue1 || selectedClue2"
-              class="mb-4 p-3 bg-amber-50/60 rounded-xl border border-amber-200/40 text-xs font-serif text-amber-800"
+              v-if="dragLine.isDragging"
+              class="mb-3 p-2.5 bg-blue-50/60 rounded-xl border border-blue-200/40 text-xs font-serif text-blue-700 flex items-center gap-2"
             >
-              <div class="flex items-center gap-2">
-                <Sparkles class="w-4 h-4 text-amber-500" />
-                <span>
-                  已选：
-                  <span v-if="selectedClue1" class="font-medium bg-amber-100 px-2 py-0.5 rounded">{{ selectedClue1.icon }} {{ selectedClue1.title }}</span>
-                  <span v-if="!selectedClue1" class="text-amber-400">线索 1</span>
-                  <span class="mx-2 text-amber-400">+</span>
-                  <span v-if="selectedClue2" class="font-medium bg-amber-100 px-2 py-0.5 rounded">{{ selectedClue2.icon }} {{ selectedClue2.title }}</span>
-                  <span v-else class="text-amber-400">线索 2（请选择）</span>
-                </span>
-                <button
-                  v-if="selectedClue1 || selectedClue2"
-                  class="ml-auto text-amber-500 hover:text-amber-700 text-xs"
-                  @click="selectedClue1 = null; selectedClue2 = null"
-                >
-                  清除选择
-                </button>
-              </div>
+              <Link class="w-4 h-4 text-blue-500" />
+              <span>正在连线：</span>
+              <span class="font-medium">{{ gameStore.getClueById(dragLine.fromClueId!)?.icon }} {{ gameStore.getClueById(dragLine.fromClueId!)?.title }}</span>
+              <span class="text-blue-400">→</span>
+              <span v-if="dragLine.targetClueId" class="font-medium text-blue-800">
+                {{ gameStore.getClueById(dragLine.targetClueId)?.icon }} {{ gameStore.getClueById(dragLine.targetClueId)?.title }}
+              </span>
+              <span v-else class="text-blue-400">请拖向目标线索</span>
             </div>
 
-            <div class="grid sm:grid-cols-2 gap-4">
+            <div
+              ref="boardRef"
+              class="deduction-board relative min-h-[420px] overflow-auto select-none"
+              @pointermove="onBoardPointerMove"
+            >
+              <svg
+                class="absolute inset-0 w-full h-full pointer-events-none"
+                style="z-index: 1;"
+              >
+                <defs>
+                  <marker id="arrowhead" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#6B8E6B" opacity="0.6" />
+                  </marker>
+                  <marker id="arrowhead-conflict" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+                    <polygon points="0 0, 8 3, 0 6" fill="#e11d48" opacity="0.6" />
+                  </marker>
+                </defs>
+
+                <path
+                  v-for="conn in discoveredConnections"
+                  :key="'line-' + conn.id"
+                  :d="getConnectionLinePath(getCluePos(conn.fromClueId), getCluePos(conn.toClueId))"
+                  :stroke="isConnectionConflicted(conn.id) ? '#e11d48' : '#6B8E6B'"
+                  :stroke-width="conn.isKeyConnection ? 2.5 : 1.5"
+                  fill="none"
+                  :stroke-dasharray="isConnectionConflicted(conn.id) ? '6,3' : 'none'"
+                  :marker-end="isConnectionConflicted(conn.id) ? 'url(#arrowhead-conflict)' : 'url(#arrowhead)'"
+                  opacity="0.7"
+                />
+
+                <g
+                  v-for="conn in discoveredConnections"
+                  :key="'badge-' + conn.id"
+                  class="cursor-pointer pointer-events-auto"
+                  @click="showConclusion = conn; conclusionScore = gameStore.computeConnectionScore(conn.id)"
+                >
+                  <circle
+                    :cx="(getCluePos(conn.fromClueId).x + getCluePos(conn.toClueId).x) / 2 + 80"
+                    :cy="(getCluePos(conn.fromClueId).y + getCluePos(conn.toClueId).y) / 2 + 40"
+                    r="12"
+                    :fill="isConnectionConflicted(conn.id) ? '#fff1f2' : '#f0fdf4'"
+                    :stroke="isConnectionConflicted(conn.id) ? '#e11d48' : '#6B8E6B'"
+                    stroke-width="1.5"
+                  />
+                  <text
+                    :x="(getCluePos(conn.fromClueId).x + getCluePos(conn.toClueId).x) / 2 + 80"
+                    :y="(getCluePos(conn.fromClueId).y + getCluePos(conn.toClueId).y) / 2 + 44"
+                    text-anchor="middle"
+                    :fill="isConnectionConflicted(conn.id) ? '#e11d48' : '#059669'"
+                    font-size="10"
+                    font-weight="bold"
+                  >
+                    {{ gameStore.computeConnectionScore(conn.id)?.totalScore ?? '' }}
+                  </text>
+                </g>
+
+                <path
+                  v-if="dragLine.isDragging"
+                  :d="`M ${dragLine.fromX} ${dragLine.fromY} L ${dragLine.toX} ${dragLine.toY}`"
+                  stroke="#d97706"
+                  stroke-width="2"
+                  stroke-dasharray="8,4"
+                  fill="none"
+                  opacity="0.8"
+                />
+                <circle
+                  v-if="dragLine.isDragging"
+                  :cx="dragLine.toX"
+                  :cy="dragLine.toY"
+                  r="6"
+                  :fill="dragLine.targetClueId ? '#059669' : '#d97706'"
+                  opacity="0.8"
+                />
+              </svg>
+
               <div
                 v-for="clue in filteredClues"
-                :key="clue.id"
+                :key="'node-' + clue.id"
+                :data-clue-node="clue.id"
                 :class="[
-                  'p-4 rounded-xl border-2 cursor-pointer transition-all duration-300 relative',
-                  isClueSelected(clue.id)
-                    ? 'border-amber-500 bg-amber-50 shadow-lg scale-[1.02] z-10'
-                    : 'border-stone-200/60 bg-white/80 hover:border-amber-300/60 hover:shadow-md'
+                  'board-clue-node absolute w-40 cursor-grab active:cursor-grabbing transition-shadow duration-200',
+                  isClueInConflict(clue.id) && 'ring-2 ring-rose-400 ring-offset-2',
+                  dragLine.targetClueId === clue.id && 'ring-2 ring-emerald-400 ring-offset-2'
                 ]"
-                @click="selectClue(clue)"
+                :style="{
+                  left: getCluePos(clue.id).x + 'px',
+                  top: getCluePos(clue.id).y + 'px',
+                  zIndex: draggingClueId === clue.id ? 20 : 2
+                }"
+                @pointerdown="startDragClue(clue.id, $event)"
               >
-                <div class="flex items-start gap-3">
-                  <span class="text-3xl flex-shrink-0">{{ clue.icon }}</span>
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2 mb-1 flex-wrap">
-                      <h4 class="font-medium text-stone-800 text-sm font-serif">{{ clue.title }}</h4>
+                <div class="p-3 rounded-xl border-2 bg-white/90 shadow-sm hover:shadow-md transition-shadow" :class="isClueInConflict(clue.id) ? 'border-rose-300' : 'border-stone-200/60'">
+                  <div class="flex items-center gap-2 mb-1.5">
+                    <span class="text-2xl">{{ clue.icon }}</span>
+                    <div class="flex-1 min-w-0">
+                      <h4 class="font-medium text-stone-800 text-xs font-serif truncate">{{ clue.title }}</h4>
                       <span
-                        :class="[
-                          'text-[10px] px-2 py-0.5 rounded-full border',
-                          categoryColors[clue.category]
-                        ]"
+                        :class="['text-[9px] px-1.5 py-0.5 rounded-full border', categoryColors[clue.category]]"
                       >
                         {{ categoryLabels[clue.category] }}
                       </span>
                     </div>
-                    <p class="text-xs text-stone-500 line-clamp-2 font-serif">
-                      {{ clue.content }}
-                    </p>
-                    <div v-if="clue.tagIds.length" class="flex flex-wrap gap-1 mt-2">
-                      <span
-                        v-for="tid in clue.tagIds"
-                        :key="tid"
-                        class="px-1.5 py-0.5 rounded text-[9px] font-serif text-white"
-                        :style="{ background: getTagById(tid)?.color || '#a8a29e' }"
-                      >
-                        {{ getTagById(tid)?.name || tid }}
-                      </span>
+                  </div>
+                  <p class="text-[10px] text-stone-500 line-clamp-2 font-serif mb-2">
+                    {{ clue.content }}
+                  </p>
+                  <div v-if="clue.tagIds.length" class="flex flex-wrap gap-0.5 mb-2">
+                    <span
+                      v-for="tid in clue.tagIds"
+                      :key="tid"
+                      class="px-1 py-0.5 rounded text-[8px] font-serif text-white"
+                      :style="{ background: getTagById(tid)?.color || '#a8a29e' }"
+                    >
+                      {{ getTagById(tid)?.name || tid }}
+                    </span>
+                  </div>
+                  <div class="flex items-center justify-between pt-1.5 border-t border-stone-100">
+                    <button
+                      class="text-stone-300 hover:text-amber-600 transition-colors"
+                      @click.stop="openNewNote(clue.id)"
+                      title="添加笔记"
+                    >
+                      <Plus class="w-3 h-3" />
+                    </button>
+                    <div
+                      class="w-6 h-6 rounded-full bg-amber-100 border-2 border-amber-400 flex items-center justify-center cursor-crosshair hover:bg-amber-200 transition-colors"
+                      title="从此处拖出连线"
+                      @pointerdown.stop="startDragLine(clue.id, $event)"
+                    >
+                      <Link class="w-3 h-3 text-amber-600" />
                     </div>
                   </div>
                 </div>
-                <button
-                  class="absolute top-2 right-2 text-stone-300 hover:text-amber-600 transition-colors"
-                  @click.stop="openNewNote(clue.id)"
-                  title="为这个线索添加笔记"
-                >
-                  <Plus class="w-3.5 h-3.5" />
-                </button>
               </div>
-            </div>
 
-            <div
-              v-if="filteredClues.length === 0 && allCollectedClues.length > 0"
-              class="text-center py-10 text-stone-400"
-            >
-              <div class="text-4xl mb-3">🔍</div>
-              <p class="font-serif text-sm">当前筛选条件下没有线索</p>
-              <button
-                class="mt-2 text-xs text-amber-600 hover:text-amber-800 font-serif underline"
-                @click="localKeyword = ''; localTagFilters = []"
+              <div
+                v-if="filteredClues.length === 0 && allCollectedClues.length > 0"
+                class="absolute inset-0 flex items-center justify-center text-stone-400"
               >
-                清除筛选
-              </button>
-            </div>
+                <div class="text-center">
+                  <div class="text-4xl mb-3">🔍</div>
+                  <p class="font-serif text-sm">当前筛选条件下没有线索</p>
+                  <button
+                    class="mt-2 text-xs text-amber-600 hover:text-amber-800 font-serif underline"
+                    @click="localKeyword = ''; localTagFilters = []"
+                  >
+                    清除筛选
+                  </button>
+                </div>
+              </div>
 
-            <div
-              v-if="allCollectedClues.length === 0"
-              class="text-center py-16 text-stone-400"
-            >
-              <div class="text-5xl mb-4">🔍</div>
-              <p class="font-serif">还没有收集到线索</p>
-              <p class="text-sm mt-1">先去旧物那里探索吧</p>
+              <div
+                v-if="allCollectedClues.length === 0"
+                class="absolute inset-0 flex items-center justify-center text-stone-400"
+              >
+                <div class="text-center">
+                  <div class="text-5xl mb-4">🔍</div>
+                  <p class="font-serif">还没有收集到线索</p>
+                  <p class="text-sm mt-1">先去旧物那里探索吧</p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -593,8 +849,32 @@ onMounted(() => {
           </div>
         </div>
 
-        <div>
-          <div class="card-warm p-5 sticky top-8">
+        <div class="space-y-4">
+          <div class="flex gap-1 bg-stone-100/70 rounded-lg p-1">
+            <button
+              :class="['flex-1 px-2 py-1.5 rounded-md text-xs font-serif transition-all', sidebarTab === 'connections' ? 'bg-white shadow-sm text-amber-700 font-medium' : 'text-stone-500 hover:text-stone-700']"
+              @click="sidebarTab = 'connections'"
+            >
+              <Link class="w-3 h-3 inline" /> 关联
+            </button>
+            <button
+              :class="['flex-1 px-2 py-1.5 rounded-md text-xs font-serif transition-all relative', sidebarTab === 'conflicts' ? 'bg-white shadow-sm text-rose-700 font-medium' : 'text-stone-500 hover:text-stone-700']"
+              @click="sidebarTab = 'conflicts'"
+            >
+              <AlertTriangle class="w-3 h-3 inline" /> 冲突
+              <span v-if="activeConflicts.length" class="ml-1 px-1.5 py-0.5 rounded-full bg-rose-500 text-white text-[9px]">
+                {{ activeConflicts.length }}
+              </span>
+            </button>
+            <button
+              :class="['flex-1 px-2 py-1.5 rounded-md text-xs font-serif transition-all', sidebarTab === 'archive' ? 'bg-white shadow-sm text-emerald-700 font-medium' : 'text-stone-500 hover:text-stone-700']"
+              @click="sidebarTab = 'archive'"
+            >
+              <Archive class="w-3 h-3 inline" /> 归档
+            </button>
+          </div>
+
+          <div v-if="sidebarTab === 'connections'" class="card-warm p-5 sticky top-8">
             <div class="flex items-center gap-2 mb-4">
               <Link class="w-5 h-5 text-green-600" />
               <h3 class="font-serif font-bold text-stone-800">已发现的关联</h3>
@@ -604,11 +884,26 @@ onMounted(() => {
               <div
                 v-for="conn in discoveredConnections"
                 :key="conn.id"
-                class="p-4 bg-green-50/60 rounded-xl border border-green-200/50"
+                :class="[
+                  'p-4 rounded-xl border cursor-pointer transition-all',
+                  isConnectionConflicted(conn.id)
+                    ? 'bg-rose-50/60 border-rose-200/50'
+                    : 'bg-green-50/60 border-green-200/50'
+                ]"
+                @click="showConclusion = conn; conclusionScore = gameStore.computeConnectionScore(conn.id)"
               >
                 <div class="flex items-center gap-2 mb-2">
-                  <Sparkles class="w-4 h-4 text-green-600" />
-                  <span class="text-xs font-medium text-green-700 font-serif">关联发现</span>
+                  <Sparkles v-if="!isConnectionConflicted(conn.id)" class="w-4 h-4 text-green-600" />
+                  <AlertTriangle v-else class="w-4 h-4 text-rose-500" />
+                  <span class="text-xs font-medium font-serif" :class="isConnectionConflicted(conn.id) ? 'text-rose-700' : 'text-green-700'">
+                    {{ isConnectionConflicted(conn.id) ? '关联冲突' : '关联发现' }}
+                  </span>
+                  <span
+                    v-if="conn.isKeyConnection"
+                    class="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-serif"
+                  >
+                    关键
+                  </span>
                 </div>
                 <div class="flex items-center gap-1 mb-2 text-[10px] font-serif text-stone-500 flex-wrap">
                   <span class="px-1.5 py-0.5 bg-green-100 text-green-700 rounded">
@@ -622,9 +917,13 @@ onMounted(() => {
                 <p class="text-sm text-stone-700 leading-relaxed mb-3 font-serif">
                   {{ conn.conclusion }}
                 </p>
-                <div class="pt-3 border-t border-green-200/40">
-                  <div class="text-xs text-green-600 font-medium mb-1">💡 修复提示</div>
-                  <p class="text-xs text-stone-600 font-serif">{{ conn.repairHint }}</p>
+                <div class="flex items-center gap-2">
+                  <span
+                    :class="['text-[10px] px-2 py-0.5 rounded-full border font-serif', getScoreLevelBg(gameStore.computeConnectionScore(conn.id)?.level ?? 'weak')]"
+                  >
+                    {{ gameStore.getConnectionScoreLevelLabel(gameStore.computeConnectionScore(conn.id)?.level ?? 'weak') }}
+                    {{ gameStore.computeConnectionScore(conn.id)?.totalScore ?? 0 }}分
+                  </span>
                 </div>
               </div>
 
@@ -634,7 +933,7 @@ onMounted(() => {
               >
                 <div class="text-3xl mb-2">🔗</div>
                 <p class="text-sm font-serif">还没有发现关联</p>
-                <p class="text-xs mt-1">试着把相关的线索连起来</p>
+                <p class="text-xs mt-1">从线索卡片底部的 <Link class="w-3 h-3 inline" /> 按钮拖出连线</p>
               </div>
             </div>
 
@@ -663,6 +962,135 @@ onMounted(() => {
               </p>
             </div>
           </div>
+
+          <div v-if="sidebarTab === 'conflicts'" class="card-warm p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <AlertTriangle class="w-5 h-5 text-rose-500" />
+              <h3 class="font-serif font-bold text-stone-800">冲突检测</h3>
+            </div>
+
+            <div class="space-y-3 max-h-[500px] overflow-y-auto">
+              <div
+                v-for="conflict in activeConflicts"
+                :key="conflict.id"
+                class="p-4 bg-rose-50/60 rounded-xl border border-rose-200/50"
+              >
+                <div class="flex items-center gap-2 mb-2">
+                  <AlertTriangle class="w-4 h-4 text-rose-500" />
+                  <span class="text-xs font-medium text-rose-700 font-serif">
+                    {{ getConflictTypeLabel(conflict.type) }}
+                  </span>
+                  <span
+                    :class="[
+                      'text-[9px] px-1.5 py-0.5 rounded-full font-serif',
+                      conflict.severity === 'error'
+                        ? 'bg-rose-200 text-rose-800'
+                        : 'bg-amber-100 text-amber-700'
+                    ]"
+                  >
+                    {{ conflict.severity === 'error' ? '严重' : '警告' }}
+                  </span>
+                </div>
+                <p class="text-xs text-stone-700 font-serif mb-2">{{ conflict.description }}</p>
+                <div class="flex items-center gap-1 mb-2 text-[10px] font-serif">
+                  <span class="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded">
+                    {{ gameStore.getClueById(conflict.connectionA.fromClueId)?.title }} ↔ {{ gameStore.getClueById(conflict.connectionA.toClueId)?.title }}
+                  </span>
+                  <span class="text-rose-400">⟷</span>
+                  <span class="px-1.5 py-0.5 bg-rose-100 text-rose-600 rounded">
+                    {{ gameStore.getClueById(conflict.connectionB.fromClueId)?.title }} ↔ {{ gameStore.getClueById(conflict.connectionB.toClueId)?.title }}
+                  </span>
+                </div>
+                <div class="p-2 bg-amber-50 rounded-lg border border-amber-200/40">
+                  <p class="text-[10px] text-amber-700 font-serif">💡 {{ conflict.hint }}</p>
+                </div>
+              </div>
+
+              <div
+                v-if="activeConflicts.length === 0"
+                class="text-center py-8 text-stone-400"
+              >
+                <div class="text-3xl mb-2">✅</div>
+                <p class="text-sm font-serif">暂无推理冲突</p>
+                <p class="text-xs mt-1">所有已发现的关联逻辑自洽</p>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="sidebarTab === 'archive'" class="card-warm p-5">
+            <div class="flex items-center gap-2 mb-4">
+              <Archive class="w-5 h-5 text-emerald-600" />
+              <h3 class="font-serif font-bold text-stone-800">推理归档</h3>
+            </div>
+
+            <div v-if="progressArchive" class="mb-4 p-3 bg-emerald-50/60 rounded-xl border border-emerald-200/40">
+              <div class="grid grid-cols-2 gap-2 text-center">
+                <div class="p-2 bg-white/80 rounded-lg">
+                  <div class="text-lg font-bold text-emerald-700 font-serif">{{ progressArchive.totalConclusionCount }}</div>
+                  <div class="text-[10px] text-stone-500 font-serif">已归档结论</div>
+                </div>
+                <div class="p-2 bg-white/80 rounded-lg">
+                  <div class="text-lg font-bold text-amber-700 font-serif">{{ progressArchive.averageScore }}</div>
+                  <div class="text-[10px] text-stone-500 font-serif">平均评分</div>
+                </div>
+                <div class="p-2 bg-white/80 rounded-lg">
+                  <div class="text-lg font-bold text-rose-600 font-serif">{{ progressArchive.keyConclusionCount }}</div>
+                  <div class="text-[10px] text-stone-500 font-serif">关键结论</div>
+                </div>
+                <div class="p-2 bg-white/80 rounded-lg">
+                  <div class="text-lg font-bold" :class="progressArchive.conflictCount > 0 ? 'text-rose-600' : 'text-emerald-600'">
+                    {{ progressArchive.conflictCount }}
+                  </div>
+                  <div class="text-[10px] text-stone-500 font-serif">冲突数</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="space-y-3 max-h-[400px] overflow-y-auto">
+              <div
+                v-for="concl in archivedConclusions"
+                :key="concl.id"
+                class="p-3 bg-white/80 rounded-xl border border-stone-200/40"
+              >
+                <div class="flex items-center justify-between gap-2 mb-1.5">
+                  <span
+                    :class="['text-[10px] px-2 py-0.5 rounded-full border font-serif', getScoreLevelBg(concl.score.level)]"
+                  >
+                    {{ gameStore.getConnectionScoreLevelLabel(concl.score.level) }}
+                    {{ concl.score.totalScore }}分
+                  </span>
+                  <div class="flex items-center gap-1">
+                    <Trophy v-if="concl.isKeyConclusion" class="w-3 h-3 text-amber-500" />
+                    <span class="text-[9px] text-stone-400 font-serif">#{{ concl.order }}</span>
+                  </div>
+                </div>
+                <div class="flex items-center gap-1 mb-1 text-[10px] font-serif text-stone-500">
+                  <span>{{ gameStore.getClueById(concl.fromClueId)?.icon }} {{ gameStore.getClueById(concl.fromClueId)?.title }}</span>
+                  <span class="text-emerald-400">→</span>
+                  <span>{{ gameStore.getClueById(concl.toClueId)?.icon }} {{ gameStore.getClueById(concl.toClueId)?.title }}</span>
+                </div>
+                <p class="text-[11px] text-stone-600 font-serif line-clamp-2">{{ concl.conclusionText }}</p>
+                <div v-if="concl.score.sharedTagNames.length" class="flex flex-wrap gap-1 mt-1.5">
+                  <span
+                    v-for="tagName in concl.score.sharedTagNames"
+                    :key="tagName"
+                    class="px-1 py-0.5 rounded text-[8px] bg-amber-50 text-amber-600 font-serif"
+                  >
+                    {{ tagName }}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                v-if="archivedConclusions.length === 0"
+                class="text-center py-8 text-stone-400"
+              >
+                <div class="text-3xl mb-2">📦</div>
+                <p class="text-sm font-serif">暂无归档结论</p>
+                <p class="text-xs mt-1">发现关联后将自动归档</p>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -685,6 +1113,25 @@ onMounted(() => {
             <div class="text-sm font-serif">
               {{ validationToast.result.errorMessage }}
             </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="conflictToast"
+          class="fixed top-20 left-1/2 -translate-x-1/2 z-50"
+        >
+          <div class="px-5 py-3 rounded-xl shadow-lg flex items-center gap-3 bg-gradient-to-r from-rose-500 to-rose-600 text-white animate-fade-in-up">
+            <AlertTriangle class="w-5 h-5" />
+            <div class="text-sm font-serif">
+              推理冲突：{{ conflictToast.description }}
+            </div>
+            <button class="ml-2 text-white/80 hover:text-white" @click="conflictToast = null">
+              <X class="w-4 h-4" />
+            </button>
           </div>
         </div>
       </Transition>
@@ -727,6 +1174,29 @@ onMounted(() => {
               <p class="text-stone-700 leading-relaxed font-serif">
                 {{ showConclusion.conclusion }}
               </p>
+            </div>
+
+            <div v-if="conclusionScore" class="mb-4 p-3 rounded-xl border" :class="getScoreLevelBg(conclusionScore.level)">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-serif font-medium">关联评分</span>
+                <span class="text-sm font-bold font-serif">{{ conclusionScore.totalScore }} 分</span>
+              </div>
+              <div class="flex gap-3 text-[10px] font-serif">
+                <span>基础 {{ conclusionScore.baseScore }}</span>
+                <span>标签 +{{ conclusionScore.tagOverlapScore }}</span>
+                <span v-if="conclusionScore.categoryMatchScore">分类 +{{ conclusionScore.categoryMatchScore }}</span>
+                <span v-if="conclusionScore.narrativeWeightScore">叙事 +{{ conclusionScore.narrativeWeightScore }}</span>
+                <span v-if="conclusionScore.conflictPenaltyScore" class="text-rose-600">冲突 -{{ conclusionScore.conflictPenaltyScore }}</span>
+              </div>
+              <div v-if="conclusionScore.sharedTagNames.length" class="flex flex-wrap gap-1 mt-2">
+                <span
+                  v-for="tagName in conclusionScore.sharedTagNames"
+                  :key="tagName"
+                  class="px-1.5 py-0.5 rounded text-[9px] bg-white/60 font-serif"
+                >
+                  {{ tagName }}
+                </span>
+              </div>
             </div>
 
             <div class="bg-green-50/60 rounded-xl p-4 border border-green-200/40">
@@ -839,10 +1309,20 @@ onMounted(() => {
 </template>
 
 <style scoped>
-.animate-shake { animation: shake 0.3s ease-in-out; }
-@keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  25% { transform: translateX(-5px); }
-  75% { transform: translateX(5px); }
+.deduction-board {
+  background-color: #f8f5f0;
+  background-image:
+    radial-gradient(circle, #d4b896 1px, transparent 1px);
+  background-size: 24px 24px;
+  border: 2px solid rgba(139, 105, 20, 0.12);
+  border-radius: 0.75rem;
+}
+
+.board-clue-node {
+  transition: box-shadow 0.2s ease;
+}
+
+.board-clue-node:active {
+  z-index: 20 !important;
 }
 </style>
