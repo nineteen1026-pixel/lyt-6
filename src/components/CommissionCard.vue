@@ -12,6 +12,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'locked-click', commission: Commission): void
+  (e: 'commission-select', commission: Commission): void
 }>()
 
 const router = useRouter()
@@ -70,6 +71,12 @@ const difficultyColor = computed(() => {
 function handleClick() {
   if (isLocked.value) {
     emit('locked-click', props.commission)
+    return
+  }
+  if (status.value === 'pending'
+      && gameStore.hasDialogueForSession(props.commission.id, 'commission_accept')
+      && !gameStore.hasCompletedDialogueForType(props.commission.id, 'commission_accept')) {
+    emit('commission-select', props.commission)
     return
   }
   gameStore.selectCommission(props.commission.id)

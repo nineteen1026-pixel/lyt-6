@@ -3,6 +3,8 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Lightbulb, Search, ChevronRight, X, Lock, Plus, Edit2, Trash2, Star, FolderKanban } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import StoryDialogue from '../components/StoryDialogue.vue'
+import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import type { Hotspot, Tag, Note, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
@@ -23,6 +25,7 @@ const noteForm = ref({
   isImportant: false
 })
 const aggregationMode = ref<'list' | 'tag'>('list')
+const showHistoryPanel = ref(false)
 
 const difficultyContext = computed(() =>
   commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
@@ -108,11 +111,16 @@ onMounted(() => {
   gameStore.loadSavedGame()
   if (!commission.value) {
     router.push('/commissions')
-  } else if (!gameStore.state.currentCommissionId) {
+    return
+  }
+  if (!gameStore.state.currentCommissionId) {
     gameStore.selectCommission(commissionId.value)
   }
   localKeyword.value = gameStore.state.searchKeyword
   localTagFilters.value = [...gameStore.state.activeTagFilters]
+  if (gameStore.hasDialogueForSession(commissionId.value, 'commission_intro')) {
+    gameStore.startDialogueSession(commissionId.value, 'commission_intro')
+  }
 })
 
 function isHotspotDiscovered(hotspot: Hotspot): boolean {
@@ -220,6 +228,13 @@ function toggleNoteTag(tagId: string) {
 function getTagById(tagId: string): Tag | null {
   return gameStore.getTagById(tagId)
 }
+
+function handleDialogueEnd() {
+}
+
+function toggleHistoryPanel() {
+  showHistoryPanel.value = !showHistoryPanel.value
+}
 </script>
 
 <template>
@@ -234,6 +249,15 @@ function getTagById(tagId: string): Tag | null {
           <span>返回委托列表</span>
         </button>
         <div class="flex items-center gap-2">
+          <button
+            class="p-2 text-stone-500 hover:text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+            title="对话记录"
+            @click="toggleHistoryPanel"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </button>
           <div v-if="difficultyContext" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
             <span>{{ difficultyLabel.icon }}</span>
             <span>{{ difficultyLabel.text }}模式</span>
@@ -738,6 +762,17 @@ function getTagById(tagId: string): Tag | null {
         </div>
       </Transition>
     </Teleport>
+
+    <StoryDialogue
+      :showHistoryToggle="true"
+      @dialogueEnd="handleDialogueEnd"
+      @toggleHistory="toggleHistoryPanel"
+    />
+
+    <DialogueHistoryPanel
+      v-model="showHistoryPanel"
+      :commissionId="commissionId"
+    />
   </div>
 </template>
 

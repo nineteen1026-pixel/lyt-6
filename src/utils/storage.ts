@@ -17,7 +17,7 @@ import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT } from '../t
 
 const STORAGE_KEY = 'memory-repair-shop-save'
 const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
-const SAVE_VERSION = '7.0.0'
+const SAVE_VERSION = '8.0.0'
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
   const statuses: Record<string, CommissionStatus> = {}
@@ -60,7 +60,10 @@ export function getInitialGameState(): GameState {
     discoveredHints: [],
     progressMilestones: {},
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -135,7 +138,10 @@ function migrateFromV1ToV2(v1State: GameStateV1): any {
     discoveredHints: [],
     progressMilestones: {},
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -243,7 +249,10 @@ function migrateFromV2ToV3(v2State: GameStateV2): any {
     discoveredHints: [],
     progressMilestones: {},
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -297,7 +306,10 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     discoveredHints: [],
     progressMilestones: {},
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -355,7 +367,10 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     discoveredHints: [],
     progressMilestones: {},
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -421,7 +436,10 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     discoveredHints: [...(v5State.discoveredHints || [])],
     progressMilestones: { ...(v5State.progressMilestones || {}) },
     repairRetryCounts: {},
-    connectionRetryCounts: {}
+    connectionRetryCounts: {},
+    dialogueFlags: {},
+    dialogueHistory: [],
+    completedDialogueNodeIds: []
   }
 }
 
@@ -447,6 +465,9 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     if (!(state as any).progressMilestones) (state as any).progressMilestones = {}
     if (!(state as any).repairRetryCounts) (state as any).repairRetryCounts = {}
     if (!(state as any).connectionRetryCounts) (state as any).connectionRetryCounts = {}
+    if (!(state as any).dialogueFlags) (state as any).dialogueFlags = {}
+    if (!(state as any).dialogueHistory) (state as any).dialogueHistory = []
+    if (!(state as any).completedDialogueNodeIds) (state as any).completedDialogueNodeIds = []
     return state
   }
 

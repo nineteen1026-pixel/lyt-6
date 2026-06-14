@@ -26,7 +26,14 @@ import type {
   RepairChoice,
   SnapshotInfo,
   SnapshotTrigger,
-  EndingReplay
+  EndingReplay,
+  DialogueNode,
+  DialogueCondition,
+  DialogueChoice,
+  DialogueEffect,
+  DialogueHistoryEntry,
+  DialogueSessionState,
+  DialogueNodeType
 } from '../types'
 import { 
   getInitialGameState, 
@@ -53,7 +60,7 @@ import {
   getEndingReplays,
   getLatestSaveSlotInfo
 } from '../utils/storage'
-import { commissions, clues, connections, endings, repairSteps, chapters, tags } from '../data/gameData'
+import { commissions, clues, connections, endings, repairSteps, chapters, tags, dialogueNodes } from '../data/gameData'
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(getInitialGameState())
@@ -1818,6 +1825,329 @@ export const useGameStore = defineStore('game', () => {
     saveCurrentGame()
   }
 
+  const dialogueSession = ref<DialogueSessionState>({
+    currentCommissionId: null,
+    currentNodeId: null,
+    sessionType: null,
+    isActive: false,
+    order: 0,
+    completedNodeIds: []
+  })
+
+  const currentDialogueNode = computed<DialogueNode | null>(() => {
+    if (!dialogueSession.value.currentNodeId) return null
+    return dialogueNodes.find(n => n.id === dialogueSession.value.currentNodeId) || null
+  })
+
+  const dialogueHistoryForCurrent = computed<DialogueHistoryEntry[]>(() => {
+    const commissionId = dialogueSession.value.currentCommissionId || state.value.currentCommissionId
+    if (!commissionId) return []
+    return state.value.dialogueHistory.filter(h => h.commissionId === commissionId)
+  })
+
+  function getDialogueFlag(key: string): string | number | boolean | undefined {
+    return state.value.dialogueFlags[key]
+  }
+
+  function setDialogueFlag(key: string, value: string | number | boolean): void {
+    state.value.dialogueFlags[key] = value
+    saveCurrentGame()
+  }
+
+  function checkDialogueCondition(commissionId: string, condition: DialogueCondition): boolean {
+    switch (condition.type) {
+      case 'always':
+        return true
+      case 'clue_collected':
+        return !!condition.clueId && state.value.collectedClues.includes(condition.clueId)
+      case 'clue_count': {
+        const count = getCollectedClueCount(commissionId)
+        return count >= (condition.minCount ?? 1)
+      }
+      case 'connection_count': {
+        const count = getDiscoveredConnectionCount(commissionId)
+        return count >= (condition.minCount ?? 1)
+      }
+      case 'custom_flag':
+        if (!condition.flagKey) return false
+        if (condition.flagValue === undefined) {
+          return state.value.dialogueFlags[condition.flagKey] !== undefined
+        }
+        return state.value.dialogueFlags[condition.flagKey] === condition.flagValue
+      case 'ending_type_chosen':
+        return state.value.currentEndingType === condition.endingType
+      default:
+        return false
+    }
+  }
+
+  function checkDialogueConditions(
+    commissionId: string,
+    conditions?: DialogueCondition[],
+    operator: 'and' | 'or' = 'and'
+  ): boolean {
+    if (!conditions || conditions.length === 0) return true
+    if (operator === 'and') {
+      return conditions.every(c => checkDialogueCondition(commissionId, c))
+    } else {
+      return conditions.some(c => checkDialogueCondition(commissionId, c))
+    }
+  }
+
+  function applyDialogueEffects(effects?: DialogueEffect[]): void {
+    if (!effects) return
+    for (const effect of effects) {
+      switch (effect.type) {
+        case 'set_flag':
+          if (effect.flagKey !== undefined && effect.flagValue !== undefined) {
+            state.value.dialogueFlags[effect.flagKey] = effect.flagValue
+          }
+          break
+        case 'unlock_content':
+          break
+        case 'add_tag':
+          break
+      }
+    }
+    saveCurrentGame()
+  }
+
+  function recordDialogueToHistory(
+    node: DialogueNode,
+    choiceMade?: { choiceId: string; choiceLabel: string }
+  ): void {
+    const order = dialogueSession.value.order + 1
+    dialogueSession.value.order = order
+    const entry: DialogueHistoryEntry = {
+      id: `hist-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      nodeId: node.id,
+      commissionId: node.commissionId,
+      nodeType: node.nodeType,
+      speaker: node.speaker,
+      speakerName: node.speakerName || '',
+      speakerAvatar: node.speakerAvatar || '',
+      content: node.content,
+      choiceMade,
+      timestamp: new Date().toISOString(),
+      order
+    }
+    state.value.dialogueHistory.push(entry)
+  }
+
+  function getDialogueNodesByTypeAndCommission(
+    commissionId: string,
+    nodeType: DialogueNodeType
+  ): DialogueNode[] {
+    return dialogueNodes
+      .filter(n => n.commissionId === commissionId && n.nodeType === nodeType)
+      .sort((a, b) => a.order - b.order)
+  }
+
+  function getDialogueNodeById(nodeId: string): DialogueNode | null {
+    return dialogueNodes.find(n => n.id === nodeId) || null
+  }
+
+  function getFilteredChoices(node: DialogueNode): DialogueChoice[] {
+    if (!node.choices || node.choices.length === 0) return []
+    return node.choices.filter(choice =>
+      checkDialogueConditions(
+        node.commissionId,
+        choice.conditions,
+        choice.conditionOperator || 'and'
+      )
+    )
+  }
+
+  function shouldPlayNode(node: DialogueNode): boolean {
+    if (!checkDialogueConditions(node.commissionId, node.conditions, node.conditionOperator || 'and')) {
+      return false
+    }
+    return true
+  }
+
+  function findNextEligibleNode(commissionId: string, startId: string): DialogueNode | null {
+    let current: DialogueNode | null = getDialogueNodeById(startId)
+    while (current && !shouldPlayNode(current)) {
+      if (current.nextNodeId) {
+        current = getDialogueNodeById(current.nextNodeId)
+      } else {
+        current = null
+      }
+    }
+    return current
+  }
+
+  function getStartNodeForSession(commissionId: string, sessionType: DialogueNodeType): DialogueNode | null {
+    const candidates = getDialogueNodesByTypeAndCommission(commissionId, sessionType)
+    for (const node of candidates) {
+      if (node.order === 1) {
+        return findNextEligibleNode(commissionId, node.id)
+      }
+    }
+    return candidates.length > 0 ? findNextEligibleNode(commissionId, candidates[0].id) : null
+  }
+
+  function hasDialogueForSession(commissionId: string, sessionType: DialogueNodeType): boolean {
+    const startNode = getStartNodeForSession(commissionId, sessionType)
+    return startNode !== null
+  }
+
+  function hasCompletedDialogueForType(commissionId: string, sessionType: DialogueNodeType): boolean {
+    const nodes = getDialogueNodesByTypeAndCommission(commissionId, sessionType)
+    return nodes.some(n => state.value.completedDialogueNodeIds.includes(n.id))
+  }
+
+  function startDialogueSession(
+    commissionId: string,
+    sessionType: DialogueNodeType,
+    forceReplay: boolean = false
+  ): boolean {
+    const startNode = getStartNodeForSession(commissionId, sessionType)
+    if (!startNode) return false
+
+    if (!forceReplay && sessionType === 'commission_accept' && hasCompletedDialogueForType(commissionId, sessionType)) {
+      return false
+    }
+
+    dialogueSession.value = {
+      currentCommissionId: commissionId,
+      currentNodeId: startNode.id,
+      sessionType,
+      isActive: true,
+      order: state.value.dialogueHistory.filter(h => h.commissionId === commissionId).length,
+      completedNodeIds: []
+    }
+
+    applyDialogueEffects(startNode.effects)
+    recordDialogueToHistory(startNode)
+
+    if (!state.value.completedDialogueNodeIds.includes(startNode.id)) {
+      state.value.completedDialogueNodeIds.push(startNode.id)
+    }
+    saveCurrentGame()
+    return true
+  }
+
+  function advanceDialogueNode(): { finished: boolean; endNode: boolean } {
+    const session = dialogueSession.value
+    if (!session.isActive || !session.currentNodeId) {
+      return { finished: true, endNode: true }
+    }
+
+    const currentNode = getDialogueNodeById(session.currentNodeId)
+    if (!currentNode) {
+      endDialogueSession()
+      return { finished: true, endNode: true }
+    }
+
+    if (currentNode.isEndNode) {
+      endDialogueSession()
+      return { finished: true, endNode: true }
+    }
+
+    if (currentNode.choices && currentNode.choices.length > 0) {
+      return { finished: false, endNode: false }
+    }
+
+    let nextNodeId: string | null = currentNode.nextNodeId || null
+    while (nextNodeId) {
+      const nextNode = findNextEligibleNode(session.currentCommissionId!, nextNodeId)
+      if (nextNode) {
+        dialogueSession.value.currentNodeId = nextNode.id
+        if (!session.completedNodeIds.includes(nextNode.id)) {
+          session.completedNodeIds.push(nextNode.id)
+        }
+        applyDialogueEffects(nextNode.effects)
+        recordDialogueToHistory(nextNode)
+        if (!state.value.completedDialogueNodeIds.includes(nextNode.id)) {
+          state.value.completedDialogueNodeIds.push(nextNode.id)
+        }
+        saveCurrentGame()
+
+        if (nextNode.isEndNode) {
+          endDialogueSession()
+          return { finished: true, endNode: true }
+        }
+        return { finished: false, endNode: false }
+      }
+      nextNodeId = nextNode ? nextNode.nextNodeId || null : null
+    }
+
+    endDialogueSession()
+    return { finished: true, endNode: true }
+  }
+
+  function selectDialogueChoice(choiceId: string): { success: boolean; finished: boolean } {
+    const session = dialogueSession.value
+    if (!session.isActive || !session.currentNodeId) {
+      return { success: false, finished: true }
+    }
+
+    const currentNode = getDialogueNodeById(session.currentNodeId)
+    if (!currentNode || !currentNode.choices) {
+      return { success: false, finished: true }
+    }
+
+    const choice = currentNode.choices.find(c => c.id === choiceId)
+    if (!choice) {
+      return { success: false, finished: false }
+    }
+
+    if (!checkDialogueConditions(session.currentCommissionId!, choice.conditions, choice.conditionOperator || 'and')) {
+      return { success: false, finished: false }
+    }
+
+    applyDialogueEffects(choice.effects)
+    recordDialogueToHistory(currentNode, { choiceId: choice.id, choiceLabel: choice.label })
+
+    const nextNode = findNextEligibleNode(session.currentCommissionId!, choice.nextNodeId)
+    if (!nextNode) {
+      endDialogueSession()
+      return { success: true, finished: true }
+    }
+
+    dialogueSession.value.currentNodeId = nextNode.id
+    if (!session.completedNodeIds.includes(nextNode.id)) {
+      session.completedNodeIds.push(nextNode.id)
+    }
+    applyDialogueEffects(nextNode.effects)
+    recordDialogueToHistory(nextNode)
+    if (!state.value.completedDialogueNodeIds.includes(nextNode.id)) {
+      state.value.completedDialogueNodeIds.push(nextNode.id)
+    }
+    saveCurrentGame()
+
+    if (nextNode.isEndNode) {
+      endDialogueSession()
+      return { success: true, finished: true }
+    }
+    return { success: true, finished: false }
+  }
+
+  function endDialogueSession(): void {
+    dialogueSession.value.isActive = false
+    saveCurrentGame()
+  }
+
+  function skipDialogueSession(): void {
+    endDialogueSession()
+  }
+
+  function getDialogueHistoryForCommission(commissionId: string): DialogueHistoryEntry[] {
+    return state.value.dialogueHistory
+      .filter(h => h.commissionId === commissionId)
+      .sort((a, b) => a.order - b.order)
+  }
+
+  function clearDialogueHistoryForCommission(commissionId: string): void {
+    state.value.dialogueHistory = state.value.dialogueHistory.filter(h => h.commissionId !== commissionId)
+    state.value.completedDialogueNodeIds = state.value.completedDialogueNodeIds.filter(nid => {
+      const node = getDialogueNodeById(nid)
+      return !node || node.commissionId !== commissionId
+    })
+    saveCurrentGame()
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -1927,6 +2257,30 @@ export const useGameStore = defineStore('game', () => {
     getHotspotHintForDifficulty,
     getRepairStepsForDifficulty,
     incrementRepairRetryCount,
-    incrementConnectionRetryCount
+    incrementConnectionRetryCount,
+    dialogueSession,
+    currentDialogueNode,
+    dialogueHistoryForCurrent,
+    getDialogueFlag,
+    setDialogueFlag,
+    checkDialogueCondition,
+    checkDialogueConditions,
+    applyDialogueEffects,
+    recordDialogueToHistory,
+    getDialogueNodesByTypeAndCommission,
+    getDialogueNodeById,
+    getFilteredChoices,
+    shouldPlayNode,
+    findNextEligibleNode,
+    getStartNodeForSession,
+    hasDialogueForSession,
+    hasCompletedDialogueForType,
+    startDialogueSession,
+    advanceDialogueNode,
+    selectDialogueChoice,
+    endDialogueSession,
+    skipDialogueSession,
+    getDialogueHistoryForCommission,
+    clearDialogueHistoryForCommission
   }
 })

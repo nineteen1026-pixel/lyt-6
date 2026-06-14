@@ -1,4 +1,4 @@
-import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter, Tag } from '../types'
+import type { Commission, Clue, ClueConnection, Ending, RepairStep, Chapter, Tag, DialogueNode } from '../types'
 
 export const tags: Tag[] = [
   { id: 'tag-important', name: '重要', color: '#ef4444', description: '关键线索，需要重点关注' },
@@ -1145,3 +1145,503 @@ export const repairSteps: Record<string, RepairStep[]> = {
     }
   ]
 }
+
+export const dialogueNodes: DialogueNode[] = [
+  {
+    id: 'dlg-comm-001-accept-1',
+    commissionId: 'comm-001',
+    nodeType: 'commission_accept',
+    order: 1,
+    speaker: 'client',
+    speakerName: '林奶奶',
+    speakerAvatar: '👵',
+    content: '小伙子，你就是这家店的老板吧？听说你能修好那些老物件……我这有个音乐盒，是我老伴生前送给我的。',
+    mood: 'sad',
+    nextNodeId: 'dlg-comm-001-accept-2'
+  },
+  {
+    id: 'dlg-comm-001-accept-2',
+    commissionId: 'comm-001',
+    nodeType: 'commission_accept',
+    order: 2,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '林奶奶您坐，慢慢说。这个音乐盒对您一定很重要吧？',
+    mood: 'hopeful',
+    nextNodeId: 'dlg-comm-001-accept-3'
+  },
+  {
+    id: 'dlg-comm-001-accept-3',
+    commissionId: 'comm-001',
+    nodeType: 'commission_accept',
+    order: 3,
+    speaker: 'client',
+    speakerName: '林奶奶',
+    speakerAvatar: '👵',
+    content: '是啊……这是他向我表白时送的。你看，漆都掉了，照片也模糊了……我怕再这样下去，我连他年轻时的样子都记不清了。',
+    mood: 'worried',
+    nextNodeId: 'dlg-comm-001-accept-4'
+  },
+  {
+    id: 'dlg-comm-001-accept-4',
+    commissionId: 'comm-001',
+    nodeType: 'commission_accept',
+    order: 4,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '我明白了。放心交给我吧，我会尽力找回那些被时光藏起来的记忆。',
+    mood: 'hopeful',
+    effects: [{ type: 'set_flag', flagKey: 'comm001_accepted', flagValue: true }],
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-001-intro-1',
+    commissionId: 'comm-001',
+    nodeType: 'commission_intro',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '林奶奶离开后，你把音乐盒轻轻放在工作台上。木制的盒身散发着淡淡的檀木香，那是岁月沉淀的味道。',
+    mood: 'mysterious',
+    nextNodeId: 'dlg-comm-001-intro-2'
+  },
+  {
+    id: 'dlg-comm-001-intro-2',
+    commissionId: 'comm-001',
+    nodeType: 'commission_intro',
+    order: 2,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '这音乐盒虽然老旧，但做工极其精致。我得仔细检查每一个角落，说不定能发现林奶奶没注意到的细节……',
+    mood: 'neutral',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-001-repair-pre-1',
+    commissionId: 'comm-001',
+    nodeType: 'repair_pre',
+    order: 1,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '线索都整理得差不多了。是时候开始动手修复了——',
+    mood: 'hopeful',
+    nextNodeId: 'dlg-comm-001-repair-pre-branch'
+  },
+  {
+    id: 'dlg-comm-001-repair-pre-branch',
+    commissionId: 'comm-001',
+    nodeType: 'repair_pre',
+    order: 2,
+    speaker: 'player',
+    speakerName: '你',
+    speakerAvatar: '🧑',
+    content: '在开始修复之前，我需要先确定修复的方向——',
+    mood: 'neutral',
+    choices: [
+      {
+        id: 'choice-comm001-repair-good-hint',
+        label: '尽可能还原到全新状态',
+        description: '让音乐盒和照片都恢复到最完美的样子',
+        nextNodeId: 'dlg-comm-001-repair-pre-good',
+        conditions: [{ type: 'connection_count', minCount: 1 }],
+        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'perfect' }]
+      },
+      {
+        id: 'choice-comm001-repair-neutral-hint',
+        label: '保留岁月的痕迹',
+        description: '修复功能为主，外观保留一些旧时光的味道',
+        nextNodeId: 'dlg-comm-001-repair-pre-neutral',
+        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'nostalgic' }]
+      },
+      {
+        id: 'choice-comm001-repair-unsure',
+        label: '先听听林奶奶的想法再说',
+        description: '先不急着动手，确认一下委托人的真实期望',
+        nextNodeId: 'dlg-comm-001-repair-pre-unsure',
+        conditions: [{ type: 'clue_count', minCount: 4 }],
+        effects: [{ type: 'set_flag', flagKey: 'comm001_repair_intent', flagValue: 'thoughtful' }]
+      }
+    ]
+  },
+  {
+    id: 'dlg-comm-001-repair-pre-good',
+    commissionId: 'comm-001',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '既然已经掌握了足够的线索，就尽全力让它焕然一新吧！林奶奶看到年轻时的照片，一定会很开心的。',
+    mood: 'happy',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm-001-repair-pre-neutral',
+    commissionId: 'comm-001',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '旧物之所以珍贵，不正是因为它承载了时光吗？让旋律重新响起就好，外表的旧痕就留给岁月吧。',
+    mood: 'neutral',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm-001-repair-pre-unsure',
+    commissionId: 'comm-001',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '我好像从所有线索里拼凑出了他们的故事……也许真正的修复，是让林奶奶感受到那份从未褪色的爱。',
+    mood: 'mysterious',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-002-accept-1',
+    commissionId: 'comm-002',
+    nodeType: 'commission_accept',
+    order: 1,
+    speaker: 'client',
+    speakerName: '小陈',
+    speakerAvatar: '👨',
+    content: '老板你好……我姓陈。这只碗是我外婆生前一直用的，小时候她总用它给我盛糖水。',
+    mood: 'sad',
+    nextNodeId: 'dlg-comm-002-accept-2'
+  },
+  {
+    id: 'dlg-comm-002-accept-2',
+    commissionId: 'comm-002',
+    nodeType: 'commission_accept',
+    order: 2,
+    speaker: 'client',
+    speakerName: '小陈',
+    speakerAvatar: '👨',
+    content: '搬家时不小心打碎了，我试着自己粘回去过……结果越弄越糟。我怕如果连这只碗都没了，外婆就真的……走了。',
+    mood: 'worried',
+    nextNodeId: 'dlg-comm-002-accept-3'
+  },
+  {
+    id: 'dlg-comm-002-accept-3',
+    commissionId: 'comm-002',
+    nodeType: 'commission_accept',
+    order: 3,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '陈先生，碗碎了可以修，记忆也是一样。交给我吧，我会让它好好地回来。',
+    mood: 'hopeful',
+    effects: [{ type: 'set_flag', flagKey: 'comm002_accepted', flagValue: true }],
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-002-intro-1',
+    commissionId: 'comm-002',
+    nodeType: 'commission_intro',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '碎片被小心翼翼地拼在棉布上。青瓷的质地依然温润，只是那些裂纹像一道道泪痕划过碗身。',
+    mood: 'sad',
+    nextNodeId: 'dlg-comm-002-intro-2'
+  },
+  {
+    id: 'dlg-comm-002-intro-2',
+    commissionId: 'comm-002',
+    nodeType: 'commission_intro',
+    order: 2,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '胶水涂得歪歪扭扭的，看得出来小陈真是个生手……但这份笨拙里藏着的心意，我好像能感受到。我得用最适合的方式来修。',
+    mood: 'neutral',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-002-repair-pre-1',
+    commissionId: 'comm-002',
+    nodeType: 'repair_pre',
+    order: 1,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '碎片都清理干净了。接下来，就是最关键的一步——',
+    mood: 'neutral',
+    nextNodeId: 'dlg-comm-002-repair-pre-branch'
+  },
+  {
+    id: 'dlg-comm-002-repair-pre-branch',
+    commissionId: 'comm-002',
+    nodeType: 'repair_pre',
+    order: 2,
+    speaker: 'player',
+    speakerName: '你',
+    speakerAvatar: '🧑',
+    content: '关于这只碗的修补方式，我想好了——',
+    mood: 'neutral',
+    choices: [
+      {
+        id: 'choice-comm002-kintsugi',
+        label: '用金缮工艺',
+        description: '以金粉填补裂缝，让残缺成为独特的美',
+        nextNodeId: 'dlg-comm002-kintsugi',
+        conditions: [{ type: 'connection_count', minCount: 2 }],
+        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'kintsugi' }]
+      },
+      {
+        id: 'choice-comm002-traditional',
+        label: '传统瓷粉修补',
+        description: '用瓷粉和大漆修补，尽量还原碗本来的样子',
+        nextNodeId: 'dlg-comm002-traditional',
+        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'traditional' }]
+      },
+      {
+        id: 'choice-comm002-flavor',
+        label: '先煮一碗糖水找找灵感',
+        description: '也许先回味一下记忆中的味道，会有更好的想法',
+        nextNodeId: 'dlg-comm002-flavor',
+        conditions: [{ type: 'clue_collected', clueId: 'clue-002-2' }],
+        effects: [{ type: 'set_flag', flagKey: 'comm002_technique', flagValue: 'inspired' }]
+      }
+    ]
+  },
+  {
+    id: 'dlg-comm002-kintsugi',
+    commissionId: 'comm-002',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '金缮——把残缺化作独特的美。就像外婆的爱，就算经历了破碎，也依然闪耀着金色的光。',
+    mood: 'happy',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm002-traditional',
+    commissionId: 'comm-002',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '传统修补法，像把记忆一片片小心地放回原位。让它看起来像从前那样，也挺好的。',
+    mood: 'neutral',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm002-flavor',
+    commissionId: 'comm-002',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '焦糖的甜香从裂纹深处飘出来……原来，真正的修补不只是碗的本身，更是留住那股熟悉的味道。',
+    mood: 'hopeful',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-003-accept-1',
+    commissionId: 'comm-003',
+    nodeType: 'commission_accept',
+    order: 1,
+    speaker: 'client',
+    speakerName: '周先生',
+    speakerAvatar: '🧔',
+    content: '老板……这是我父亲的怀表。他走得很突然，什么话都没留下。',
+    mood: 'sad',
+    nextNodeId: 'dlg-comm-003-accept-2'
+  },
+  {
+    id: 'dlg-comm-003-accept-2',
+    commissionId: 'comm-003',
+    nodeType: 'commission_accept',
+    order: 2,
+    speaker: 'client',
+    speakerName: '周先生',
+    speakerAvatar: '🧔',
+    content: '表停了，停在3点17分。我就是想知道……这个时间，对他来说意味着什么？',
+    mood: 'mysterious',
+    nextNodeId: 'dlg-comm-003-accept-3'
+  },
+  {
+    id: 'dlg-comm-003-accept-3',
+    commissionId: 'comm-003',
+    nodeType: 'commission_accept',
+    order: 3,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '我懂了。表停了，但它记录的那一刻，也许就是您父亲最想告诉您的话。',
+    mood: 'hopeful',
+    effects: [{ type: 'set_flag', flagKey: 'comm003_accepted', flagValue: true }],
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-003-intro-1',
+    commissionId: 'comm-003',
+    nodeType: 'commission_intro',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '银质的怀表静静躺在丝绒衬布上。表蒙上的蛛网状裂痕让它看起来像一颗被冰封的星球。',
+    mood: 'mysterious',
+    nextNodeId: 'dlg-comm-003-intro-2'
+  },
+  {
+    id: 'dlg-comm-003-intro-2',
+    commissionId: 'comm-003',
+    nodeType: 'commission_intro',
+    order: 2,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '3点17分……这个精确到分钟的时间，一定不是偶然。我要从每一个细节里，找出这块怀表藏着的秘密。',
+    mood: 'mysterious',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-003-repair-pre-1',
+    commissionId: 'comm-003',
+    nodeType: 'repair_pre',
+    order: 1,
+    speaker: 'shopkeeper',
+    speakerName: '店主',
+    speakerAvatar: '🏪',
+    content: '所有的线索都连起来了……答案已经很清楚了。现在，最后一步是——',
+    mood: 'hopeful',
+    nextNodeId: 'dlg-comm-003-repair-pre-branch'
+  },
+  {
+    id: 'dlg-comm-003-repair-pre-branch',
+    commissionId: 'comm-003',
+    nodeType: 'repair_pre',
+    order: 2,
+    speaker: 'player',
+    speakerName: '你',
+    speakerAvatar: '🧑',
+    content: '关于这块怀表的最终选择——',
+    mood: 'neutral',
+    choices: [
+      {
+        id: 'choice-comm003-restart',
+        label: '修好它，让时间继续',
+        description: '让怀表从3点17分开始，重新滴答作响',
+        nextNodeId: 'dlg-comm003-restart',
+        conditions: [{ type: 'connection_count', minCount: 2 }],
+        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'restart' }]
+      },
+      {
+        id: 'choice-comm003-keepstill',
+        label: '就让它停在那一刻',
+        description: '3点17分是最珍贵的瞬间，值得被永远定格',
+        nextNodeId: 'dlg-comm003-keepstill',
+        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'still' }]
+      },
+      {
+        id: 'choice-comm003-birthday',
+        label: '把出生时刻刻在表壳上',
+        description: '把那个特殊的日期永远留在怀表上，纪念那一刻',
+        nextNodeId: 'dlg-comm003-birthday',
+        conditions: [
+          { type: 'clue_collected', clueId: 'clue-003-2' },
+          { type: 'clue_collected', clueId: 'clue-003-5' }
+        ],
+        conditionOperator: 'and',
+        effects: [{ type: 'set_flag', flagKey: 'comm003_final_decision', flagValue: 'engrave' }]
+      }
+    ]
+  },
+  {
+    id: 'dlg-comm003-restart',
+    commissionId: 'comm-003',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '让时间从3点17分继续……这样，父亲的爱就会随着秒针，永远陪着他。',
+    mood: 'happy',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm003-keepstill',
+    commissionId: 'comm-003',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '有些瞬间值得被永远定格。3点17分，是一个父亲成为父亲的时刻——就停在这里吧。',
+    mood: 'grateful',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm003-birthday',
+    commissionId: 'comm-003',
+    nodeType: 'repair_pre',
+    order: 3,
+    speaker: 'inner_thought',
+    speakerName: '内心独白',
+    speakerAvatar: '💭',
+    content: '把那个日期刻在表壳内侧……当周先生再打开表盖时，就能看到——这一切，从他出生的那一刻就已经开始了。',
+    mood: 'happy',
+    isEndNode: true
+  },
+
+  {
+    id: 'dlg-comm-001-repair-post',
+    commissionId: 'comm-001',
+    nodeType: 'repair_post',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '修复工作完成了。音乐盒静静地躺在工作台上，阳光透过窗户洒在它身上——',
+    mood: 'happy',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm-002-repair-post',
+    commissionId: 'comm-002',
+    nodeType: 'repair_post',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '修补完成。那只碗静静地在灯光下闪烁着不同的光泽——',
+    mood: 'hopeful',
+    isEndNode: true
+  },
+  {
+    id: 'dlg-comm-003-repair-post',
+    commissionId: 'comm-003',
+    nodeType: 'repair_post',
+    order: 1,
+    speaker: 'narrator',
+    speakerName: '旁白',
+    speakerAvatar: '📖',
+    content: '怀表的修复完成了。它的命运，最终由你的选择决定——',
+    mood: 'mysterious',
+    isEndNode: true
+  }
+]
+

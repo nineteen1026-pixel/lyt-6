@@ -3,12 +3,17 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ArrowLeft, Filter, ScrollText, Map } from 'lucide-vue-next'
 import CommissionCard from '../components/CommissionCard.vue'
+import StoryDialogue from '../components/StoryDialogue.vue'
+import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import { useGameStore } from '../stores/game'
 import { cn } from '../lib/utils'
 import type { Commission } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
+
+const showHistoryPanel = ref(false)
+const pendingCommissionId = ref<string | null>(null)
 
 type FilterType = 'all' | 'pending' | 'in_progress' | 'completed' | 'locked'
 const currentFilter = ref<FilterType>('all')
@@ -102,6 +107,24 @@ function goBack() {
 function goToGallery() {
   router.push('/gallery')
 }
+
+function handleCommissionSelect(commission: Commission) {
+  pendingCommissionId.value = commission.id
+  gameStore.selectCommission(commission.id)
+  gameStore.startDialogueSession(commission.id, 'commission_accept')
+}
+
+function handleDialogueEnd() {
+  if (pendingCommissionId.value) {
+    const cid = pendingCommissionId.value
+    pendingCommissionId.value = null
+    router.push(`/commission/${cid}`)
+  }
+}
+
+function toggleHistoryPanel() {
+  showHistoryPanel.value = !showHistoryPanel.value
+}
 </script>
 
 <template>
@@ -122,6 +145,15 @@ function goToGallery() {
           >
             <Map class="w-5 h-5" />
             <span>路线图</span>
+          </button>
+          <button
+            class="flex items-center gap-2 px-4 py-2 bg-purple-50 text-purple-700 rounded-lg hover:bg-purple-100 transition-colors"
+            @click="toggleHistoryPanel"
+          >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+            <span>对话记录</span>
           </button>
           <button
             class="flex items-center gap-2 px-4 py-2 bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
@@ -182,6 +214,7 @@ function goToGallery() {
           :key="commission.id"
           :commission="commission"
           @locked-click="handleLockedCommissionClick"
+          @commission-select="handleCommissionSelect"
         />
       </div>
 
@@ -251,6 +284,16 @@ function goToGallery() {
           </div>
         </div>
       </div>
+
+      <StoryDialogue
+        :showHistoryToggle="true"
+        @dialogueEnd="handleDialogueEnd"
+        @toggleHistory="toggleHistoryPanel"
+      />
+
+      <DialogueHistoryPanel
+        v-model="showHistoryPanel"
+      />
     </div>
   </div>
 </template>

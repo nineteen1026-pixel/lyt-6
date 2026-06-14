@@ -276,6 +276,9 @@ export interface GameState {
   progressMilestones: Record<string, boolean>
   repairRetryCounts: Record<string, number>
   connectionRetryCounts: Record<string, number>
+  dialogueFlags: Record<string, string | number | boolean>
+  dialogueHistory: DialogueHistoryEntry[]
+  completedDialogueNodeIds: string[]
 }
 
 export interface SavedGame {
@@ -353,3 +356,92 @@ export type LoadResult =
 export const MAX_SAVE_SLOTS = 3
 export const DEFAULT_SLOT_NAMES = ['存档一', '存档二', '存档三']
 export const MAX_SNAPSHOTS_PER_SLOT = 10
+
+export type DialogueNodeType =
+  | 'commission_accept'
+  | 'commission_intro'
+  | 'repair_pre'
+  | 'repair_post'
+  | 'story_interlude'
+  | 'branch'
+  | 'narration'
+
+export type DialogueCharacter =
+  | 'shopkeeper'
+  | 'client'
+  | 'narrator'
+  | 'player'
+  | 'inner_thought'
+
+export interface DialogueCondition {
+  type: 'clue_collected' | 'clue_count' | 'connection_count' | 'ending_type_chosen' | 'always' | 'custom_flag'
+  clueId?: string
+  minCount?: number
+  flagKey?: string
+  flagValue?: string | number | boolean
+  endingType?: 'good' | 'neutral' | 'bad'
+}
+
+export interface DialogueChoice {
+  id: string
+  label: string
+  description?: string
+  nextNodeId: string
+  conditions?: DialogueCondition[]
+  effects?: DialogueEffect[]
+  conditionOperator?: 'and' | 'or'
+}
+
+export interface DialogueEffect {
+  type: 'set_flag' | 'set_repair_choice_hint' | 'unlock_content' | 'add_tag'
+  flagKey?: string
+  flagValue?: string | number | boolean
+  contentId?: string
+  tagId?: string
+}
+
+export interface DialogueNode {
+  id: string
+  commissionId: string
+  nodeType: DialogueNodeType
+  order: number
+  speaker: DialogueCharacter
+  speakerName?: string
+  speakerAvatar?: string
+  content: string
+  mood?: 'happy' | 'sad' | 'worried' | 'hopeful' | 'mysterious' | 'neutral' | 'grateful'
+  nextNodeId?: string | null
+  choices?: DialogueChoice[]
+  conditions?: DialogueCondition[]
+  conditionOperator?: 'and' | 'or'
+  effects?: DialogueEffect[]
+  triggersRepairStep?: string
+  isEndNode?: boolean
+}
+
+export interface DialogueHistoryEntry {
+  id: string
+  nodeId: string
+  commissionId: string
+  nodeType: DialogueNodeType
+  speaker: DialogueCharacter
+  speakerName: string
+  speakerAvatar: string
+  content: string
+  choiceMade?: {
+    choiceId: string
+    choiceLabel: string
+  }
+  timestamp: string
+  order: number
+}
+
+export interface DialogueSessionState {
+  currentCommissionId: string | null
+  currentNodeId: string | null
+  sessionType: DialogueNodeType | null
+  isActive: boolean
+  order: number
+  completedNodeIds: string[]
+}
+

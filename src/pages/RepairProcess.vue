@@ -3,6 +3,8 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import StoryDialogue from '../components/StoryDialogue.vue'
+import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import type { RepairStep, RepairChoice, DynamicDifficultyLevel } from '../types'
 
 const route = useRoute()
@@ -12,6 +14,9 @@ const gameStore = useGameStore()
 const currentStepIndex = ref(0)
 const selectedChoices = ref<string[]>([])
 const isAnimating = ref(false)
+const showHistoryPanel = ref(false)
+const pendingEndingType = ref<string | null>(null)
+const awaitingPostDialogue = ref(false)
 
 const commissionId = computed(() => route.params.id as string)
 
@@ -109,9 +114,34 @@ function finishRepair() {
 
   gameStore.completeCommission(commissionId.value)
 
+  pendingEndingType.value = endingType
+
+  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_post')) {
+    awaitingPostDialogue.value = true
+    gameStore.startDialogueSession(commissionId.value, 'repair_post')
+  } else {
+    navigateToEnding()
+  }
+}
+
+function navigateToEnding() {
+  if (!pendingEndingType.value) return
+  const endingType = pendingEndingType.value
+  pendingEndingType.value = null
+  awaitingPostDialogue.value = false
   setTimeout(() => {
     router.push(`/ending/${commissionId.value}/${endingType}`)
-  }, 500)
+  }, 400)
+}
+
+function handleDialogueEnd() {
+  if (awaitingPostDialogue.value && pendingEndingType.value) {
+    navigateToEnding()
+  }
+}
+
+function toggleHistoryPanel() {
+  showHistoryPanel.value = !showHistoryPanel.value
 }
 
 function goBack() {
@@ -169,6 +199,10 @@ onMounted(() => {
   gameStore.loadSavedGame()
   if (!commission.value) {
     router.push('/commissions')
+    return
+  }
+  if (gameStore.hasDialogueForSession(commissionId.value, 'repair_pre')) {
+    gameStore.startDialogueSession(commissionId.value, 'repair_pre')
   }
 })
 </script>
@@ -185,6 +219,15 @@ onMounted(() => {
           <span>返回推理板</span>
         </button>
         <div class="text-sm text-stone-500 font-serif flex items-center gap-3">
+          <button
+            class="p-1.5 text-stone-400 hover:text-purple-600 hover:bg-purple-50 rounded-md transition-colors"
+            title="对话记录"
+            @click="toggleHistoryPanel"
+          >
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+            </svg>
+          </button>
           <span>步骤 {{ progress.current }} / {{ progress.total }}</span>
           <span v-if="difficultyContext" class="flex items-center gap-1 text-xs" :class="difficultyLabel.color">
             <span>{{ difficultyLabel.icon }}</span>
@@ -346,6 +389,17 @@ onMounted(() => {
           </div>
         </div>
       </div>
+
+      <StoryDialogue
+        :showHistoryToggle="true"
+        @dialogueEnd="handleDialogueEnd"
+        @toggleHistory="toggleHistoryPanel"
+      />
+
+      <DialogueHistoryPanel
+        v-model="showHistoryPanel"
+        :commissionId="commissionId"
+      />
     </div>
   </div>
 </template>
