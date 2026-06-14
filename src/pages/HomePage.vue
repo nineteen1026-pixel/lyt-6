@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X } from 'lucide-vue-next'
+import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { SaveSlotInfo } from '../types'
+import type { SaveSlotInfo, SnapshotInfo, EndingReplay } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -12,6 +12,7 @@ const hasSave = computed(() => gameStore.hasSave)
 const progress = computed(() => gameStore.completionProgress)
 const saveSlots = computed(() => gameStore.saveSlots)
 const lastActiveSlotId = computed(() => gameStore.lastActiveSlotId)
+const endingReplays = computed(() => gameStore.allEndingReplays)
 
 const showSlotSelector = ref(false)
 const slotSelectorMode = ref<'continue' | 'new'>('continue')
@@ -21,6 +22,11 @@ const confirmType = ref<'overwrite' | 'delete' | 'recover'>('overwrite')
 const showRecoveryTip = ref(false)
 const recoverySlotId = ref<string | null>(null)
 const recoveryError = ref('')
+
+const showSnapshotPanel = ref(false)
+const snapshotSlotId = ref<string | null>(null)
+const snapshotList = ref<SnapshotInfo[]>([])
+const showEndingReplayPanel = ref(false)
 
 const dustParticles = Array.from({ length: 18 }, (_, i) => ({
   id: i,
@@ -70,14 +76,15 @@ function navigateToGame() {
 }
 
 function continueGame() {
-  if (lastActiveSlotId.value) {
-    const result = gameStore.loadFromSlot(lastActiveSlotId.value)
+  const latestSlot = lastActiveSlotId.value
+  if (latestSlot) {
+    const result = gameStore.loadFromSlot(latestSlot)
     if (result.success === true) {
       navigateToGame()
       return
     }
     if (result.success === false && result.recoverable && result.backupAvailable) {
-      recoverySlotId.value = lastActiveSlotId.value
+      recoverySlotId.value = latestSlot
       recoveryError.value = result.error
       showRecoveryTip.value = true
       return
@@ -85,6 +92,19 @@ function continueGame() {
     openSlotSelector('continue')
   } else {
     openSlotSelector('continue')
+  }
+}
+
+function selectSlotDirect(slot: SaveSlotInfo) {
+  const result = gameStore.loadFromSlot(slot.slotId)
+  if (result.success === true) {
+    navigateToGame()
+    return
+  }
+  if (result.success === false && result.recoverable && result.backupAvailable) {
+    recoverySlotId.value = slot.slotId
+    recoveryError.value = result.error
+    showRecoveryTip.value = true
   }
 }
 
@@ -198,6 +218,55 @@ function resetGame() {
     gameStore.refreshSaveSlots()
   }
 }
+
+function openSnapshotPanel(slotId: string) {
+  snapshotSlotId.value = slotId
+  snapshotList.value = gameStore.getSlotSnapshots(slotId)
+  showSnapshotPanel.value = true
+}
+
+function closeSnapshotPanel() {
+  showSnapshotPanel.value = false
+  snapshotSlotId.value = null
+  snapshotList.value = []
+}
+
+function loadSnapshot(snapshotId: string) {
+  if (!snapshotSlotId.value) return
+  const result = gameStore.loadFromSnapshot(snapshotSlotId.value, snapshotId)
+  if (result.success) {
+    closeSnapshotPanel()
+    closeSlotSelector()
+    navigateToGame()
+  }
+}
+
+function removeSnapshot(snapshotId: string) {
+  if (!snapshotSlotId.value) return
+  gameStore.removeSnapshot(snapshotSlotId.value, snapshotId)
+  snapshotList.value = gameStore.getSlotSnapshots(snapshotSlotId.value!)
+}
+
+function openEndingReplayPanel() {
+  showEndingReplayPanel.value = true
+}
+
+function closeEndingReplayPanel() {
+  showEndingReplayPanel.value = false
+}
+
+function replayEnding(replay: EndingReplay) {
+  router.push(`/ending/${replay.commissionId}/${replay.endingType}`)
+  closeEndingReplayPanel()
+}
+
+const triggerLabelMap: Record<string, { label: string; icon: string; color: string }> = {
+  manual: { label: '手动', icon: '📸', color: 'text-amber-600' },
+  chapter_complete: { label: '完成', icon: '✅', color: 'text-emerald-600' },
+  ending_unlocked: { label: '结局', icon: '🎬', color: 'text-purple-600' },
+  milestone: { label: '里程碑', icon: '🏆', color: 'text-blue-600' },
+  auto_chapter_start: { label: '开始', icon: '🚀', color: 'text-cyan-600' }
+}
 </script>
 
 <template>
@@ -248,21 +317,71 @@ function resetGame() {
           <span>{{ hasSave ? '重新开始' : '踏入店铺' }}</span>
         </button>
 
-        <button
-          class="btn-secondary w-full text-lg py-4"
-          @click="goToGallery"
-        >
-          <ScrollText class="w-5 h-5" />
-          <span>历史陈列室</span>
-        </button>
+        <div class="grid grid-cols-2 gap-3">
+          <button
+            class="btn-secondary py-3"
+            @click="goToGallery"
+          >
+            <ScrollText class="w-4 h-4" />
+            <span class="text-sm">陈列室</span>
+          </button>
+          <button
+            class="btn-secondary py-3"
+            @click="goToRoadmap"
+          >
+            <Map class="w-4 h-4" />
+            <span class="text-sm">路线图</span>
+          </button>
+        </div>
 
         <button
-          class="btn-secondary w-full text-lg py-4"
-          @click="goToRoadmap"
+          v-if="endingReplays.length > 0"
+          class="btn-secondary w-full py-3"
+          @click="openEndingReplayPanel"
         >
-          <Map class="w-5 h-5" />
-          <span>修复路线图</span>
+          <Film class="w-4 h-4" />
+          <span class="text-sm">结局回放</span>
+          <span class="opacity-70 text-xs ml-1">({{ endingReplays.length }})</span>
         </button>
+      </div>
+
+      <div v-if="hasSave" class="mb-6">
+        <div class="text-stone-400 text-xs mb-3 flex items-center justify-center gap-1">
+          <Save class="w-3 h-3" />
+          <span>存档位</span>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div
+            v-for="slot in saveSlots"
+            :key="slot.slotId"
+            :class="[
+              'slot-mini-card',
+              { 'has-data': slot.savedAt },
+              { 'is-active': lastActiveSlotId === slot.slotId }
+            ]"
+            @click="slot.savedAt ? selectSlotDirect(slot) : startNewGameInSlot(slot.slotId)"
+          >
+            <div class="slot-mini-name">{{ slot.slotName }}</div>
+            <div v-if="slot.savedAt" class="slot-mini-info">
+              <div class="text-xs text-stone-500 truncate">{{ slot.chapterProgress }}</div>
+              <div class="flex items-center gap-1 mt-1">
+                <span class="text-xs text-amber-600 font-medium">{{ slot.completedCount }}/{{ slot.totalCount }}</span>
+                <button
+                  v-if="slot.snapshotCount > 0"
+                  class="snapshot-badge"
+                  @click.stop="openSnapshotPanel(slot.slotId)"
+                  :title="`${slot.snapshotCount} 个快照`"
+                >
+                  <Camera class="w-3 h-3" />
+                  <span>{{ slot.snapshotCount }}</span>
+                </button>
+              </div>
+            </div>
+            <div v-else class="slot-mini-empty">
+              <span class="text-stone-400 text-xs">空</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div v-if="hasSave" class="text-center mb-6">
@@ -296,7 +415,7 @@ function resetGame() {
             </div>
 
             <div class="modal-body">
-              <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+              <div class="grid grid-cols-3 gap-3">
                 <div
                   v-for="slot in saveSlots"
                   :key="slot.slotId"
@@ -323,9 +442,19 @@ function resetGame() {
                       <span>{{ slot.completedCount }}/{{ slot.totalCount }} 委托</span>
                     </div>
                     <div class="text-xs text-stone-400 truncate">{{ slot.chapterProgress }}</div>
-                    <div v-if="slot.hasBackup" class="mt-2 flex items-center gap-1 text-xs text-emerald-600">
-                      <Shield class="w-3 h-3" />
-                      <span>有备份</span>
+                    <div class="flex items-center gap-2 mt-2">
+                      <div v-if="slot.hasBackup" class="flex items-center gap-1 text-xs text-emerald-600">
+                        <Shield class="w-3 h-3" />
+                        <span>备份</span>
+                      </div>
+                      <button
+                        v-if="slot.snapshotCount > 0"
+                        class="snapshot-badge"
+                        @click.stop="openSnapshotPanel(slot.slotId)"
+                      >
+                        <Camera class="w-3 h-3" />
+                        <span>{{ slot.snapshotCount }} 快照</span>
+                      </button>
                     </div>
                   </div>
                   <div v-else class="slot-empty">
@@ -354,6 +483,139 @@ function resetGame() {
 
     <Teleport to="body">
       <Transition name="modal-fade">
+        <div v-if="showSnapshotPanel" class="modal-overlay" @click.self="closeSnapshotPanel">
+          <div class="modal-content max-w-xl w-full mx-4">
+            <div class="modal-header">
+              <h2 class="text-lg font-bold text-stone-800 flex items-center gap-2">
+                <Camera class="w-5 h-5 text-amber-500" />
+                <span>关键节点快照</span>
+              </h2>
+              <button class="modal-close-btn" @click="closeSnapshotPanel">
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <div class="modal-body">
+              <div v-if="snapshotList.length === 0" class="text-center py-8">
+                <Camera class="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                <p class="text-stone-400 text-sm">暂无快照</p>
+                <p class="text-stone-400 text-xs mt-1">在关键节点会自动创建快照</p>
+              </div>
+
+              <div v-else class="space-y-2">
+                <div
+                  v-for="snap in snapshotList"
+                  :key="snap.id"
+                  class="snapshot-item"
+                >
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2 mb-1">
+                      <span class="text-sm">{{ triggerLabelMap[snap.trigger]?.icon ?? '📌' }}</span>
+                      <span class="text-sm font-medium text-stone-700 truncate">{{ snap.label }}</span>
+                      <span :class="['text-xs px-1.5 py-0.5 rounded-full', triggerLabelMap[snap.trigger]?.color ?? 'text-stone-500', 'bg-stone-100']">
+                        {{ triggerLabelMap[snap.trigger]?.label ?? snap.trigger }}
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-stone-400">
+                      <span class="flex items-center gap-1">
+                        <Clock class="w-3 h-3" />
+                        {{ formatDate(snap.createdAt) }}
+                      </span>
+                      <span>{{ snap.completedCount }} 委托完成</span>
+                      <span class="truncate">{{ snap.chapterProgress }}</span>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 ml-2 flex-shrink-0">
+                    <button
+                      class="snapshot-action-btn"
+                      title="回溯到此节点"
+                      @click="loadSnapshot(snap.id)"
+                    >
+                      <History class="w-4 h-4" />
+                    </button>
+                    <button
+                      class="snapshot-action-btn delete"
+                      title="删除快照"
+                      @click="removeSnapshot(snap.id)"
+                    >
+                      <Trash2 class="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn-secondary" @click="closeSnapshotPanel">关闭</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal-fade">
+        <div v-if="showEndingReplayPanel" class="modal-overlay" @click.self="closeEndingReplayPanel">
+          <div class="modal-content max-w-xl w-full mx-4">
+            <div class="modal-header">
+              <h2 class="text-lg font-bold text-stone-800 flex items-center gap-2">
+                <Film class="w-5 h-5 text-purple-500" />
+                <span>结局回放</span>
+              </h2>
+              <button class="modal-close-btn" @click="closeEndingReplayPanel">
+                <X class="w-5 h-5" />
+              </button>
+            </div>
+
+            <div class="modal-body">
+              <div v-if="endingReplays.length === 0" class="text-center py-8">
+                <Film class="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                <p class="text-stone-400 text-sm">暂无解锁的结局</p>
+                <p class="text-stone-400 text-xs mt-1">完成委托修复后，结局将在这里回放</p>
+              </div>
+
+              <div v-else class="space-y-2">
+                <div
+                  v-for="replay in endingReplays"
+                  :key="`${replay.endingId}-${replay.fromSlotId}`"
+                  class="ending-replay-item"
+                  @click="replayEnding(replay)"
+                >
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-lg">
+                        {{ replay.endingType === 'good' ? '✨' : replay.endingType === 'neutral' ? '🌿' : '🌧️' }}
+                      </span>
+                      <div class="min-w-0">
+                        <div class="text-sm font-medium text-stone-700 truncate">
+                          {{ gameStore.getEndingById(replay.endingId)?.title ?? '未知结局' }}
+                        </div>
+                        <div class="text-xs text-stone-400">
+                          {{ gameStore.getCommissionById(replay.commissionId)?.title ?? '' }}
+                          ·
+                          {{ replay.endingType === 'good' ? '完美' : replay.endingType === 'neutral' ? '温暖' : '遗憾' }}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex items-center gap-1 ml-2 text-stone-400">
+                    <Eye class="w-4 h-4" />
+                    <ChevronRight class="w-4 h-4" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="modal-footer">
+              <button class="btn-secondary" @click="closeEndingReplayPanel">关闭</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <Teleport to="body">
+      <Transition name="modal-fade">
         <div v-if="showConfirmDialog" class="modal-overlay" @click.self="showConfirmDialog = false">
           <div class="modal-content max-w-sm w-full mx-4">
             <div class="modal-header">
@@ -373,7 +635,7 @@ function resetGame() {
                 </template>
                 <template v-else-if="confirmType === 'delete'">
                   确定要删除「{{ selectedSlot?.slotName }}」吗？<br>
-                  此操作将同时删除主存档和备份，且无法恢复。
+                  此操作将同时删除主存档、备份和快照，且无法恢复。
                 </template>
                 <template v-else>
                   确定要从备份恢复吗？
@@ -592,6 +854,127 @@ function resetGame() {
 
 .delete-btn:hover {
   background: rgba(239, 68, 68, 0.2);
+}
+
+.slot-mini-card {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid rgba(212, 175, 55, 0.15);
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: left;
+}
+
+.slot-mini-card:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(255, 255, 255, 0.8);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.1);
+}
+
+.slot-mini-card.is-active {
+  border-color: #d4af37;
+  background: rgba(212, 175, 55, 0.06);
+  box-shadow: 0 0 0 2px rgba(212, 175, 55, 0.15);
+}
+
+.slot-mini-card:not(.has-data) {
+  border-style: dashed;
+  opacity: 0.5;
+}
+
+.slot-mini-card:not(.has-data):hover {
+  opacity: 0.8;
+}
+
+.slot-mini-name {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #57534e;
+  margin-bottom: 4px;
+}
+
+.slot-mini-info {
+  min-height: 28px;
+}
+
+.slot-mini-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+}
+
+.snapshot-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: rgba(212, 175, 55, 0.1);
+  color: #92400e;
+  font-size: 0.65rem;
+  font-weight: 500;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.snapshot-badge:hover {
+  background: rgba(212, 175, 55, 0.2);
+}
+
+.snapshot-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  background: rgba(255, 255, 255, 0.6);
+  transition: all 0.2s ease;
+}
+
+.snapshot-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.snapshot-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: #78716c;
+  transition: all 0.2s;
+}
+
+.snapshot-action-btn:hover {
+  background: rgba(212, 175, 55, 0.15);
+  color: #92400e;
+}
+
+.snapshot-action-btn.delete:hover {
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+}
+
+.ending-replay-item {
+  display: flex;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(139, 105, 20, 0.1);
+  background: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.ending-replay-item:hover {
+  background: rgba(255, 255, 255, 0.9);
+  border-color: rgba(212, 175, 55, 0.3);
+  transform: translateX(4px);
 }
 
 .btn-danger {

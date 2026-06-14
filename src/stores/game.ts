@@ -23,7 +23,10 @@ import type {
   DifficultyContext,
   DynamicDifficultyLevel,
   RepairStep,
-  RepairChoice
+  RepairChoice,
+  SnapshotInfo,
+  SnapshotTrigger,
+  EndingReplay
 } from '../types'
 import { 
   getInitialGameState, 
@@ -41,7 +44,14 @@ import {
   renameSlot,
   getCurrentSlotId,
   setCurrentSlotId,
-  hasBackupInSlot
+  hasBackupInSlot,
+  getSnapshotsForSlot,
+  createSnapshot,
+  loadSnapshot,
+  deleteSnapshot,
+  addEndingReplay,
+  getEndingReplays,
+  getLatestSaveSlotInfo
 } from '../utils/storage'
 import { commissions, clues, connections, endings, repairSteps, chapters, tags } from '../data/gameData'
 
@@ -416,6 +426,18 @@ export const useGameStore = defineStore('game', () => {
     saveGame(state.value)
   }
 
+  function autoSnapshotIfNeeded(trigger: SnapshotTrigger, label: string) {
+    const slotId = currentSlotId.value
+    if (!slotId) return
+    createSnapshot(slotId, state.value, label, trigger)
+  }
+
+  function manualSnapshot(label: string): boolean {
+    const slotId = currentSlotId.value
+    if (!slotId) return false
+    return createSnapshot(slotId, state.value, label, 'manual')
+  }
+
   function startNewGame() {
     state.value = getInitialGameState()
     saveCurrentGame()
@@ -450,6 +472,7 @@ export const useGameStore = defineStore('game', () => {
     checkAndUnlockSteps(commissionId)
 
     saveCurrentGame()
+    autoSnapshotIfNeeded('auto_chapter_start', `开始：${commission.title}`)
   }
 
   function collectClue(clueId: string) {
@@ -484,11 +507,17 @@ export const useGameStore = defineStore('game', () => {
     const ending = endings.find(e => e.id === endingId)
     if (ending) {
       state.value.currentEndingType = ending.type
+      if (currentSlotId.value) {
+        addEndingReplay(endingId, ending.commissionId, ending.type, currentSlotId.value)
+      }
     }
+    autoSnapshotIfNeeded('ending_unlocked', `解锁结局：${ending?.title ?? endingId}`)
     saveCurrentGame()
   }
 
   function completeCommission(commissionId: string) {
+    const commission = commissions.find(c => c.id === commissionId)
+    autoSnapshotIfNeeded('chapter_complete', `完成：${commission?.title ?? commissionId}`)
     transitionCommissionStatus(commissionId, 'completed')
     state.value.currentStep = 'ending'
     saveCurrentGame()
@@ -574,6 +603,13 @@ export const useGameStore = defineStore('game', () => {
   }
 
   function continueGame() {
+    const latestInfo = getLatestSaveSlotInfo()
+    if (latestInfo) {
+      const result = loadFromSlot(latestInfo.slotId)
+      if (result.success === true) {
+        return state.value.currentStep
+      }
+    }
     if (loadSavedGame()) {
       return state.value.currentStep
     }
@@ -644,6 +680,31 @@ export const useGameStore = defineStore('game', () => {
 
   function hasBackup(slotId: string): boolean {
     return hasBackupInSlot(slotId)
+  }
+
+  function getSlotSnapshots(slotId: string): SnapshotInfo[] {
+    return getSnapshotsForSlot(slotId)
+  }
+
+  function loadFromSnapshot(slotId: string, snapshotId: string): LoadResult {
+    const result = loadSnapshot(slotId, snapshotId)
+    if (result.success) {
+      state.value = result.state
+      currentSlotId.value = slotId
+      lastActiveSlotId.value = slotId
+      refreshAllUnlocks()
+    }
+    return result
+  }
+
+  function removeSnapshot(slotId: string, snapshotId: string): boolean {
+    return deleteSnapshot(slotId, snapshotId)
+  }
+
+  const allEndingReplays = computed<EndingReplay[]>(() => getEndingReplays())
+
+  function getReplaysForSlot(slotId: string): EndingReplay[] {
+    return getEndingReplays().filter(r => r.fromSlotId === slotId)
   }
 
   const allTags = computed<Tag[]>(() => {
@@ -1770,6 +1831,12 @@ export const useGameStore = defineStore('game', () => {
     renameSaveSlot,
     startNewGameInSlot,
     hasBackup,
+    getSlotSnapshots,
+    loadFromSnapshot,
+    removeSnapshot,
+    manualSnapshot,
+    allEndingReplays,
+    getReplaysForSlot,
     state,
     hasSave,
     currentCommission,

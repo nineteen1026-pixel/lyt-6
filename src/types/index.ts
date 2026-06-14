@@ -295,6 +295,7 @@ export interface SaveSlotInfo {
   currentCommissionTitle: string | null
   hasBackup: boolean
   backupSavedAt: string | null
+  snapshotCount: number
 }
 
 export interface SaveSlotData {
@@ -303,17 +304,52 @@ export interface SaveSlotData {
   save: SavedGame | null
   backup: SavedGame | null
   createdAt: string
+  snapshots: KeyNodeSnapshot[]
+}
+
+export type SnapshotTrigger = 'manual' | 'chapter_complete' | 'ending_unlocked' | 'milestone' | 'auto_chapter_start'
+
+export interface KeyNodeSnapshot {
+  id: string
+  label: string
+  trigger: SnapshotTrigger
+  savedGame: SavedGame
+  createdAt: string
+  commissionId: string | null
+  chapterId: string | null
+}
+
+export interface SnapshotInfo {
+  id: string
+  label: string
+  trigger: SnapshotTrigger
+  createdAt: string
+  commissionId: string | null
+  chapterId: string | null
+  completedCount: number
+  chapterProgress: string
+  currentCommissionTitle: string | null
+}
+
+export interface EndingReplay {
+  endingId: string
+  commissionId: string
+  endingType: 'good' | 'neutral' | 'bad'
+  unlockedAt: string
+  fromSlotId: string
 }
 
 export interface SaveManagerState {
   slots: SaveSlotData[]
   currentSlotId: string | null
   lastActiveSlotId: string | null
+  endingReplays: EndingReplay[]
 }
 
 export type LoadResult = 
   | { success: true; state: GameState; fromBackup: boolean }
   | { success: false; error: string; recoverable: boolean; backupAvailable: boolean }
 
-export const MAX_SAVE_SLOTS = 6
-export const DEFAULT_SLOT_NAMES = ['存档一', '存档二', '存档三', '存档四', '存档五', '存档六']
+export const MAX_SAVE_SLOTS = 3
+export const DEFAULT_SLOT_NAMES = ['存档一', '存档二', '存档三']
+export const MAX_SNAPSHOTS_PER_SLOT = 10

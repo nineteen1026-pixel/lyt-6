@@ -6,14 +6,18 @@ import type {
   SaveSlotData,
   SaveSlotInfo,
   SaveManagerState,
-  LoadResult
+  LoadResult,
+  KeyNodeSnapshot,
+  SnapshotInfo,
+  SnapshotTrigger,
+  EndingReplay
 } from '../types'
 import { commissions, clues, connections, chapters } from '../data/gameData'
-import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES } from '../types'
+import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT } from '../types'
 
 const STORAGE_KEY = 'memory-repair-shop-save'
 const SAVE_MANAGER_KEY = 'memory-repair-shop-save-manager'
-const SAVE_VERSION = '6.0.0'
+const SAVE_VERSION = '7.0.0'
 
 function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
   const statuses: Record<string, CommissionStatus> = {}
@@ -297,7 +301,7 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
   }
 }
 
-interface GameStateV1 {
+interface GameStateV4 {
   currentCommissionId: string | null
   currentChapterId: string | null
   currentStep: 'commission' | 'item' | 'deduction' | 'repair' | 'ending' | 'roadmap'
@@ -510,7 +514,8 @@ function createSaveSlot(slotId: string, slotName: string): SaveSlotData {
     slotName,
     save: null,
     backup: null,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
+    snapshots: []
   }
 }
 
@@ -535,7 +540,8 @@ function initializeSaveManager(): SaveManagerState {
   return {
     slots,
     currentSlotId: null,
-    lastActiveSlotId
+    lastActiveSlotId,
+    endingReplays: []
   }
 }
 
@@ -549,17 +555,20 @@ function loadSaveManagerState(): SaveManagerState {
     }
     
     const parsed = JSON.parse(raw) as SaveManagerState
-    if (!parsed.slots || parsed.slots.length !== MAX_SAVE_SLOTS) {
+    
+    if (!parsed.slots || parsed.slots.length === 0) {
       const state = initializeSaveManager()
       saveSaveManagerState(state)
       return state
     }
-    
+
     for (const slot of parsed.slots) {
+      if (!slot.snapshots) slot.snapshots = []
       if (slot.save) {
         const migrated = migrateSavedGame(slot.save)
         if (migrated) {
           slot.save.state = migrated
+          slot.save.version = SAVE_VERSION
         } else {
           slot.save = null
         }
@@ -568,11 +577,51 @@ function loadSaveManagerState(): SaveManagerState {
         const migrated = migrateSavedGame(slot.backup)
         if (migrated) {
           slot.backup.state = migrated
+          slot.backup.version = SAVE_VERSION
         } else {
           slot.backup = null
         }
       }
     }
+
+    if (parsed.slots.length > MAX_SAVE_SLOTS) {
+      const activeIds = new Set([
+        parsed.currentSlotId,
+        parsed.lastActiveSlotId
+      ].filter(Boolean) as string[])
+      
+      const activeSlots = parsed.slots.filter(s => activeIds.has(s.slotId) || s.save !== null)
+      const emptySlots = parsed.slots.filter(s => !activeIds.has(s.slotId) && s.save === null)
+      
+      const kept: SaveSlotData[] = []
+      for (const s of activeSlots) {
+        if (kept.length < MAX_SAVE_SLOTS) kept.push(s)
+      }
+      for (const s of emptySlots) {
+        if (kept.length < MAX_SAVE_SLOTS) kept.push(s)
+      }
+      while (kept.length < MAX_SAVE_SLOTS) {
+        kept.push(createSaveSlot(`slot-${kept.length + 1}`, DEFAULT_SLOT_NAMES[kept.length]))
+      }
+      parsed.slots = kept.slice(0, MAX_SAVE_SLOTS)
+      
+      if (parsed.currentSlotId && !parsed.slots.find(s => s.slotId === parsed.currentSlotId)) {
+        parsed.currentSlotId = null
+      }
+      if (parsed.lastActiveSlotId && !parsed.slots.find(s => s.slotId === parsed.lastActiveSlotId)) {
+        parsed.lastActiveSlotId = parsed.slots.find(s => s.save !== null)?.slotId ?? null
+      }
+    }
+
+    while (parsed.slots.length < MAX_SAVE_SLOTS) {
+      parsed.slots.push(createSaveSlot(`slot-${parsed.slots.length + 1}`, DEFAULT_SLOT_NAMES[parsed.slots.length]))
+    }
+
+    for (let i = 0; i < parsed.slots.length; i++) {
+      parsed.slots[i].slotId = `slot-${i + 1}`
+    }
+
+    if (!parsed.endingReplays) parsed.endingReplays = []
     
     return parsed
   } catch (e) {
@@ -621,7 +670,8 @@ function slotToInfo(slot: SaveSlotData): SaveSlotInfo {
     chapterProgress: hasData ? getChapterProgress(save!.state) : '空存档',
     currentCommissionTitle: hasData ? getCurrentCommissionTitle(save!.state) : null,
     hasBackup: slot.backup !== null,
-    backupSavedAt: slot.backup?.savedAt ?? null
+    backupSavedAt: slot.backup?.savedAt ?? null,
+    snapshotCount: slot.snapshots?.length ?? 0
   }
 }
 
@@ -839,4 +889,174 @@ export function hasSaveData(): boolean {
 export function clearSave(): void {
   localStorage.removeItem(SAVE_MANAGER_KEY)
   localStorage.removeItem(STORAGE_KEY)
+}
+
+function snapshotToInfo(snap: KeyNodeSnapshot): SnapshotInfo {
+  const state = snap.savedGame.state
+  return {
+    id: snap.id,
+    label: snap.label,
+    trigger: snap.trigger,
+    createdAt: snap.createdAt,
+    commissionId: snap.commissionId,
+    chapterId: snap.chapterId,
+    completedCount: state.completedCommissions.length,
+    chapterProgress: getChapterProgress(state),
+    currentCommissionTitle: getCurrentCommissionTitle(state)
+  }
+}
+
+export function getSnapshotsForSlot(slotId: string): SnapshotInfo[] {
+  const manager = loadSaveManagerState()
+  const slot = manager.slots.find(s => s.slotId === slotId)
+  if (!slot) return []
+  return (slot.snapshots || []).map(snapshotToInfo)
+}
+
+export function createSnapshot(
+  slotId: string,
+  state: GameState,
+  label: string,
+  trigger: SnapshotTrigger
+): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot) return false
+    if (!slot.snapshots) slot.snapshots = []
+
+    const savedGame: SavedGame = {
+      version: SAVE_VERSION,
+      state: JSON.parse(JSON.stringify(state)),
+      savedAt: new Date().toISOString()
+    }
+
+    const snapshot: KeyNodeSnapshot = {
+      id: `snap-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      label,
+      trigger,
+      savedGame,
+      createdAt: new Date().toISOString(),
+      commissionId: state.currentCommissionId,
+      chapterId: state.currentChapterId
+    }
+
+    slot.snapshots.push(snapshot)
+
+    if (slot.snapshots.length > MAX_SNAPSHOTS_PER_SLOT) {
+      slot.snapshots = slot.snapshots.slice(-MAX_SNAPSHOTS_PER_SLOT)
+    }
+
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to create snapshot:', e)
+    return false
+  }
+}
+
+export function loadSnapshot(slotId: string, snapshotId: string): LoadResult {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot || !slot.snapshots) {
+      return { success: false, error: '存档位不存在', recoverable: false, backupAvailable: false }
+    }
+
+    const snapshot = slot.snapshots.find(s => s.id === snapshotId)
+    if (!snapshot) {
+      return { success: false, error: '快照不存在', recoverable: false, backupAvailable: false }
+    }
+
+    const migratedState = migrateSavedGame(snapshot.savedGame)
+    if (!migratedState) {
+      return { success: false, error: '快照数据损坏', recoverable: false, backupAvailable: false }
+    }
+
+    if (slot.save) {
+      slot.backup = { ...slot.save }
+    }
+
+    slot.save = {
+      version: SAVE_VERSION,
+      state: JSON.parse(JSON.stringify(migratedState)),
+      savedAt: new Date().toISOString()
+    }
+    manager.lastActiveSlotId = slotId
+    manager.currentSlotId = slotId
+    saveSaveManagerState(manager)
+
+    return { success: true, state: migratedState, fromBackup: false }
+  } catch (e) {
+    return { success: false, error: '读取快照时发生错误', recoverable: false, backupAvailable: false }
+  }
+}
+
+export function deleteSnapshot(slotId: string, snapshotId: string): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const slot = manager.slots.find(s => s.slotId === slotId)
+    if (!slot || !slot.snapshots) return false
+
+    const idx = slot.snapshots.findIndex(s => s.id === snapshotId)
+    if (idx === -1) return false
+
+    slot.snapshots.splice(idx, 1)
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to delete snapshot:', e)
+    return false
+  }
+}
+
+export function addEndingReplay(endingId: string, commissionId: string, endingType: 'good' | 'neutral' | 'bad', slotId: string): boolean {
+  try {
+    const manager = loadSaveManagerState()
+    const exists = manager.endingReplays.find(
+      r => r.endingId === endingId && r.fromSlotId === slotId
+    )
+    if (exists) return true
+
+    manager.endingReplays.push({
+      endingId,
+      commissionId,
+      endingType,
+      unlockedAt: new Date().toISOString(),
+      fromSlotId: slotId
+    })
+    saveSaveManagerState(manager)
+    return true
+  } catch (e) {
+    console.error('Failed to add ending replay:', e)
+    return false
+  }
+}
+
+export function getEndingReplays(): EndingReplay[] {
+  const manager = loadSaveManagerState()
+  return manager.endingReplays || []
+}
+
+export function getEndingReplaysForSlot(slotId: string): EndingReplay[] {
+  const manager = loadSaveManagerState()
+  return (manager.endingReplays || []).filter(r => r.fromSlotId === slotId)
+}
+
+export function getLatestSaveSlotInfo(): { slotId: string; info: SaveSlotInfo } | null {
+  const manager = loadSaveManagerState()
+  let latest: { slotId: string; savedAt: string } | null = null
+
+  for (const slot of manager.slots) {
+    if (slot.save && slot.save.savedAt) {
+      if (!latest || slot.save.savedAt > latest.savedAt) {
+        latest = { slotId: slot.slotId, savedAt: slot.save.savedAt }
+      }
+    }
+  }
+
+  if (!latest) return null
+  const info = getSaveSlotInfo(latest.slotId)
+  if (!info) return null
+  return { slotId: latest.slotId, info }
 }
