@@ -51,12 +51,15 @@ import type {
   ExhibitRevenue,
   VisitorReview,
   ReputationLevel,
-  ShowroomStats
+  ShowroomStats,
+  TutorialState,
+  TutorialStepKey
 } from '../types'
 import {
   SCORE_GRADES,
   SCORE_DIMENSION_CONFIG,
-  REPUTATION_LEVELS
+  REPUTATION_LEVELS,
+  TUTORIAL_STEPS
 } from '../types'
 import { 
   getInitialGameState, 
@@ -81,7 +84,8 @@ import {
   deleteSnapshot,
   addEndingReplay,
   getEndingReplays,
-  getLatestSaveSlotInfo
+  getLatestSaveSlotInfo,
+  getInitialTutorialState
 } from '../utils/storage'
 import { commissions, clues, connections, endings, repairSteps, chapters, tags, dialogueNodes, achievements } from '../data/gameData'
 
@@ -3736,6 +3740,232 @@ export const useGameStore = defineStore('game', () => {
       .map(n => n.choiceId!)
   }
 
+  function startTutorial() {
+    state.value.tutorialState.isActive = true
+    state.value.tutorialState.isCompleted = false
+    state.value.tutorialState.lastActiveAt = new Date().toISOString()
+    state.value.tutorialState.totalShown += 1
+    if (state.value.tutorialState.completedSteps.length === 0) {
+      const firstStep = TUTORIAL_STEPS.find(s => s.key === 'home_welcome')
+      if (firstStep) {
+        state.value.tutorialState.currentStep = firstStep.key
+      }
+    }
+    saveCurrentGame()
+  }
+
+  function pauseTutorial() {
+    state.value.tutorialState.isActive = false
+    state.value.tutorialState.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function resumeTutorial() {
+    const tutorial = state.value.tutorialState
+    if (tutorial.isCompleted) return
+    tutorial.isActive = true
+    tutorial.lastActiveAt = new Date().toISOString()
+    tutorial.totalShown += 1
+    if (!tutorial.currentStep) {
+      const nextAvailable = TUTORIAL_STEPS.find(s =>
+        !tutorial.completedSteps.includes(s.key) && !tutorial.skippedSteps.includes(s.key)
+      )
+      if (nextAvailable) {
+        tutorial.currentStep = nextAvailable.key
+      }
+    }
+    saveCurrentGame()
+  }
+
+  function setTutorialActive(active: boolean) {
+    state.value.tutorialState.isActive = active
+    state.value.tutorialState.lastActiveAt = new Date().toISOString()
+    if (active) {
+      state.value.tutorialState.totalShown += 1
+    }
+    saveCurrentGame()
+  }
+
+  function setTutorialStep(stepKey: TutorialStepKey) {
+    const step = TUTORIAL_STEPS.find(s => s.key === stepKey)
+    if (!step) return
+    state.value.tutorialState.currentStep = stepKey
+    state.value.tutorialState.isActive = true
+    state.value.tutorialState.lastActiveAt = new Date().toISOString()
+    state.value.tutorialState.totalShown += 1
+    saveCurrentGame()
+  }
+
+  function completeTutorialStep(stepKey: TutorialStepKey) {
+    const tutorial = state.value.tutorialState
+    if (!tutorial.completedSteps.includes(stepKey)) {
+      tutorial.completedSteps.push(stepKey)
+    }
+    tutorial.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function skipTutorialStep(stepKey: TutorialStepKey) {
+    const tutorial = state.value.tutorialState
+    if (!tutorial.skippedSteps.includes(stepKey)) {
+      tutorial.skippedSteps.push(stepKey)
+    }
+    tutorial.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function completeTutorial() {
+    state.value.tutorialState.isCompleted = true
+    state.value.tutorialState.isActive = false
+    state.value.tutorialState.currentStep = null
+    state.value.tutorialState.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function skipTutorial() {
+    const tutorial = state.value.tutorialState
+    for (const step of TUTORIAL_STEPS) {
+      if (!tutorial.completedSteps.includes(step.key) && !tutorial.skippedSteps.includes(step.key)) {
+        tutorial.skippedSteps.push(step.key)
+      }
+    }
+    tutorial.isCompleted = true
+    tutorial.isActive = false
+    tutorial.currentStep = null
+    tutorial.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function resetTutorial() {
+    state.value.tutorialState = getInitialTutorialState()
+    saveCurrentGame()
+  }
+
+  function markTutorialInterruption(
+    reason: 'route_change' | 'page_reload' | 'manual_pause',
+    resumeContext: import('../types').TutorialResumeContext
+  ) {
+    const tutorial = state.value.tutorialState
+    tutorial.wasInterrupted = true
+    tutorial.interruptionReason = reason
+    tutorial.resumeContext = resumeContext
+    tutorial.lastRouteName = resumeContext.routeName
+    tutorial.lastRouteParams = resumeContext.routeParams || null
+    tutorial.isActive = false
+    tutorial.lastActiveAt = new Date().toISOString()
+    saveCurrentGame()
+  }
+
+  function clearTutorialInterruption() {
+    const tutorial = state.value.tutorialState
+    tutorial.wasInterrupted = false
+    tutorial.interruptionReason = null
+    tutorial.resumeContext = null
+    tutorial.lastRouteName = null
+    tutorial.lastRouteParams = null
+    saveCurrentGame()
+  }
+
+  function canResumeTutorial(): boolean {
+    const tutorial = state.value.tutorialState
+    if (tutorial.isCompleted) return false
+    if (!tutorial.wasInterrupted) return false
+    if (!tutorial.resumeContext) return false
+    const timeDiff = Date.now() - new Date(tutorial.resumeContext.timestamp).getTime()
+    return timeDiff < 24 * 60 * 60 * 1000
+  }
+
+  function updateTutorialRoute(routeName: string, routeParams?: Record<string, string>) {
+    const tutorial = state.value.tutorialState
+    tutorial.lastRouteName = routeName
+    tutorial.lastRouteParams = routeParams || null
+    if (tutorial.currentStep && tutorial.isActive) {
+      const step = TUTORIAL_STEPS.find(s => s.key === tutorial.currentStep)
+      if (step?.routeName === routeName) {
+        tutorial.lastActiveAt = new Date().toISOString()
+      }
+    }
+    saveCurrentGame()
+  }
+
+  function getTutorialResumeInfo() {
+    const tutorial = state.value.tutorialState
+    if (!tutorial.resumeContext) return null
+    return {
+      canResume: canResumeTutorial(),
+      reason: tutorial.interruptionReason,
+      targetStep: tutorial.resumeContext.targetStep,
+      routeName: tutorial.resumeContext.routeName,
+      routeParams: tutorial.resumeContext.routeParams,
+      interruptedAt: tutorial.resumeContext.timestamp,
+    }
+  }
+
+  function setTutorialCurrentStep(stepKey: TutorialStepKey) {
+    const tutorial = state.value.tutorialState
+    const step = TUTORIAL_STEPS.find(s => s.key === stepKey)
+    if (!step) return
+    tutorial.currentStep = stepKey
+    if (step.routeName) {
+      tutorial.lastRouteName = step.routeName
+    }
+    saveCurrentGame()
+  }
+
+  function getNextTutorialStep(): import('../types').TutorialStepConfig | null {
+    const tutorial = state.value.tutorialState
+    for (const step of TUTORIAL_STEPS) {
+      if (tutorial.completedSteps.includes(step.key)) continue
+      if (tutorial.skippedSteps.includes(step.key)) continue
+      if (!step.prerequisiteSteps || step.prerequisiteSteps.length === 0) return step
+      const prereqsMet = step.prerequisiteSteps.every(
+        prereq => tutorial.completedSteps.includes(prereq) || tutorial.skippedSteps.includes(prereq)
+      )
+      if (prereqsMet) return step
+    }
+    return null
+  }
+
+  function isTutorialStepEligible(stepKey: TutorialStepKey): boolean {
+    const tutorial = state.value.tutorialState
+    if (tutorial.completedSteps.includes(stepKey)) return false
+    if (tutorial.skippedSteps.includes(stepKey)) return false
+    const step = TUTORIAL_STEPS.find(s => s.key === stepKey)
+    if (!step) return false
+    if (!step.prerequisiteSteps || step.prerequisiteSteps.length === 0) return true
+    return step.prerequisiteSteps.every(
+      prereq => tutorial.completedSteps.includes(prereq) || tutorial.skippedSteps.includes(prereq)
+    )
+  }
+
+  function getTutorialProgress() {
+    const tutorial = state.value.tutorialState
+    const total = TUTORIAL_STEPS.length
+    const completed = tutorial.completedSteps.length
+    const skipped = tutorial.skippedSteps.length
+    const remaining = total - completed - skipped
+    const percentage = total > 0 ? Math.round(((completed + skipped) / total) * 100) : 0
+    const requiredCompleted = TUTORIAL_STEPS
+      .filter(s => s.requiredForCompletion !== false)
+      .filter(s => tutorial.completedSteps.includes(s.key)).length
+    const requiredTotal = TUTORIAL_STEPS.filter(s => s.requiredForCompletion !== false).length
+    const requiredPercentage = requiredTotal > 0 ? Math.round((requiredCompleted / requiredTotal) * 100) : 0
+    return {
+      total,
+      completed,
+      skipped,
+      remaining,
+      percentage,
+      requiredCompleted,
+      requiredTotal,
+      requiredPercentage,
+      isCompleted: tutorial.isCompleted,
+      isActive: tutorial.isActive,
+      wasInterrupted: tutorial.wasInterrupted,
+      canResume: canResumeTutorial(),
+    }
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -3927,6 +4157,25 @@ export const useGameStore = defineStore('game', () => {
     collectExhibitRevenue,
     collectAllExhibitRevenue,
     getShowroomStats,
-    getReputationLevelConfig
+    getReputationLevelConfig,
+    startTutorial,
+    pauseTutorial,
+    resumeTutorial,
+    setTutorialActive,
+    setTutorialStep,
+    completeTutorialStep,
+    skipTutorialStep,
+    completeTutorial,
+    skipTutorial,
+    resetTutorial,
+    markTutorialInterruption,
+    clearTutorialInterruption,
+    canResumeTutorial,
+    updateTutorialRoute,
+    getTutorialResumeInfo,
+    setTutorialCurrentStep,
+    getNextTutorialStep,
+    isTutorialStepEligible,
+    getTutorialProgress
   }
 })

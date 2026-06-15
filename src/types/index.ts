@@ -757,6 +757,7 @@ export interface GameState {
   branchTreeStates: Record<string, BranchTreeState>
   showroomExhibits: Record<string, ExhibitData>
   phaseTimings: Record<string, DifficultyTiming>
+  tutorialState: TutorialState
 }
 
 export interface ChoiceWeight {
@@ -850,4 +851,329 @@ export interface BranchTreeStats {
   endingsUnlocked: number
   totalEndings: number
 }
+
+export type TutorialStepKey =
+  | 'home_welcome'
+  | 'home_continue'
+  | 'roadmap_intro'
+  | 'commissions_list'
+  | 'commission_select'
+  | 'item_intro'
+  | 'item_hotspot'
+  | 'item_clue_collected'
+  | 'item_go_deduction'
+  | 'deduction_intro'
+  | 'deduction_connect'
+  | 'deduction_go_repair'
+  | 'repair_intro'
+  | 'repair_choice'
+  | 'ending_intro'
+  | 'ending_score'
+  | 'gallery_intro'
+  | 'tutorial_complete'
+
+export interface TutorialStepConfig {
+  key: TutorialStepKey
+  title: string
+  content: string
+  routeName?: string
+  targetSelector?: string
+  placement?: 'top' | 'bottom' | 'left' | 'right' | 'center'
+  highlightPadding?: number
+  canSkip?: boolean
+  autoTrigger?: boolean
+  prerequisiteSteps?: TutorialStepKey[]
+  persistOnNavigate?: boolean
+  milestone?: string
+  requiredForCompletion?: boolean
+}
+
+export type TutorialRouteGuardAction =
+  | { type: 'proceed' }
+  | { type: 'redirect'; routeName: string; params?: Record<string, string>; reason: string }
+  | { type: 'pause_and_save'; resumeRouteName: string; resumeParams?: Record<string, string> }
+
+export interface TutorialRouteContext {
+  isTutorialActive: boolean
+  currentStep: TutorialStepKey | null
+  expectedRouteName: string | null
+  canProceed: boolean
+  shouldRedirect: boolean
+  redirectTarget?: { name: string; params?: Record<string, string> }
+}
+
+export type TutorialResumeContext = {
+  routeName: string
+  routeParams?: Record<string, string>
+  targetStep: TutorialStepKey
+  timestamp: string
+}
+
+export interface TutorialState {
+  isActive: boolean
+  currentStep: TutorialStepKey | null
+  completedSteps: TutorialStepKey[]
+  skippedSteps: TutorialStepKey[]
+  isCompleted: boolean
+  lastActiveAt: string | null
+  totalShown: number
+  lastRouteName?: string | null
+  lastRouteParams?: Record<string, string> | null
+  resumeContext?: TutorialResumeContext | null
+  wasInterrupted?: boolean
+  interruptionReason?: 'route_change' | 'page_reload' | 'manual_pause' | null
+}
+
+export interface TutorialNavigationResult {
+  shouldRedirect: boolean
+  targetRoute?: string
+  targetParams?: Record<string, string>
+}
+
+export const TUTORIAL_STEPS: TutorialStepConfig[] = [
+  {
+    key: 'home_welcome',
+    title: '欢迎来到记忆修复店',
+    content: '你将扮演一位记忆修复师，通过修复旧物帮助客户找回失落的记忆。让我们开始这段温暖的旅程吧！',
+    routeName: 'home',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    persistOnNavigate: false,
+    milestone: 'tutorial_started',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'home_continue',
+    title: '踏入店铺',
+    content: '点击「踏入店铺」按钮，开始你的第一个委托。如果之前有存档，可以点击「继续修复」从中断处继续。',
+    routeName: 'home',
+    targetSelector: '[data-tutorial="enter-shop"]',
+    placement: 'bottom',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['home_welcome'],
+    persistOnNavigate: false,
+    milestone: 'entered_shop',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'roadmap_intro',
+    title: '修复路线图',
+    content: '这里展示了所有章节的进度。每完成一个委托，都会解锁新的故事。循着记忆的路线，一步步前行吧。',
+    routeName: 'roadmap',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['home_continue'],
+    persistOnNavigate: true,
+    milestone: 'roadmap_introduced',
+    requiredForCompletion: false,
+  },
+  {
+    key: 'commissions_list',
+    title: '委托列表',
+    content: '这里是所有可接取的委托。不同的委托对应不同的故事和记忆，选择一个你感兴趣的开始吧。',
+    routeName: 'commissions',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['home_continue'],
+    persistOnNavigate: true,
+    milestone: 'commission_list_shown',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'commission_select',
+    title: '选择委托',
+    content: '点击委托卡片来接取它。每个委托都有独特的旧物和故事等待你去发现。',
+    routeName: 'commissions',
+    targetSelector: '[data-tutorial="commission-card"]',
+    placement: 'right',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['commissions_list'],
+    persistOnNavigate: false,
+    milestone: 'commission_selected',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'item_intro',
+    title: '检视旧物',
+    content: '这就是委托人送来的旧物。仔细观察它，点击上面发光的区域来发现隐藏的线索。',
+    routeName: 'commission',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['commission_select'],
+    persistOnNavigate: true,
+    milestone: 'item_view_introduced',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'item_hotspot',
+    title: '寻找线索',
+    content: '点击物品上这些发光的热点区域，每一个都可能藏着重要的线索。试着点击看看吧！',
+    routeName: 'commission',
+    targetSelector: '[data-tutorial="hotspot"]',
+    placement: 'top',
+    highlightPadding: 8,
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['item_intro'],
+    persistOnNavigate: false,
+    milestone: 'first_hotspot_found',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'item_clue_collected',
+    title: '发现线索！',
+    content: '很好！你已经发现了第一条线索。收集足够的线索后，就可以前往推理板进行关联分析了。',
+    routeName: 'commission',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['item_hotspot'],
+    persistOnNavigate: true,
+    milestone: 'first_clue_collected',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'item_go_deduction',
+    title: '前往推理板',
+    content: '当你收集到足够的线索后，点击「前往推理板」按钮，开始将线索关联起来，推理出修复方案。',
+    routeName: 'commission',
+    targetSelector: '[data-tutorial="go-deduction"]',
+    placement: 'top',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['item_clue_collected'],
+    persistOnNavigate: false,
+    milestone: 'ready_for_deduction',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'deduction_intro',
+    title: '线索推理板',
+    content: '把相关的线索连接在一起，它们会揭示出记忆的真相。每条正确的关联都会帮助你更接近修复方案。',
+    routeName: 'deduction',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['item_go_deduction'],
+    persistOnNavigate: true,
+    milestone: 'deduction_board_introduced',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'deduction_connect',
+    title: '关联线索',
+    content: '拖拽或点击两条线索来尝试建立关联。正确的关联会显示出推理结论，让你更了解这段记忆。',
+    routeName: 'deduction',
+    targetSelector: '[data-tutorial="clue-card"]',
+    placement: 'right',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['deduction_intro'],
+    persistOnNavigate: false,
+    milestone: 'first_connection_made',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'deduction_go_repair',
+    title: '开始修复',
+    content: '当你推理出足够的信息后，就可以开始正式修复这件旧物了。你的选择将决定记忆的结局。',
+    routeName: 'deduction',
+    targetSelector: '[data-tutorial="go-repair"]',
+    placement: 'top',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['deduction_connect'],
+    persistOnNavigate: false,
+    milestone: 'ready_for_repair',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'repair_intro',
+    title: '修复流程',
+    content: '根据你推理出的结论，选择最合适的修复方式。每个选择都会影响最终的结局，请谨慎选择。',
+    routeName: 'repair',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['deduction_go_repair'],
+    persistOnNavigate: true,
+    milestone: 'repair_introduced',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'repair_choice',
+    title: '做出选择',
+    content: '阅读每个选项的描述，选择你认为最合适的修复方式。记住，你的选择将唤醒不同的记忆。',
+    routeName: 'repair',
+    targetSelector: '[data-tutorial="repair-choice"]',
+    placement: 'right',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['repair_intro'],
+    persistOnNavigate: false,
+    milestone: 'first_repair_choice',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'ending_intro',
+    title: '记忆重现',
+    content: '修复完成！这段被遗忘的记忆终于重见天日。仔细阅读故事，感受其中的情感。',
+    routeName: 'ending',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['repair_choice'],
+    persistOnNavigate: true,
+    milestone: 'ending_introduced',
+    requiredForCompletion: true,
+  },
+  {
+    key: 'ending_score',
+    title: '修复评价',
+    content: '根据你的选择和表现，系统会给出综合评价。尝试探索不同的选择，解锁所有结局吧！',
+    routeName: 'ending',
+    targetSelector: '[data-tutorial="score-card"]',
+    placement: 'top',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['ending_intro'],
+    persistOnNavigate: true,
+    milestone: 'score_evaluated',
+    requiredForCompletion: false,
+  },
+  {
+    key: 'gallery_intro',
+    title: '陈列室',
+    content: '你修复好的每一件旧物都会陈列在这里。它们是你修复的记忆，也是你作为修复师的成长见证。',
+    routeName: 'gallery',
+    placement: 'center',
+    canSkip: true,
+    autoTrigger: true,
+    prerequisiteSteps: ['ending_score'],
+    persistOnNavigate: true,
+    milestone: 'gallery_introduced',
+    requiredForCompletion: false,
+  },
+  {
+    key: 'tutorial_complete',
+    title: '新手引导完成',
+    content: '恭喜！你已经完成了新手引导，现在可以自由探索记忆修复店了。每一件旧物都藏着独特的故事，等待你去发现。',
+    routeName: 'home',
+    placement: 'center',
+    canSkip: false,
+    autoTrigger: true,
+    prerequisiteSteps: ['gallery_intro'],
+    persistOnNavigate: false,
+    milestone: 'tutorial_completed',
+    requiredForCompletion: true,
+  },
+]
+
+export const TUTORIAL_VERSION = '1.0.0'
 

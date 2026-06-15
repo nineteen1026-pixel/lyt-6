@@ -12,7 +12,8 @@ import type {
   SnapshotTrigger,
   EndingReplay,
   DifficultyTiming,
-  PhaseTiming
+  PhaseTiming,
+  TutorialState
 } from '../types'
 import { commissions, clues, connections, chapters, endings } from '../data/gameData'
 import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT, CURRENT_SAVE_VERSION } from '../types'
@@ -51,6 +52,23 @@ function getInitialPhaseTimings(): Record<string, DifficultyTiming> {
     timings[c.id] = getEmptyDifficultyTiming()
   })
   return timings
+}
+
+export function getInitialTutorialState(): TutorialState {
+  return {
+    isActive: false,
+    currentStep: null,
+    completedSteps: [],
+    skippedSteps: [],
+    isCompleted: false,
+    lastActiveAt: null,
+    totalShown: 0,
+    lastRouteName: null,
+    lastRouteParams: null,
+    resumeContext: null,
+    wasInterrupted: false,
+    interruptionReason: null,
+  }
 }
 
 export function getInitialGameState(): GameState {
@@ -99,6 +117,7 @@ export function getInitialGameState(): GameState {
     branchTreeStates: {},
     showroomExhibits: {},
     phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState(),
   }
 }
 
@@ -353,7 +372,8 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     currentScore: null,
     branchTreeStates: {},
     showroomExhibits: {},
-    phaseTimings: getInitialPhaseTimings()
+    phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState()
   }
 }
 
@@ -423,7 +443,8 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     currentScore: null,
     branchTreeStates: {},
     showroomExhibits: {},
-    phaseTimings: getInitialPhaseTimings()
+    phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState()
   }
 }
 
@@ -501,7 +522,8 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     currentScore: null,
     branchTreeStates: {},
     showroomExhibits: {},
-    phaseTimings: getInitialPhaseTimings()
+    phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState()
   }
 }
 
@@ -581,7 +603,8 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     currentScore: null,
     branchTreeStates: {},
     showroomExhibits: {},
-    phaseTimings: getInitialPhaseTimings()
+    phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState()
   }
 }
 
@@ -665,6 +688,7 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     branchTreeStates: {},
     showroomExhibits: {},
     phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState(),
   }
 }
 
@@ -747,7 +771,8 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     currentScore: null,
     branchTreeStates: {},
     showroomExhibits: {},
-    phaseTimings: getInitialPhaseTimings()
+    phaseTimings: getInitialPhaseTimings(),
+    tutorialState: getInitialTutorialState()
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
@@ -863,6 +888,23 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
           }
         }
       }
+    }
+    if (!(state as any).tutorialState) {
+      (state as any).tutorialState = getInitialTutorialState()
+    } else {
+      const ts = (state as any).tutorialState
+      if (ts.isActive === undefined) ts.isActive = false
+      if (ts.currentStep === undefined) ts.currentStep = null
+      if (!ts.completedSteps) ts.completedSteps = []
+      if (!ts.skippedSteps) ts.skippedSteps = []
+      if (ts.isCompleted === undefined) ts.isCompleted = false
+      if (ts.lastActiveAt === undefined) ts.lastActiveAt = null
+      if (ts.totalShown === undefined) ts.totalShown = 0
+      if (ts.lastRouteName === undefined) ts.lastRouteName = null
+      if (ts.lastRouteParams === undefined) ts.lastRouteParams = null
+      if (ts.resumeContext === undefined) ts.resumeContext = null
+      if (ts.wasInterrupted === undefined) ts.wasInterrupted = false
+      if (ts.interruptionReason === undefined) ts.interruptionReason = null
     }
     return state
   }
