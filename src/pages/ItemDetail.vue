@@ -39,7 +39,8 @@ const {
   getHotspotHint,
   startPhaseTiming,
   endPhaseTiming,
-  formatTime
+  formatTime,
+  startAutoRefresh
 } = useDynamicDifficulty(() => commissionId.value || null)
 
 function getHintForHotspot(hotspot: Hotspot): string {
@@ -124,6 +125,7 @@ onMounted(() => {
     gameStore.startDialogueSession(commissionId.value, 'commission_intro')
   }
   startPhaseTiming('item')
+  startAutoRefresh(5000)
 })
 
 function isHotspotDiscovered(hotspot: Hotspot): boolean {

@@ -1,4 +1,4 @@
-import { computed } from 'vue'
+import { computed, ref, onUnmounted } from 'vue'
 import { useGameStore } from '../stores/game'
 import type {
   DynamicDifficultyLevel,
@@ -57,6 +57,27 @@ const GLOW_COLORS: Record<DynamicDifficultyLevel, string> = {
 export function useDynamicDifficulty(commissionId: string | (() => string | null)) {
   const gameStore = useGameStore()
 
+  const _timeTick = ref(0)
+  let _refreshTimer: ReturnType<typeof setInterval> | null = null
+
+  function startAutoRefresh(intervalMs: number = 5000): void {
+    stopAutoRefresh()
+    _refreshTimer = setInterval(() => {
+      _timeTick.value = Date.now()
+    }, intervalMs)
+  }
+
+  function stopAutoRefresh(): void {
+    if (_refreshTimer) {
+      clearInterval(_refreshTimer)
+      _refreshTimer = null
+    }
+  }
+
+  onUnmounted(() => {
+    stopAutoRefresh()
+  })
+
   const getCommissionId = (): string | null => {
     if (typeof commissionId === 'function') {
       return commissionId()
@@ -65,6 +86,7 @@ export function useDynamicDifficulty(commissionId: string | (() => string | null
   }
 
   const difficultyContext = computed<DifficultyContext | null>(() => {
+    void _timeTick.value
     const id = getCommissionId()
     if (!id) return null
     return gameStore.computeDifficultyContext(id)
@@ -211,6 +233,7 @@ export function useDynamicDifficulty(commissionId: string | (() => string | null
   })
 
   const difficultyBreakdown = computed<DifficultyBreakdown | null>(() => {
+    void _timeTick.value
     const id = getCommissionId()
     if (!id) return null
 
@@ -286,5 +309,7 @@ export function useDynamicDifficulty(commissionId: string | (() => string | null
     getPhaseTime,
     formatTime,
     getProgressRingStyle,
+    startAutoRefresh,
+    stopAutoRefresh,
   }
 }

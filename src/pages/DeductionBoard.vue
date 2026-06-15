@@ -115,7 +115,8 @@ const {
   difficultyScore,
   difficultyLabel,
   startPhaseTiming,
-  endPhaseTiming
+  endPhaseTiming,
+  startAutoRefresh
 } = useDynamicDifficulty(() => commissionId.value || null)
 
 const cluePositions = computed<BoardCluePosition[]>(() => {
@@ -435,6 +436,7 @@ onMounted(() => {
   localKeyword.value = gameStore.state.searchKeyword
   localTagFilters.value = [...gameStore.state.activeTagFilters]
   startPhaseTiming('deduction')
+  startAutoRefresh(5000)
 })
 </script>
 

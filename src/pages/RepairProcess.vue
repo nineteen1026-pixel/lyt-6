@@ -38,7 +38,8 @@ const {
   getRepairStepsForDifficulty,
   startPhaseTiming,
   endPhaseTiming,
-  formatTime
+  formatTime,
+  startAutoRefresh
 } = useDynamicDifficulty(() => commissionId.value || null)
 
 const repairSteps = computed(() => {
@@ -304,6 +305,7 @@ onMounted(() => {
   }
   
   startPhaseTiming('repair')
+  startAutoRefresh(5000)
 })
 </script>
 
