@@ -82,6 +82,22 @@ export interface DifficultyContext {
   retryCount: number
   commissionBaseDifficulty: 'simple' | 'medium' | 'complex'
   effectiveDifficulty: DynamicDifficultyLevel
+  deductionTimeMs: number
+  difficultyScore: number
+}
+
+export type GamePhase = 'item' | 'deduction' | 'repair'
+
+export interface PhaseTiming {
+  totalTimeMs: number
+  currentStartTime: string | null
+  sessionCount: number
+}
+
+export interface DifficultyTiming {
+  item: PhaseTiming
+  deduction: PhaseTiming
+  repair: PhaseTiming
 }
 
 export interface HotspotConfig {
@@ -740,6 +756,7 @@ export interface GameState {
   currentScore: MultiDimensionalScore | null
   branchTreeStates: Record<string, BranchTreeState>
   showroomExhibits: Record<string, ExhibitData>
+  phaseTimings: Record<string, DifficultyTiming>
 }
 
 export interface ChoiceWeight {

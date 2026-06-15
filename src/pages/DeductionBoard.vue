@@ -8,6 +8,7 @@ import {
   Zap, Shield, TrendingUp, ChevronDown, ChevronUp
 } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
 import type {
   Clue, ClueConnection, ConnectionValidationResult, Tag, Note,
   DynamicDifficultyLevel, ConnectionScoreResult, ConnectionConflict,
@@ -108,18 +109,14 @@ const notesByTag = computed(() =>
 
 const allAvailableTags = computed(() => gameStore.allTags)
 
-const difficultyContext = computed(() =>
-  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
-)
-
-const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
-  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  switch (difficultyContext.value.effectiveDifficulty) {
-    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
-    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
-    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  }
-})
+const {
+  difficultyContext,
+  effectiveDifficulty,
+  difficultyScore,
+  difficultyLabel,
+  startPhaseTiming,
+  endPhaseTiming
+} = useDynamicDifficulty(() => commissionId.value || null)
 
 const cluePositions = computed<BoardCluePosition[]>(() => {
   if (!commissionId.value) return []
@@ -278,6 +275,7 @@ function closeConclusion() {
 function goBack() { router.push(`/commission/${commissionId.value}`) }
 
 function goToRepair() {
+  endPhaseTiming('deduction')
   gameStore.setCurrentStep('repair')
   router.push(`/repair/${commissionId.value}`)
 }
@@ -436,6 +434,7 @@ onMounted(() => {
   }
   localKeyword.value = gameStore.state.searchKeyword
   localTagFilters.value = [...gameStore.state.activeTagFilters]
+  startPhaseTiming('deduction')
 })
 </script>
 
@@ -451,11 +450,20 @@ onMounted(() => {
           <span>返回旧物检视</span>
         </button>
         <div class="flex items-center gap-3">
-          <div v-if="difficultyContext" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
-            <span>{{ difficultyLabel.icon }}</span>
-            <span>{{ difficultyLabel.text }}</span>
-            <span class="text-stone-400 mx-0.5">·</span>
-            <span class="text-stone-500">重试{{ difficultyContext.retryCount }}次</span>
+          <div v-if="difficultyContext" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
+            <span class="text-base">{{ difficultyLabel.icon }}</span>
+            <span class="font-medium">{{ difficultyLabel.text }}模式</span>
+            <span class="text-stone-400">·</span>
+            <span class="text-stone-500">综合评分 {{ difficultyScore }}分</span>
+            <div class="w-16 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :style="{
+                  width: `${difficultyScore}%`,
+                  backgroundColor: difficultyScore >= 70 ? '#ef4444' : difficultyScore >= 35 ? '#f59e0b' : '#3b82f6'
+                }"
+              />
+            </div>
           </div>
           <div class="hidden sm:flex items-center gap-2 px-4 py-2 bg-stone-100/70 rounded-lg text-sm text-stone-600 font-serif">
             <span>综合进度</span>

@@ -3,6 +3,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Lightbulb, Search, ChevronRight, X, Lock, Plus, Edit2, Trash2, Star, FolderKanban } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import type { Hotspot, Tag, Note, DynamicDifficultyLevel } from '../types'
@@ -27,22 +28,22 @@ const noteForm = ref({
 const aggregationMode = ref<'list' | 'tag'>('list')
 const showHistoryPanel = ref(false)
 
-const difficultyContext = computed(() =>
-  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
-)
-
-const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
-  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  switch (difficultyContext.value.effectiveDifficulty) {
-    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
-    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
-    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  }
-})
+const {
+  difficultyContext,
+  effectiveDifficulty,
+  difficultyScore,
+  visualParams,
+  hotspotStyle: dynamicHotspotStyle,
+  difficultyLabel,
+  difficultyBreakdown,
+  getHotspotHint,
+  startPhaseTiming,
+  endPhaseTiming,
+  formatTime
+} = useDynamicDifficulty(() => commissionId.value || null)
 
 function getHintForHotspot(hotspot: Hotspot): string {
-  if (!commissionId.value) return hotspot.description
-  return gameStore.getHotspotHintForDifficulty(hotspot, commissionId.value)
+  return getHotspotHint(hotspot)
 }
 
 const commissionId = computed(() => route.params.id as string)
@@ -122,6 +123,7 @@ onMounted(() => {
       && !gameStore.hasCompletedDialogueForType(commissionId.value, 'commission_intro')) {
     gameStore.startDialogueSession(commissionId.value, 'commission_intro')
   }
+  startPhaseTiming('item')
 })
 
 function isHotspotDiscovered(hotspot: Hotspot): boolean {
@@ -151,11 +153,33 @@ function goToDeduction() {
 }
 
 function getHotspotStyle(hotspot: Hotspot) {
-  return {
+  const baseStyle = {
     left: `${hotspot.x}%`,
     top: `${hotspot.y}%`,
     width: `${hotspot.width}%`,
     height: `${hotspot.height}%`
+  }
+  if (isHotspotDiscovered(hotspot)) {
+    return baseStyle
+  }
+  return {
+    ...baseStyle,
+    '--glowColor': visualParams.value.hotspotGlowColor,
+    '--glowIntensity': visualParams.value.hotspotGlowIntensity,
+    '--pulseSpeed': `${visualParams.value.hotspotPulseSpeed}s`,
+    '--hintOpacity': visualParams.value.hintOpacity
+  }
+}
+
+function getHotspotGlowStyle(hotspot: Hotspot) {
+  if (isHotspotDiscovered(hotspot)) {
+    return {}
+  }
+  const intensity = visualParams.value.hotspotGlowIntensity
+  const color = visualParams.value.hotspotGlowColor
+  return {
+    boxShadow: `0 0 ${20 * intensity}px ${10 * intensity}px ${color}`,
+    animationDuration: `${visualParams.value.hotspotPulseSpeed}s`
   }
 }
 
@@ -259,11 +283,20 @@ function toggleHistoryPanel() {
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
             </svg>
           </button>
-          <div v-if="difficultyContext" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
-            <span>{{ difficultyLabel.icon }}</span>
-            <span>{{ difficultyLabel.text }}模式</span>
-            <span class="text-stone-400 mx-0.5">·</span>
-            <span class="text-stone-500">线索{{ Math.round(difficultyContext.clueCollectionRate * 100) }}%</span>
+          <div v-if="difficultyContext" class="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-serif" :class="[difficultyLabel.color, 'bg-white/80']">
+            <span class="text-base">{{ difficultyLabel.icon }}</span>
+            <span class="font-medium">{{ difficultyLabel.text }}模式</span>
+            <span class="text-stone-400">·</span>
+            <span class="text-stone-500">综合评分 {{ difficultyScore }}分</span>
+            <div class="w-16 h-1.5 bg-stone-200 rounded-full overflow-hidden">
+              <div
+                class="h-full rounded-full transition-all duration-500"
+                :style="{
+                  width: `${difficultyScore}%`,
+                  backgroundColor: difficultyScore >= 70 ? '#ef4444' : difficultyScore >= 35 ? '#f59e0b' : '#3b82f6'
+                }"
+              />
+            </div>
           </div>
           <div class="hidden sm:flex items-center gap-2 px-4 py-2 bg-stone-100/70 rounded-lg text-sm text-stone-600 font-serif">
             <span>综合进度</span>
@@ -308,12 +341,20 @@ function toggleHistoryPanel() {
                     'absolute inset-0 rounded-lg transition-all duration-300',
                     isHotspotDiscovered(hotspot)
                       ? 'bg-green-400/15 border-2 border-green-500/40'
-                      : 'bg-amber-400/20 border-2 border-amber-400/60 animate-pulse-soft group-hover:bg-amber-400/40'
+                      : 'bg-amber-400/20 border-2 border-amber-400/60 group-hover:bg-amber-400/40'
                   ]"
+                  :style="!isHotspotDiscovered(hotspot) ? {
+                    animation: `pulse-soft ${visualParams.hotspotPulseSpeed}s ease-in-out infinite`,
+                    boxShadow: `0 0 ${20 * visualParams.hotspotGlowIntensity}px ${8 * visualParams.hotspotGlowIntensity}px ${visualParams.hotspotGlowColor}`
+                  } : {}"
                 />
                 <div
                   v-if="!isHotspotDiscovered(hotspot)"
-                  class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full animate-pulse-soft"
+                  class="absolute -top-1 -right-1 w-3 h-3 bg-amber-500 rounded-full"
+                  :style="{
+                    animation: `pulse-soft ${visualParams.hotspotPulseSpeed}s ease-in-out infinite`,
+                    opacity: visualParams.hintOpacity
+                  }"
                 />
                 <div
                   v-else

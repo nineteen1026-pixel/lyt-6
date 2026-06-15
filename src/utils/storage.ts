@@ -10,7 +10,9 @@ import type {
   KeyNodeSnapshot,
   SnapshotInfo,
   SnapshotTrigger,
-  EndingReplay
+  EndingReplay,
+  DifficultyTiming,
+  PhaseTiming
 } from '../types'
 import { commissions, clues, connections, chapters, endings } from '../data/gameData'
 import { MAX_SAVE_SLOTS, DEFAULT_SLOT_NAMES, MAX_SNAPSHOTS_PER_SLOT, CURRENT_SAVE_VERSION } from '../types'
@@ -25,6 +27,30 @@ function getInitialCommissionStatuses(): Record<string, CommissionStatus> {
     statuses[c.id] = c.status
   })
   return statuses
+}
+
+function getEmptyPhaseTiming(): PhaseTiming {
+  return {
+    totalTimeMs: 0,
+    currentStartTime: null,
+    sessionCount: 0,
+  }
+}
+
+function getEmptyDifficultyTiming(): DifficultyTiming {
+  return {
+    item: getEmptyPhaseTiming(),
+    deduction: getEmptyPhaseTiming(),
+    repair: getEmptyPhaseTiming(),
+  }
+}
+
+function getInitialPhaseTimings(): Record<string, DifficultyTiming> {
+  const timings: Record<string, DifficultyTiming> = {}
+  commissions.forEach(c => {
+    timings[c.id] = getEmptyDifficultyTiming()
+  })
+  return timings
 }
 
 export function getInitialGameState(): GameState {
@@ -71,7 +97,8 @@ export function getInitialGameState(): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings(),
   }
 }
 
@@ -325,7 +352,8 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings()
   }
 }
 
@@ -394,7 +422,8 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings()
   }
 }
 
@@ -471,7 +500,8 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings()
   }
 }
 
@@ -550,7 +580,8 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings()
   }
 }
 
@@ -632,11 +663,12 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings(),
   }
 }
 
-interface GameStateV1 {
+interface GameStateV8 {
   currentCommissionId: string | null
   currentChapterId: string | null
   currentStep: GameStep
@@ -714,7 +746,8 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     unlockedAchievements: [],
     currentScore: null,
     branchTreeStates: {},
-    showroomExhibits: {}
+    showroomExhibits: {},
+    phaseTimings: getInitialPhaseTimings()
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
@@ -805,6 +838,32 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
       }
     }
     if (!(state as any).showroomExhibits) (state as any).showroomExhibits = {}
+    if (!(state as any).phaseTimings) {
+      (state as any).phaseTimings = getInitialPhaseTimings()
+    } else {
+      const configCommissionIds = new Set(commissions.map(c => c.id))
+      for (const commId of Object.keys((state as any).phaseTimings)) {
+        if (!configCommissionIds.has(commId)) {
+          delete (state as any).phaseTimings[commId]
+        }
+      }
+      for (const comm of commissions) {
+        if (!(comm.id in (state as any).phaseTimings)) {
+          (state as any).phaseTimings[comm.id] = getEmptyDifficultyTiming()
+        } else {
+          const timing = (state as any).phaseTimings[comm.id]
+          if (!timing.item) timing.item = getEmptyPhaseTiming()
+          if (!timing.deduction) timing.deduction = getEmptyPhaseTiming()
+          if (!timing.repair) timing.repair = getEmptyPhaseTiming()
+          for (const phase of ['item', 'deduction', 'repair'] as const) {
+            const p = timing[phase]
+            if (p.totalTimeMs === undefined) p.totalTimeMs = 0
+            if (p.currentStartTime === undefined) p.currentStartTime = null
+            if (p.sessionCount === undefined) p.sessionCount = 0
+          }
+        }
+      }
+    }
     return state
   }
 

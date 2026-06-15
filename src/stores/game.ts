@@ -1763,6 +1763,65 @@ export const useGameStore = defineStore('game', () => {
     saveCurrentGame()
   }
 
+  const DIFFICULTY_THRESHOLDS = {
+    assistedMaxScore: 35,
+    challengingMinScore: 70,
+  }
+
+  const DIFFICULTY_WEIGHTS = {
+    collectionRate: 0.45,
+    timeEfficiency: 0.25,
+    retryPenalty: 0.30,
+  }
+
+  const BASELINE_TIMES: Record<string, { deduction: number; item: number; repair: number }> = {
+    simple: { deduction: 120, item: 90, repair: 60 },
+    medium: { deduction: 180, item: 120, repair: 90 },
+    complex: { deduction: 240, item: 180, repair: 120 },
+  }
+
+  function computeDifficultyScore(commissionId: string): number {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return 50
+
+    const collected = getCollectedClueCount(commissionId)
+    const total = getTotalClueCount(commissionId)
+    const collectionRate = total > 0 ? collected / total : 0
+
+    const baseDifficulty = commission.difficulty
+    const baseline = BASELINE_TIMES[baseDifficulty]
+
+    const phaseTiming = state.value.phaseTimings[commissionId]
+    let deductionSeconds = 0
+    if (phaseTiming) {
+      deductionSeconds = phaseTiming.deduction.totalTimeMs / 1000
+      if (phaseTiming.deduction.currentStartTime) {
+        deductionSeconds += (Date.now() - new Date(phaseTiming.deduction.currentStartTime).getTime()) / 1000
+      }
+    }
+    const timeEfficiency = baseline.deduction > 0
+      ? Math.min(1, baseline.deduction / Math.max(deductionSeconds, 1))
+      : 0.5
+
+    const repairRetries = Object.entries(state.value.repairRetryCounts)
+      .filter(([key]) => key.startsWith(commissionId))
+      .reduce((sum, [, count]) => sum + count, 0)
+    const connectionRetries = state.value.connectionRetryCounts[commissionId] || 0
+    const totalRetries = repairRetries + connectionRetries
+    const retryPenalty = Math.min(1, totalRetries / 5)
+
+    const collectionScore = collectionRate * 100
+    const timeScore = timeEfficiency * 100
+    const retryScore = (1 - retryPenalty) * 100
+
+    const totalScore =
+      collectionScore * DIFFICULTY_WEIGHTS.collectionRate +
+      timeScore * DIFFICULTY_WEIGHTS.timeEfficiency +
+      retryScore * DIFFICULTY_WEIGHTS.retryPenalty
+
+    return Math.round(Math.max(0, Math.min(100, totalScore)))
+  }
+
   function computeDifficultyContext(commissionId: string): DifficultyContext {
     const commission = commissions.find(c => c.id === commissionId)
     if (!commission) {
@@ -1770,7 +1829,9 @@ export const useGameStore = defineStore('game', () => {
         clueCollectionRate: 0,
         retryCount: 0,
         commissionBaseDifficulty: 'simple',
-        effectiveDifficulty: 'standard' as DynamicDifficultyLevel
+        effectiveDifficulty: 'standard' as DynamicDifficultyLevel,
+        deductionTimeMs: 0,
+        difficultyScore: 50,
       }
     }
 
@@ -1784,24 +1845,64 @@ export const useGameStore = defineStore('game', () => {
     const connectionRetries = state.value.connectionRetryCounts[commissionId] || 0
     const retryCount = repairRetries + connectionRetries
 
-    let effectiveDifficulty: DynamicDifficultyLevel = 'standard'
+    const phaseTiming = state.value.phaseTimings[commissionId]
+    let deductionTimeMs = 0
+    if (phaseTiming) {
+      deductionTimeMs = phaseTiming.deduction.totalTimeMs
+      if (phaseTiming.deduction.currentStartTime) {
+        deductionTimeMs += Date.now() - new Date(phaseTiming.deduction.currentStartTime).getTime()
+      }
+    }
 
-    if (clueCollectionRate < 0.4 || (clueCollectionRate < 0.6 && retryCount >= 3)) {
+    const difficultyScore = computeDifficultyScore(commissionId)
+
+    let effectiveDifficulty: DynamicDifficultyLevel = 'standard'
+    if (difficultyScore <= DIFFICULTY_THRESHOLDS.assistedMaxScore) {
       effectiveDifficulty = 'assisted'
-    } else if (clueCollectionRate >= 0.8 && retryCount === 0) {
+    } else if (difficultyScore >= DIFFICULTY_THRESHOLDS.challengingMinScore) {
       effectiveDifficulty = 'challenging'
-    } else if (clueCollectionRate >= 0.6 && retryCount <= 1) {
-      effectiveDifficulty = 'challenging'
-    } else if (retryCount >= 2) {
-      effectiveDifficulty = 'assisted'
     }
 
     return {
       clueCollectionRate: Math.round(clueCollectionRate * 100) / 100,
       retryCount,
       commissionBaseDifficulty: commission.difficulty,
-      effectiveDifficulty
+      effectiveDifficulty,
+      deductionTimeMs,
+      difficultyScore,
     }
+  }
+
+  function startPhaseTiming(commissionId: string, phase: 'item' | 'deduction' | 'repair'): void {
+    if (!state.value.phaseTimings[commissionId]) return
+    const phaseTiming = state.value.phaseTimings[commissionId][phase]
+    if (phaseTiming.currentStartTime) return
+
+    phaseTiming.currentStartTime = new Date().toISOString()
+    phaseTiming.sessionCount += 1
+  }
+
+  function endPhaseTiming(commissionId: string, phase: 'item' | 'deduction' | 'repair'): number {
+    if (!state.value.phaseTimings[commissionId]) return 0
+    const phaseTiming = state.value.phaseTimings[commissionId][phase]
+    if (!phaseTiming.currentStartTime) return 0
+
+    const elapsed = Date.now() - new Date(phaseTiming.currentStartTime).getTime()
+    phaseTiming.totalTimeMs += elapsed
+    phaseTiming.currentStartTime = null
+
+    saveCurrentGame()
+    return elapsed
+  }
+
+  function getPhaseTime(commissionId: string, phase: 'item' | 'deduction' | 'repair'): number {
+    if (!state.value.phaseTimings[commissionId]) return 0
+    const phaseTiming = state.value.phaseTimings[commissionId][phase]
+    let total = phaseTiming.totalTimeMs
+    if (phaseTiming.currentStartTime) {
+      total += Date.now() - new Date(phaseTiming.currentStartTime).getTime()
+    }
+    return total
   }
 
   function getDifficultyLevel(commissionId: string): DynamicDifficultyLevel {
@@ -3705,11 +3806,15 @@ export const useGameStore = defineStore('game', () => {
     getOverallProgress,
     checkAndUnlockMilestones,
     computeDifficultyContext,
+    computeDifficultyScore,
     getDifficultyLevel,
     getHotspotHintForDifficulty,
     getRepairStepsForDifficulty,
     incrementRepairRetryCount,
     incrementConnectionRetryCount,
+    startPhaseTiming,
+    endPhaseTiming,
+    getPhaseTime,
     dialogueSession,
     currentDialogueNode,
     dialogueHistoryForCurrent,

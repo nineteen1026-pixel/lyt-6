@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check, GitBranch, RotateCcw, Shield, TrendingUp } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import BranchTreeView from '../components/BranchTreeView.vue'
@@ -27,22 +28,22 @@ const commission = computed(() => {
   return gameStore.getCommissionById(commissionId.value)
 })
 
+const {
+  difficultyContext,
+  effectiveDifficulty,
+  difficultyScore,
+  visualParams,
+  difficultyLabel,
+  difficultyBreakdown,
+  getRepairStepsForDifficulty,
+  startPhaseTiming,
+  endPhaseTiming,
+  formatTime
+} = useDynamicDifficulty(() => commissionId.value || null)
+
 const repairSteps = computed(() => {
   if (!commissionId.value) return []
-  return gameStore.getRepairStepsForDifficulty(commissionId.value)
-})
-
-const difficultyContext = computed(() =>
-  commissionId.value ? gameStore.computeDifficultyContext(commissionId.value) : null
-)
-
-const difficultyLabel = computed<{ text: string; color: string; icon: string }>(() => {
-  if (!difficultyContext.value) return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  switch (difficultyContext.value.effectiveDifficulty) {
-    case 'assisted': return { text: '辅助', color: 'text-blue-600', icon: '💡' }
-    case 'challenging': return { text: '挑战', color: 'text-red-600', icon: '🔥' }
-    default: return { text: '标准', color: 'text-amber-600', icon: '⚖️' }
-  }
+  return getRepairStepsForDifficulty()
 })
 
 const currentStep = computed(() => {
@@ -301,6 +302,8 @@ onMounted(() => {
       && !gameStore.hasCompletedDialogueForType(commissionId.value, 'repair_pre')) {
     gameStore.startDialogueSession(commissionId.value, 'repair_pre')
   }
+  
+  startPhaseTiming('repair')
 })
 </script>
 
@@ -341,9 +344,11 @@ onMounted(() => {
             <span>回退</span>
           </button>
           <span>步骤 {{ progress.current }} / {{ progress.total }}</span>
-          <span v-if="difficultyContext" class="flex items-center gap-1 text-xs" :class="difficultyLabel.color">
+          <span v-if="difficultyContext" class="flex items-center gap-1.5 text-xs px-2 py-1 rounded-full bg-white/80" :class="difficultyLabel.color">
             <span>{{ difficultyLabel.icon }}</span>
-            <span>{{ difficultyLabel.text }}</span>
+            <span class="font-medium">{{ difficultyLabel.text }}</span>
+            <span class="text-stone-400">·</span>
+            <span class="text-stone-500">{{ difficultyScore }}分</span>
           </span>
         </div>
       </div>
@@ -530,17 +535,40 @@ onMounted(() => {
             }}
           </div>
         </div>
-        <div v-if="difficultyContext" class="mt-3 pt-3 border-t border-amber-200/30 flex items-center justify-between">
-          <div class="flex items-center gap-2 text-xs font-serif" :class="difficultyLabel.color">
-            <span>{{ difficultyLabel.icon }}</span>
-            <span>当前难度：{{ difficultyLabel.text }}</span>
-            <span class="text-stone-400">|</span>
-            <span class="text-stone-500">线索率 {{ Math.round(difficultyContext.clueCollectionRate * 100) }}%</span>
-            <span class="text-stone-400">|</span>
-            <span class="text-stone-500">重试 {{ difficultyContext.retryCount }} 次</span>
+        <div v-if="difficultyContext" class="mt-3 pt-3 border-t border-amber-200/30">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-2 text-xs font-serif" :class="difficultyLabel.color">
+              <span class="text-base">{{ difficultyLabel.icon }}</span>
+              <span class="font-medium">当前难度：{{ difficultyLabel.text }}</span>
+              <span class="text-stone-400">|</span>
+              <span class="text-stone-500">综合评分 {{ difficultyScore }} 分</span>
+            </div>
+            <div class="text-[10px] text-stone-400 font-serif">
+              {{ effectiveDifficulty === 'assisted' ? '提供更多提示与选项' : effectiveDifficulty === 'challenging' ? '提示精简，选项更多风险' : '标准提示与选项' }}
+            </div>
           </div>
-          <div class="text-[10px] text-stone-400 font-serif">
-            {{ difficultyContext.effectiveDifficulty === 'assisted' ? '提供更多提示与选项' : difficultyContext.effectiveDifficulty === 'challenging' ? '提示精简，选项更多风险' : '标准提示与选项' }}
+          <div class="flex items-center gap-4 text-[10px] text-stone-500 font-serif">
+            <div class="flex items-center gap-1">
+              <span>🔍 线索收集</span>
+              <span class="text-stone-700 font-medium">{{ difficultyBreakdown.collectionScore }}分</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span>⏱️ 时间效率</span>
+              <span class="text-stone-700 font-medium">{{ difficultyBreakdown.timeScore }}分</span>
+            </div>
+            <div class="flex items-center gap-1">
+              <span>🔄 重试惩罚</span>
+              <span class="text-stone-700 font-medium">{{ difficultyBreakdown.retryScore }}分</span>
+            </div>
+          </div>
+          <div class="mt-2 h-1.5 bg-stone-200/60 rounded-full overflow-hidden">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              :style="{
+                width: `${difficultyScore}%`,
+                backgroundColor: difficultyScore >= 70 ? '#ef4444' : difficultyScore >= 35 ? '#f59e0b' : '#3b82f6'
+              }"
+            />
           </div>
         </div>
       </div>
