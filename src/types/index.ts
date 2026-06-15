@@ -684,6 +684,44 @@ export interface GameState {
   branchTreeStates: Record<string, BranchTreeState>
 }
 
+export interface ChoiceWeight {
+  choiceId: string
+  baseWeight: number
+  clueBonus: number
+  difficultyBonus: number
+  totalWeight: number
+  normalizedWeight: number
+}
+
+export interface RepairRemedy {
+  id: string
+  commissionId: string
+  stepId: string
+  failedChoiceId: string
+  remedyChoiceId: string
+  remedyType: 'retry' | 'alternative' | 'hint_guided'
+  description: string
+  weight: number
+  isAvailable: boolean
+  requiresClueIds: string[]
+}
+
+export interface BranchTreeHistoryEntry {
+  id: string
+  commissionId: string
+  stepId: string
+  stepIndex: number
+  choiceId: string
+  choiceLabel: string
+  endingType: 'good' | 'neutral' | 'bad'
+  weight: number
+  normalizedWeight: number
+  timestamp: string
+  isRemedy: boolean
+  remedyFromChoiceId: string | null
+  triggeredEndingId: string | null
+}
+
 export interface BranchTreeNode {
   id: string
   stepId: string
@@ -696,6 +734,12 @@ export interface BranchTreeNode {
   isCurrentPath: boolean
   isVisited: boolean
   depth: number
+  weight: number
+  normalizedWeight: number
+  isRemedyNode: boolean
+  remedyFromChoiceId: string | null
+  triggeredEndingId: string | null
+  remedyAvailable: boolean
 }
 
 export interface BranchTreePath {
@@ -717,6 +761,9 @@ export interface BranchTreeState {
   visitedChoiceIds: string[]
   totalPossiblePaths: number
   discoveredPaths: number
+  history: BranchTreeHistoryEntry[]
+  remedies: RepairRemedy[]
+  pendingRemedies: string[]
 }
 
 export interface BranchTreeStats {

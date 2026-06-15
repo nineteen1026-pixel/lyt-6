@@ -782,6 +782,21 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     if (!(state as any).scoreHistory) (state as any).scoreHistory = []
     if (!(state as any).unlockedAchievements) (state as any).unlockedAchievements = []
     if (!(state as any).currentScore) (state as any).currentScore = null
+    if ((state as any).branchTreeStates) {
+      for (const treeState of Object.values((state as any).branchTreeStates) as any[]) {
+        if (!treeState.history) treeState.history = []
+        if (!treeState.remedies) treeState.remedies = []
+        if (!treeState.pendingRemedies) treeState.pendingRemedies = []
+        for (const node of Object.values(treeState.nodes || {}) as any[]) {
+          if (node.weight === undefined) node.weight = 1
+          if (node.normalizedWeight === undefined) node.normalizedWeight = 1
+          if (node.isRemedyNode === undefined) node.isRemedyNode = false
+          if (node.remedyFromChoiceId === undefined) node.remedyFromChoiceId = null
+          if (node.triggeredEndingId === undefined) node.triggeredEndingId = null
+          if (node.remedyAvailable === undefined) node.remedyAvailable = false
+        }
+      }
+    }
     return state
   }
 

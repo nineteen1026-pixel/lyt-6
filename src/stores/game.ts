@@ -43,7 +43,10 @@ import type {
   BranchTreeNode,
   BranchTreePath,
   BranchTreeState,
-  BranchTreeStats
+  BranchTreeStats,
+  ChoiceWeight,
+  RepairRemedy,
+  BranchTreeHistoryEntry
 } from '../types'
 import {
   SCORE_GRADES,
@@ -2731,7 +2734,13 @@ export const useGameStore = defineStore('game', () => {
       childIds: [],
       isCurrentPath: true,
       isVisited: true,
-      depth: 0
+      depth: 0,
+      weight: 1,
+      normalizedWeight: 1,
+      isRemedyNode: false,
+      remedyFromChoiceId: null,
+      triggeredEndingId: null,
+      remedyAvailable: false
     }
 
     const initialPath: BranchTreePath = {
@@ -2752,7 +2761,10 @@ export const useGameStore = defineStore('game', () => {
       currentPathId: initialPath.id,
       visitedChoiceIds: [],
       totalPossiblePaths: calculateTotalPossiblePaths(commissionId),
-      discoveredPaths: 0
+      discoveredPaths: 0,
+      history: [],
+      remedies: [],
+      pendingRemedies: []
     }
 
     saveCurrentGame()
@@ -2780,6 +2792,66 @@ export const useGameStore = defineStore('game', () => {
       .filter((n): n is BranchTreeNode => n !== undefined)
   }
 
+  function calculateChoiceWeights(
+    commissionId: string,
+    stepId: string,
+    choices: RepairChoice[]
+  ): ChoiceWeight[] {
+    const collectedCount = getCollectedClueCount(commissionId)
+    const totalCount = getTotalClueCount(commissionId)
+    const clueRate = totalCount > 0 ? collectedCount / totalCount : 0
+    const difficultyCtx = computeDifficultyContext(commissionId)
+    const retryKey = `${commissionId}-${stepId}`
+    const retryCount = state.value.repairRetryCounts[retryKey] || 0
+
+    const weights: ChoiceWeight[] = choices.map(choice => {
+      let baseWeight: number
+      switch (choice.endingType) {
+        case 'good': baseWeight = 3; break
+        case 'neutral': baseWeight = 2; break
+        case 'bad': baseWeight = 1; break
+        default: baseWeight = 2
+      }
+
+      const clueBonus = clueRate >= 0.8 ? 2 : clueRate >= 0.5 ? 1 : 0
+      const difficultyBonus = difficultyCtx.effectiveDifficulty === 'assisted' ? 1.5
+        : difficultyCtx.effectiveDifficulty === 'challenging' ? 0.5
+        : 1
+
+      if (choice.endingType === 'bad') {
+        const penalty = Math.min(retryCount * 0.5, 2)
+        const adjustedBase = Math.max(baseWeight - penalty, 0.5)
+        const totalWeight = adjustedBase * difficultyBonus + clueBonus
+        return {
+          choiceId: choice.id,
+          baseWeight: adjustedBase,
+          clueBonus,
+          difficultyBonus,
+          totalWeight,
+          normalizedWeight: 0
+        }
+      }
+
+      const totalWeight = (baseWeight + clueBonus) * difficultyBonus
+      return {
+        choiceId: choice.id,
+        baseWeight,
+        clueBonus,
+        difficultyBonus,
+        totalWeight,
+        normalizedWeight: 0
+      }
+    })
+
+    const total = weights.reduce((sum, w) => sum + w.totalWeight, 0)
+    if (total > 0) {
+      for (const w of weights) {
+        w.normalizedWeight = Math.round((w.totalWeight / total) * 100) / 100
+      }
+    }
+    return weights
+  }
+
   function recordBranchChoice(
     commissionId: string,
     stepId: string,
@@ -2797,6 +2869,16 @@ export const useGameStore = defineStore('game', () => {
     const currentNode = treeState.nodes[treeState.currentNodeId]
     if (!currentNode) return
 
+    const steps = repairSteps[commissionId] || []
+    const step = steps[stepIndex]
+    const allChoices = step ? [...step.choices, ...(step.difficultyVariants?.[computeDifficultyContext(commissionId).effectiveDifficulty]?.extraChoices || [])] : []
+    const weights = calculateChoiceWeights(commissionId, stepId, allChoices)
+    const selectedWeight = weights.find(w => w.choiceId === choiceId)
+    const weight = selectedWeight?.totalWeight ?? 1
+    const normalizedWeight = selectedWeight?.normalizedWeight ?? 0.5
+
+    const triggeredEndingId = checkChoiceEndingTrigger(commissionId, stepIndex, choiceId, endingType)
+
     const childNodeId = generateNodeId(commissionId, stepId, choiceId)
     let childNode = treeState.nodes[childNodeId]
 
@@ -2812,13 +2894,23 @@ export const useGameStore = defineStore('game', () => {
         childIds: [],
         isCurrentPath: true,
         isVisited: true,
-        depth: currentNode.depth + 1
+        depth: currentNode.depth + 1,
+        weight,
+        normalizedWeight,
+        isRemedyNode: false,
+        remedyFromChoiceId: null,
+        triggeredEndingId,
+        remedyAvailable: endingType === 'bad'
       }
       treeState.nodes[childNodeId] = childNode
       currentNode.childIds.push(childNodeId)
     } else {
       childNode.isCurrentPath = true
       childNode.isVisited = true
+      childNode.weight = weight
+      childNode.normalizedWeight = normalizedWeight
+      childNode.triggeredEndingId = triggeredEndingId
+      childNode.remedyAvailable = endingType === 'bad'
     }
 
     if (!treeState.visitedChoiceIds.includes(choiceId)) {
@@ -2836,7 +2928,209 @@ export const useGameStore = defineStore('game', () => {
       node.isCurrentPath = currentPath?.nodeIds.includes(node.id) || false
     })
 
+    const historyEntry: BranchTreeHistoryEntry = {
+      id: `bth-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      commissionId,
+      stepId,
+      stepIndex,
+      choiceId,
+      choiceLabel,
+      endingType,
+      weight,
+      normalizedWeight,
+      timestamp: new Date().toISOString(),
+      isRemedy: false,
+      remedyFromChoiceId: null,
+      triggeredEndingId
+    }
+    treeState.history.push(historyEntry)
+
+    if (endingType === 'bad') {
+      generateRemedies(commissionId, stepId, choiceId, allChoices)
+    }
+
     saveCurrentGame()
+  }
+
+  function checkChoiceEndingTrigger(
+    commissionId: string,
+    stepIndex: number,
+    choiceId: string,
+    endingType: 'good' | 'neutral' | 'bad'
+  ): string | null {
+    const steps = repairSteps[commissionId] || []
+    const isLastStep = stepIndex >= steps.length - 1
+    if (!isLastStep) return null
+
+    const collectedRatio = getCollectedClueCount(commissionId) / getTotalClueCount(commissionId)
+    let effectiveEndingType = endingType
+    if (collectedRatio < 0.5) {
+      effectiveEndingType = 'bad'
+    }
+
+    const ending = endings.find(
+      e => e.commissionId === commissionId && e.type === effectiveEndingType
+    )
+    return ending?.id ?? null
+  }
+
+  function generateRemedies(
+    commissionId: string,
+    stepId: string,
+    failedChoiceId: string,
+    allChoices: RepairChoice[]
+  ): void {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return
+
+    const betterChoices = allChoices.filter(c =>
+      c.id !== failedChoiceId && c.endingType !== 'bad'
+    )
+
+    for (const choice of betterChoices) {
+      const existingRemedy = treeState.remedies.find(r =>
+        r.failedChoiceId === failedChoiceId && r.remedyChoiceId === choice.id
+      )
+      if (existingRemedy) continue
+
+      const remedy: RepairRemedy = {
+        id: `remedy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        commissionId,
+        stepId,
+        failedChoiceId,
+        remedyChoiceId: choice.id,
+        remedyType: choice.endingType === 'good' ? 'alternative' : 'hint_guided',
+        description: `可以尝试「${choice.label}」来获得更好的结果`,
+        weight: choice.endingType === 'good' ? 3 : 2,
+        isAvailable: true,
+        requiresClueIds: []
+      }
+
+      treeState.remedies.push(remedy)
+      if (!treeState.pendingRemedies.includes(remedy.id)) {
+        treeState.pendingRemedies.push(remedy.id)
+      }
+    }
+  }
+
+  function getPendingRemedies(commissionId: string): RepairRemedy[] {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return []
+    return treeState.pendingRemedies
+      .map(id => treeState.remedies.find(r => r.id === id))
+      .filter((r): r is RepairRemedy => r !== undefined && r.isAvailable)
+  }
+
+  function applyRemedy(
+    commissionId: string,
+    remedyId: string,
+    stepIndex: number
+  ): boolean {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return false
+
+    const remedy = treeState.remedies.find(r => r.id === remedyId)
+    if (!remedy || !remedy.isAvailable) return false
+
+    const steps = repairSteps[commissionId] || []
+    const step = steps[stepIndex]
+    if (!step) return false
+
+    const remedyChoice = step.choices.find(c => c.id === remedy.remedyChoiceId)
+    const difficultyVariant = step.difficultyVariants?.[computeDifficultyContext(commissionId).effectiveDifficulty]
+    const extraChoice = difficultyVariant?.extraChoices?.find(c => c.id === remedy.remedyChoiceId)
+    const choice = remedyChoice || extraChoice
+    if (!choice) return false
+
+    const allChoices = [...step.choices, ...(difficultyVariant?.extraChoices || [])]
+    const weights = calculateChoiceWeights(commissionId, step.id, allChoices)
+    const selectedWeight = weights.find(w => w.choiceId === choice.id)
+
+    const currentNode = treeState.nodes[treeState.currentNodeId]
+    if (!currentNode) return false
+
+    const childNodeId = generateNodeId(commissionId, step.id, choice.id)
+    let childNode = treeState.nodes[childNodeId]
+
+    if (!childNode) {
+      childNode = {
+        id: childNodeId,
+        stepId: step.id,
+        stepIndex,
+        choiceId: choice.id,
+        choiceLabel: choice.label,
+        endingType: choice.endingType,
+        parentId: currentNode.id,
+        childIds: [],
+        isCurrentPath: true,
+        isVisited: true,
+        depth: currentNode.depth + 1,
+        weight: selectedWeight?.totalWeight ?? 2,
+        normalizedWeight: selectedWeight?.normalizedWeight ?? 0.5,
+        isRemedyNode: true,
+        remedyFromChoiceId: remedy.failedChoiceId,
+        triggeredEndingId: null,
+        remedyAvailable: false
+      }
+      treeState.nodes[childNodeId] = childNode
+      currentNode.childIds.push(childNodeId)
+    } else {
+      childNode.isCurrentPath = true
+      childNode.isVisited = true
+      childNode.isRemedyNode = true
+      childNode.remedyFromChoiceId = remedy.failedChoiceId
+    }
+
+    treeState.currentNodeId = childNodeId
+
+    const currentPath = treeState.paths.find(p => p.id === treeState.currentPathId)
+    if (currentPath && !currentPath.nodeIds.includes(childNodeId)) {
+      currentPath.nodeIds.push(childNodeId)
+    }
+
+    Object.values(treeState.nodes).forEach(node => {
+      node.isCurrentPath = currentPath?.nodeIds.includes(node.id) || false
+    })
+
+    const historyEntry: BranchTreeHistoryEntry = {
+      id: `bth-remedy-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      commissionId,
+      stepId: step.id,
+      stepIndex,
+      choiceId: choice.id,
+      choiceLabel: `补救：${choice.label}`,
+      endingType: choice.endingType,
+      weight: selectedWeight?.totalWeight ?? 2,
+      normalizedWeight: selectedWeight?.normalizedWeight ?? 0.5,
+      timestamp: new Date().toISOString(),
+      isRemedy: true,
+      remedyFromChoiceId: remedy.failedChoiceId,
+      triggeredEndingId: null
+    }
+    treeState.history.push(historyEntry)
+
+    treeState.pendingRemedies = treeState.pendingRemedies.filter(id => id !== remedyId)
+    remedy.isAvailable = false
+
+    saveCurrentGame()
+    return true
+  }
+
+  function getBranchTreeHistory(commissionId: string): BranchTreeHistoryEntry[] {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return []
+    return [...treeState.history].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    )
+  }
+
+  function getStepWeights(commissionId: string, stepId: string, stepIndex: number): ChoiceWeight[] {
+    const steps = repairSteps[commissionId] || []
+    const step = steps[stepIndex]
+    if (!step) return []
+    const difficultyVariant = step.difficultyVariants?.[computeDifficultyContext(commissionId).effectiveDifficulty]
+    const allChoices = [...step.choices, ...(difficultyVariant?.extraChoices || [])]
+    return calculateChoiceWeights(commissionId, stepId, allChoices)
   }
 
   function completeCurrentBranchPath(
@@ -2861,6 +3155,18 @@ export const useGameStore = defineStore('game', () => {
         .map(p => p.nodeIds.join('|'))
     )
     treeState.discoveredPaths = uniquePathSignatures.size
+
+    const lastNode = treeState.nodes[treeState.currentNodeId]
+    if (lastNode) {
+      lastNode.triggeredEndingId = endingId
+    }
+
+    const lastHistory = treeState.history[treeState.history.length - 1]
+    if (lastHistory) {
+      lastHistory.triggeredEndingId = endingId
+    }
+
+    treeState.pendingRemedies = []
 
     saveCurrentGame()
   }
@@ -2968,6 +3274,52 @@ export const useGameStore = defineStore('game', () => {
       discoveryPercentage,
       endingsUnlocked: unlockedCount,
       totalEndings: commissionEndings.length
+    }
+  }
+
+  function getEndingsForBranchPath(commissionId: string, pathId: string): { endingId: string | null; endingType: 'good' | 'neutral' | 'bad' | null; endingTitle: string | null } {
+    const treeState = state.value.branchTreeStates[commissionId]
+    if (!treeState) return { endingId: null, endingType: null, endingTitle: null }
+
+    const path = treeState.paths.find(p => p.id === pathId)
+    if (!path || !path.endingId) return { endingId: null, endingType: null, endingTitle: null }
+
+    const ending = endings.find(e => e.id === path.endingId)
+    return {
+      endingId: path.endingId,
+      endingType: path.endingType,
+      endingTitle: ending?.title ?? null
+    }
+  }
+
+  function getWeightDistributionForStep(commissionId: string, stepIndex: number): { goodWeight: number; neutralWeight: number; badWeight: number; total: number } {
+    const steps = repairSteps[commissionId] || []
+    const step = steps[stepIndex]
+    if (!step) return { goodWeight: 0, neutralWeight: 0, badWeight: 0, total: 0 }
+
+    const difficultyVariant = step.difficultyVariants?.[computeDifficultyContext(commissionId).effectiveDifficulty]
+    const allChoices = [...step.choices, ...(difficultyVariant?.extraChoices || [])]
+    const weights = calculateChoiceWeights(commissionId, step.id, allChoices)
+
+    let goodWeight = 0
+    let neutralWeight = 0
+    let badWeight = 0
+
+    for (const w of weights) {
+      const choice = allChoices.find(c => c.id === w.choiceId)
+      if (!choice) continue
+      switch (choice.endingType) {
+        case 'good': goodWeight += w.totalWeight; break
+        case 'neutral': neutralWeight += w.totalWeight; break
+        case 'bad': badWeight += w.totalWeight; break
+      }
+    }
+
+    return {
+      goodWeight: Math.round(goodWeight * 100) / 100,
+      neutralWeight: Math.round(neutralWeight * 100) / 100,
+      badWeight: Math.round(badWeight * 100) / 100,
+      total: Math.round((goodWeight + neutralWeight + badWeight) * 100) / 100
     }
   }
 
@@ -3153,6 +3505,14 @@ export const useGameStore = defineStore('game', () => {
     jumpToBranchNode,
     getBranchTreeStats,
     getAllCompletePaths,
-    getSelectedChoiceIds
+    getSelectedChoiceIds,
+    calculateChoiceWeights,
+    getStepWeights,
+    getWeightDistributionForStep,
+    getPendingRemedies,
+    applyRemedy,
+    getBranchTreeHistory,
+    getEndingsForBranchPath,
+    checkChoiceEndingTrigger
   }
 })
