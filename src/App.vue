@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
+import { onMounted } from 'vue'
+import AchievementToast from './components/AchievementToast.vue'
+import { useAchievements } from './composables/useAchievements'
 
 const router = useRouter()
+const { currentToast, isToastVisible, closeToast, startListening } = useAchievements()
+
+onMounted(() => {
+  startListening()
+})
 </script>
 
 <template>
@@ -10,6 +18,13 @@ const router = useRouter()
       <component :is="Component" />
     </Transition>
   </router-view>
+  
+  <AchievementToast
+    v-if="currentToast"
+    :achievement="currentToast"
+    :visible="isToastVisible"
+    @close="closeToast"
+  />
 </template>
 
 <style>

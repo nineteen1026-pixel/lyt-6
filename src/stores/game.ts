@@ -87,6 +87,7 @@ import { commissions, clues, connections, endings, repairSteps, chapters, tags, 
 
 export const useGameStore = defineStore('game', () => {
   const state = ref<GameState>(getInitialGameState())
+  const newlyUnlockedAchievements = ref<Achievement[]>([])
 
   const hasSave = computed(() => hasSaveData())
 
@@ -543,6 +544,7 @@ export const useGameStore = defineStore('game', () => {
     }
     autoSnapshotIfNeeded('ending_unlocked', `解锁结局：${ending?.title ?? endingId}`)
     saveCurrentGame()
+    checkAndUnlockAchievements()
   }
 
   function completeCommission(commissionId: string) {
@@ -552,6 +554,7 @@ export const useGameStore = defineStore('game', () => {
     createExhibitForCommission(commissionId)
     state.value.currentStep = 'ending'
     saveCurrentGame()
+    checkAndUnlockAchievements()
   }
 
   function goToGallery() {
@@ -2647,6 +2650,7 @@ export const useGameStore = defineStore('game', () => {
 
     state.value.currentScore = score
     saveCurrentGame()
+    checkAndUnlockAchievements()
   }
 
   function getScoreForCommissionAndEnding(commissionId: string, endingType: string): MultiDimensionalScore | null {
@@ -2751,13 +2755,15 @@ export const useGameStore = defineStore('game', () => {
       
       if (progress >= target) {
         state.value.unlockedAchievements.push(ach.id)
-        newlyUnlocked.push({
+        const unlockedAchievement: Achievement = {
           ...ach,
           isUnlocked: true,
           unlockedAt: new Date().toISOString(),
           progress,
           target
-        })
+        }
+        newlyUnlocked.push(unlockedAchievement)
+        newlyUnlockedAchievements.value.push(unlockedAchievement)
       }
     }
 
@@ -2766,6 +2772,19 @@ export const useGameStore = defineStore('game', () => {
     }
 
     return newlyUnlocked
+  }
+
+  function popNewlyUnlockedAchievement(): Achievement | null {
+    if (newlyUnlockedAchievements.value.length === 0) return null
+    return newlyUnlockedAchievements.value.shift() || null
+  }
+
+  function hasNewlyUnlockedAchievements(): boolean {
+    return newlyUnlockedAchievements.value.length > 0
+  }
+
+  function clearNewlyUnlockedAchievements(): void {
+    newlyUnlockedAchievements.value = []
   }
 
   function getUnlockedAchievements(): Achievement[] {
@@ -3863,6 +3882,9 @@ export const useGameStore = defineStore('game', () => {
     getRarityColor,
     getRarityBgColor,
     getRarityLabel,
+    popNewlyUnlockedAchievement,
+    hasNewlyUnlockedAchievements,
+    clearNewlyUnlockedAchievements,
     initBranchTree,
     getBranchTreeState,
     getCurrentBranchNode,

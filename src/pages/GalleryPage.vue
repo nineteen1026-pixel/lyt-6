@@ -1,21 +1,67 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal, GitBranch, Coins, Users, MessageSquare, TrendingUp } from 'lucide-vue-next'
+import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal, GitBranch, Coins, Users, MessageSquare, TrendingUp, Filter, Grid } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { Ending, Commission, MultiDimensionalScore, Achievement, ExhibitData, VisitorReview } from '../types'
 import { REPUTATION_LEVELS } from '../types'
+import { useAchievements } from '../composables/useAchievements'
+import AchievementDetail from '../components/AchievementDetail.vue'
 
 const router = useRouter()
 const gameStore = useGameStore()
 
 const activeTab = ref<'endings' | 'achievements' | 'scores' | 'showroom'>('endings')
 
+const achievementFilter = ref<'all' | 'score' | 'ending' | 'collection' | 'special'>('all')
+const achievementRarityFilter = ref<'all' | 'common' | 'rare' | 'epic' | 'legendary'>('all')
+const selectedAchievement = ref<Achievement | null>(null)
+const showAchievementDetail = ref(false)
+
+const { getRarityStats, getCategoryStats, getProgressPercentage } = useAchievements()
+
 const allCommissions = computed(() => gameStore.getAllCommissions())
 const allEndings = computed(() => gameStore.getAllEndings())
 const progress = computed(() => gameStore.completionProgress)
 const allScores = computed(() => gameStore.getAllScores())
 const allAchievements = computed(() => gameStore.allAchievements)
+
+const filteredAchievements = computed(() => {
+  let result = allAchievements.value
+  
+  if (achievementFilter.value !== 'all') {
+    result = result.filter(a => a.category === achievementFilter.value)
+  }
+  
+  if (achievementRarityFilter.value !== 'all') {
+    result = result.filter(a => a.rarity === achievementRarityFilter.value)
+  }
+  
+  return result
+})
+
+const achievementStats = computed(() => {
+  return {
+    total: allAchievements.value.length,
+    unlocked: gameStore.state.unlockedAchievements.length,
+    percentage: getProgressPercentage()
+  }
+})
+
+const rarityStats = computed(() => getRarityStats())
+const categoryStats = computed(() => getCategoryStats())
+
+function viewAchievementDetail(achievement: Achievement) {
+  selectedAchievement.value = achievement
+  showAchievementDetail.value = true
+}
+
+function closeAchievementDetail() {
+  showAchievementDetail.value = false
+  setTimeout(() => {
+    selectedAchievement.value = null
+  }, 300)
+}
 
 const unlockedEndingIds = computed(() => gameStore.state.unlockedEndings)
 const unlockedAchievementCount = computed(() => gameStore.state.unlockedAchievements.length)
@@ -339,68 +385,133 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-show="activeTab === 'achievements'" class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        <div
-          v-for="achievement in allAchievements"
-          :key="achievement.id"
-          class="rounded-2xl border-2 overflow-hidden transition-all duration-300"
-          :class="[
-            achievement.isUnlocked
-              ? gameStore.getRarityBgColor(achievement.rarity) + ' hover:shadow-lg'
-              : 'bg-stone-50 border-stone-200 opacity-70'
-          ]"
-        >
-          <div class="p-5" :class="!achievement.isUnlocked ? 'blur-[1px]' : ''">
-            <div class="flex items-start gap-4 mb-3">
-              <div class="text-4xl" :class="!achievement.isUnlocked ? 'grayscale' : ''">
-                {{ achievement.icon }}
-              </div>
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2 mb-1">
-                  <h3 class="font-serif font-bold text-stone-800">
-                    {{ achievement.isUnlocked ? achievement.name : '???' }}
-                  </h3>
-                  <span 
-                    v-if="achievement.isUnlocked"
-                    class="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                    :class="[
-                      gameStore.getRarityColor(achievement.rarity),
-                      achievement.rarity === 'legendary' ? 'bg-amber-100' :
-                      achievement.rarity === 'epic' ? 'bg-purple-100' :
-                      achievement.rarity === 'rare' ? 'bg-blue-100' : 'bg-stone-100'
-                    ]"
-                  >
-                    {{ gameStore.getRarityLabel(achievement.rarity) }}
-                  </span>
-                </div>
-                <p class="text-sm text-stone-500">
-                  {{ achievement.isUnlocked ? achievement.description : '完成特定条件解锁' }}
-                </p>
-              </div>
-              <div v-if="achievement.isUnlocked" class="flex items-center gap-1 text-amber-500">
-                <Star class="w-4 h-4 fill-amber-500" />
-              </div>
+      <div v-show="activeTab === 'achievements'">
+        <div class="mb-6 p-5 card-warm rounded-2xl">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-serif font-bold text-stone-800 text-lg mb-1">成就总览</h3>
+              <p class="text-sm text-stone-500">已解锁 {{ achievementStats.unlocked }} / {{ achievementStats.total }} 个成就</p>
             </div>
-
-            <div v-if="!achievement.isUnlocked" class="mt-3">
-              <div class="flex items-center justify-between text-xs text-stone-500 mb-1">
-                <span>解锁进度</span>
-                <span>{{ achievement.progress || 0 }} / {{ achievement.target || 1 }}</span>
+            <div class="text-right">
+              <div class="text-3xl font-bold text-amber-500">{{ achievementStats.percentage }}%</div>
+              <div class="text-xs text-stone-400">完成度</div>
+            </div>
+          </div>
+          <div class="w-full bg-stone-200 rounded-full h-2.5 overflow-hidden">
+            <div 
+              class="h-full rounded-full bg-gradient-to-r from-amber-400 to-amber-500 transition-all duration-700"
+              :style="{ width: achievementStats.percentage + '%' }"
+            />
+          </div>
+          
+          <div class="grid grid-cols-4 gap-2 mt-4">
+            <div 
+              v-for="(stat, rarity) in rarityStats" 
+              :key="rarity"
+              class="text-center p-2 rounded-lg"
+              :class="gameStore.getRarityBgColor(rarity)"
+            >
+              <div class="text-lg font-bold" :class="gameStore.getRarityColor(rarity)">
+                {{ stat.unlocked }}/{{ stat.total }}
               </div>
-              <div class="h-2 bg-stone-200 rounded-full overflow-hidden">
-                <div
-                  class="h-full bg-amber-400 rounded-full transition-all duration-500"
-                  :style="{ width: `${Math.min(((achievement.progress || 0) / (achievement.target || 1)) * 100, 100)}%` }"
-                />
-              </div>
+              <div class="text-[10px] text-stone-500">{{ gameStore.getRarityLabel(rarity) }}</div>
             </div>
           </div>
         </div>
 
-        <div v-if="allAchievements.length === 0" class="col-span-full text-center py-16">
-          <div class="text-5xl mb-4">🏆</div>
-          <h3 class="text-xl font-serif font-bold text-stone-800 mb-2">暂无成就</h3>
-          <p class="text-stone-500">完成特定条件后，这里会显示你的成就</p>
+        <div class="flex flex-wrap gap-2 mb-6">
+          <div class="flex items-center gap-1 text-stone-500 mr-2">
+            <Filter class="w-4 h-4" />
+            <span class="text-sm">分类:</span>
+          </div>
+          <button
+            v-for="cat in [
+              { key: 'all', label: '全部' },
+              { key: 'score', label: '评分' },
+              { key: 'ending', label: '结局' },
+              { key: 'collection', label: '收集' },
+              { key: 'special', label: '特殊' }
+            ]"
+            :key="cat.key"
+            class="px-3 py-1.5 text-sm rounded-lg font-medium transition-all"
+            :class="achievementFilter === cat.key 
+              ? 'bg-amber-500 text-white shadow-md' 
+              : 'bg-white text-stone-600 border border-stone-200 hover:border-amber-300'"
+            @click="achievementFilter = cat.key as any"
+          >
+            {{ cat.label }}
+          </button>
+        </div>
+
+        <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="achievement in filteredAchievements"
+            :key="achievement.id"
+            class="rounded-2xl border-2 overflow-hidden transition-all duration-300 cursor-pointer"
+            :class="[
+              achievement.isUnlocked
+                ? gameStore.getRarityBgColor(achievement.rarity) + ' hover:shadow-lg hover:-translate-y-1'
+                : 'bg-stone-50 border-stone-200 opacity-70 hover:opacity-90'
+            ]"
+            @click="viewAchievementDetail(achievement)"
+          >
+            <div class="p-5" :class="!achievement.isUnlocked ? 'blur-[1px]' : ''">
+              <div class="flex items-start gap-4 mb-3">
+                <div class="text-4xl" :class="!achievement.isUnlocked ? 'grayscale' : ''">
+                  {{ achievement.icon }}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 mb-1">
+                    <h3 class="font-serif font-bold text-stone-800">
+                      {{ achievement.isUnlocked ? achievement.name : '???' }}
+                    </h3>
+                    <span 
+                      v-if="achievement.isUnlocked"
+                      class="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      :class="[
+                        gameStore.getRarityColor(achievement.rarity),
+                        achievement.rarity === 'legendary' ? 'bg-amber-100' :
+                        achievement.rarity === 'epic' ? 'bg-purple-100' :
+                        achievement.rarity === 'rare' ? 'bg-blue-100' : 'bg-stone-100'
+                      ]"
+                    >
+                      {{ gameStore.getRarityLabel(achievement.rarity) }}
+                    </span>
+                  </div>
+                  <p class="text-sm text-stone-500">
+                    {{ achievement.isUnlocked ? achievement.description : '完成特定条件解锁' }}
+                  </p>
+                </div>
+                <div v-if="achievement.isUnlocked" class="flex items-center gap-1 text-amber-500">
+                  <Star class="w-4 h-4 fill-amber-500" />
+                </div>
+              </div>
+
+              <div v-if="!achievement.isUnlocked" class="mt-3">
+                <div class="flex items-center justify-between text-xs text-stone-500 mb-1">
+                  <span>解锁进度</span>
+                  <span>{{ achievement.progress || 0 }} / {{ achievement.target || 1 }}</span>
+                </div>
+                <div class="h-2 bg-stone-200 rounded-full overflow-hidden">
+                  <div
+                    class="h-full bg-amber-400 rounded-full transition-all duration-500"
+                    :style="{ width: `${Math.min(((achievement.progress || 0) / (achievement.target || 1)) * 100, 100)}%` }"
+                  />
+                </div>
+              </div>
+              
+              <div v-else-if="achievement.unlockedAt" class="mt-3 text-xs text-stone-400 flex items-center gap-1">
+                <Trophy class="w-3 h-3" />
+                <span>解锁于 {{ new Date(achievement.unlockedAt).toLocaleDateString('zh-CN') }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="filteredAchievements.length === 0" class="col-span-full text-center py-16">
+            <div class="text-5xl mb-4">🔍</div>
+            <h3 class="text-xl font-serif font-bold text-stone-800 mb-2">没有符合条件的成就</h3>
+            <p class="text-stone-500">试试选择其他筛选条件</p>
+          </div>
         </div>
       </div>
 
@@ -713,6 +824,12 @@ onMounted(() => {
       </div>
     </div>
   </div>
+  
+  <AchievementDetail
+    :achievement="selectedAchievement"
+    :visible="showAchievementDetail"
+    @close="closeAchievementDetail"
+  />
 </template>
 
 <style scoped>
