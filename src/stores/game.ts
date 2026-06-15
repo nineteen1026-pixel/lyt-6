@@ -46,11 +46,17 @@ import type {
   BranchTreeStats,
   ChoiceWeight,
   RepairRemedy,
-  BranchTreeHistoryEntry
+  BranchTreeHistoryEntry,
+  ExhibitData,
+  ExhibitRevenue,
+  VisitorReview,
+  ReputationLevel,
+  ShowroomStats
 } from '../types'
 import {
   SCORE_GRADES,
-  SCORE_DIMENSION_CONFIG
+  SCORE_DIMENSION_CONFIG,
+  REPUTATION_LEVELS
 } from '../types'
 import { 
   getInitialGameState, 
@@ -543,6 +549,7 @@ export const useGameStore = defineStore('game', () => {
     const commission = commissions.find(c => c.id === commissionId)
     autoSnapshotIfNeeded('chapter_complete', `完成：${commission?.title ?? commissionId}`)
     transitionCommissionStatus(commissionId, 'completed')
+    createExhibitForCommission(commissionId)
     state.value.currentStep = 'ending'
     saveCurrentGame()
   }
@@ -3292,6 +3299,263 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  const VISITOR_NAMES = [
+    '李大爷', '王阿姨', '张先生', '刘女士', '陈老师',
+    '赵同学', '孙师傅', '周小姐', '吴先生', '郑阿姨',
+    '黄同学', '林老师', '何先生', '马女士', '宋大爷',
+    '谢阿姨', '韩先生', '唐小姐', '冯师傅', '曹同学',
+    '许先生', '邓阿姨', '萧大爷', '方女士', '秦老师'
+  ]
+
+  const VISITOR_AVATARS = ['👨‍🦳', '👩‍🦳', '👨', '👩', '👨‍🦱', '👩‍🦱', '👴', '👵', '🧑', '👱‍♀️']
+
+  const POSITIVE_COMMENTS = [
+    '修复得太好了，简直像新的一样！',
+    '真没想到还能恢复成这样，太神奇了。',
+    '每一个细节都处理得很到位，佩服！',
+    '能感受到修复师的用心和匠心。',
+    '看完展品，心里暖暖的。',
+    '这样的手艺现在真的很少见了。',
+    '修复后的物件焕发出了新的生命力。',
+    '值得专程来看的展览！',
+    '每件展品都有故事，修复让故事得以延续。',
+    '细节处的处理让人惊叹。'
+  ]
+
+  const NEUTRAL_COMMENTS = [
+    '还不错，修复得挺认真的。',
+    '有些地方看起来还可以更好。',
+    '整体感觉还行，但少了点什么。',
+    '修复得中规中矩吧。',
+    '期待下次能看到更精细的修复。'
+  ]
+
+  const NEGATIVE_COMMENTS = [
+    '感觉修复得不够细致。',
+    '有些地方处理得有点粗糙。',
+    '希望能更加用心一些。'
+  ]
+
+  const VERY_POSITIVE_COMMENTS = [
+    '完美的修复！这简直是艺术品！',
+    '从未见过如此精湛的修复技艺！',
+    '每一处细节都无可挑剔，堪称典范！',
+    '这不仅是修复，更是一次重生！',
+    '能看到这样的修复，是莫大的幸运。'
+  ]
+
+  function generateVisitorReviews(commissionId: string, score: MultiDimensionalScore | null): VisitorReview[] {
+    const reviews: VisitorReview[] = []
+    const reviewCount = 2 + Math.floor(Math.random() * 3)
+
+    const baseRating = score ? score.overallPercentage / 20 : 3
+
+    for (let i = 0; i < reviewCount; i++) {
+      const variation = (Math.random() - 0.5) * 2
+      const rating = Math.max(1, Math.min(5, Math.round(baseRating + variation)))
+
+      let comment: string
+      let sentiment: VisitorReview['sentiment']
+
+      if (rating >= 5) {
+        comment = VERY_POSITIVE_COMMENTS[Math.floor(Math.random() * VERY_POSITIVE_COMMENTS.length)]
+        sentiment = 'very_positive'
+      } else if (rating >= 4) {
+        comment = POSITIVE_COMMENTS[Math.floor(Math.random() * POSITIVE_COMMENTS.length)]
+        sentiment = 'positive'
+      } else if (rating >= 3) {
+        comment = NEUTRAL_COMMENTS[Math.floor(Math.random() * NEUTRAL_COMMENTS.length)]
+        sentiment = 'neutral'
+      } else {
+        comment = NEGATIVE_COMMENTS[Math.floor(Math.random() * NEGATIVE_COMMENTS.length)]
+        sentiment = 'negative'
+      }
+
+      reviews.push({
+        id: `review-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        visitorName: VISITOR_NAMES[Math.floor(Math.random() * VISITOR_NAMES.length)],
+        visitorAvatar: VISITOR_AVATARS[Math.floor(Math.random() * VISITOR_AVATARS.length)],
+        rating,
+        comment,
+        timestamp: new Date().toISOString(),
+        commissionId,
+        sentiment
+      })
+    }
+
+    return reviews.sort((a, b) => b.rating - a.rating)
+  }
+
+  function generateExhibitData(commissionId: string): ExhibitData | null {
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return null
+
+    const score = getBestScoreForCommission(commissionId)
+    const displayQuality = score ? score.overallPercentage : 50
+
+    const baseRevenue = 10 + Math.floor(Math.random() * 10)
+
+    const qualityBonus = Math.floor(displayQuality / 10)
+
+    const currentStats = getShowroomStats()
+    const reputationBonus = Math.floor(currentStats.reputationScore / 20)
+
+    const totalRevenue = baseRevenue + qualityBonus + reputationBonus
+
+    const revenue: ExhibitRevenue = {
+      baseRevenue,
+      qualityBonus,
+      reputationBonus,
+      totalRevenue,
+      currency: '灵石',
+      breakdown: [
+        { label: '基础展示收入', amount: baseRevenue },
+        { label: '修复品质加成', amount: qualityBonus },
+        { label: '口碑声誉加成', amount: reputationBonus }
+      ]
+    }
+
+    const reviews = generateVisitorReviews(commissionId, score)
+
+    const visitorBase = 5 + Math.floor(Math.random() * 10)
+    const visitorCount = visitorBase + Math.floor(displayQuality / 10) + reputationBonus
+
+    const exhibit: ExhibitData = {
+      commissionId,
+      createdAt: new Date().toISOString(),
+      revenue,
+      reviews,
+      visitorCount,
+      displayQuality,
+      accumulatedRevenue: totalRevenue,
+      lastCollectedAt: null
+    }
+
+    return exhibit
+  }
+
+  function createExhibitForCommission(commissionId: string): ExhibitData | null {
+    if (state.value.showroomExhibits[commissionId]) {
+      return state.value.showroomExhibits[commissionId]
+    }
+
+    const exhibit = generateExhibitData(commissionId)
+    if (!exhibit) return null
+
+    state.value.showroomExhibits[commissionId] = exhibit
+    saveCurrentGame()
+    return exhibit
+  }
+
+  function getExhibitForCommission(commissionId: string): ExhibitData | null {
+    return state.value.showroomExhibits[commissionId] || null
+  }
+
+  function collectExhibitRevenue(commissionId: string): number {
+    const exhibit = state.value.showroomExhibits[commissionId]
+    if (!exhibit) return 0
+
+    const timeSinceLastCollection = exhibit.lastCollectedAt
+      ? (Date.now() - new Date(exhibit.lastCollectedAt).getTime()) / (1000 * 60 * 60)
+      : 999
+
+    if (timeSinceLastCollection < 1) return 0
+
+    const currentStats = getShowroomStats()
+    const reputationMultiplier = 1 + currentStats.reputationScore / 100
+    const passiveRevenue = Math.floor((3 + exhibit.displayQuality / 20) * reputationMultiplier)
+
+    exhibit.accumulatedRevenue += passiveRevenue
+    exhibit.lastCollectedAt = new Date().toISOString()
+    saveCurrentGame()
+    return passiveRevenue
+  }
+
+  function collectAllExhibitRevenue(): { totalCollected: number; exhibitCount: number } {
+    let totalCollected = 0
+    let exhibitCount = 0
+
+    for (const commissionId of Object.keys(state.value.showroomExhibits)) {
+      const collected = collectExhibitRevenue(commissionId)
+      if (collected > 0) {
+        totalCollected += collected
+        exhibitCount++
+      }
+    }
+
+    return { totalCollected, exhibitCount }
+  }
+
+  function calculateReputationScore(): number {
+    const exhibits = Object.values(state.value.showroomExhibits)
+    if (exhibits.length === 0) return 0
+
+    const avgQuality = exhibits.reduce((sum, e) => sum + e.displayQuality, 0) / exhibits.length
+    const allReviews = exhibits.flatMap(e => e.reviews)
+    const avgRating = allReviews.length > 0
+      ? allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length
+      : 0
+    const exhibitBonus = Math.min(exhibits.length * 5, 25)
+
+    const score = Math.round(avgQuality * 0.5 + avgRating * 5 + exhibitBonus)
+    return Math.max(0, Math.min(100, score))
+  }
+
+  function getReputationLevel(score: number): ReputationLevel {
+    for (let i = REPUTATION_LEVELS.length - 1; i >= 0; i--) {
+      if (score >= REPUTATION_LEVELS[i].minScore) {
+        return REPUTATION_LEVELS[i].level
+      }
+    }
+    return 'emerging'
+  }
+
+  function getShowroomStats(): ShowroomStats {
+    const exhibits = Object.values(state.value.showroomExhibits)
+    const allReviews = exhibits.flatMap(e => e.reviews)
+    const totalRevenue = exhibits.reduce((sum, e) => sum + e.accumulatedRevenue, 0)
+    const totalVisitors = exhibits.reduce((sum, e) => sum + e.visitorCount, 0)
+    const averageRating = allReviews.length > 0
+      ? Math.round((allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length) * 10) / 10
+      : 0
+
+    const reputationScore = calculateReputationScore()
+    const reputationLevel = getReputationLevel(reputationScore)
+
+    const currentLevelConfig = REPUTATION_LEVELS.find(l => l.level === reputationLevel)
+    const nextLevelConfig = REPUTATION_LEVELS.find(l => l.minScore > reputationScore)
+
+    const currentMin = currentLevelConfig?.minScore ?? 0
+    const nextMin = nextLevelConfig?.minScore ?? 100
+    const reputationProgress = Math.round(
+      ((reputationScore - currentMin) / (nextMin - currentMin)) * 100
+    )
+
+    let bestReview: VisitorReview | null = null
+    let worstReview: VisitorReview | null = null
+    for (const review of allReviews) {
+      if (!bestReview || review.rating > bestReview.rating) bestReview = review
+      if (!worstReview || review.rating < worstReview.rating) worstReview = review
+    }
+
+    return {
+      totalRevenue,
+      totalVisitors,
+      averageRating,
+      exhibitCount: exhibits.length,
+      reputationLevel,
+      reputationScore,
+      reputationProgress: Math.max(0, Math.min(100, reputationProgress)),
+      nextLevelLabel: nextLevelConfig?.label ?? null,
+      bestReview,
+      worstReview,
+    }
+  }
+
+  function getReputationLevelConfig(level: ReputationLevel) {
+    return REPUTATION_LEVELS.find(l => l.level === level)
+  }
+
   function getWeightDistributionForStep(commissionId: string, stepIndex: number): { goodWeight: number; neutralWeight: number; badWeight: number; total: number } {
     const steps = repairSteps[commissionId] || []
     const step = steps[stepIndex]
@@ -3513,6 +3777,12 @@ export const useGameStore = defineStore('game', () => {
     applyRemedy,
     getBranchTreeHistory,
     getEndingsForBranchPath,
-    checkChoiceEndingTrigger
+    checkChoiceEndingTrigger,
+    createExhibitForCommission,
+    getExhibitForCommission,
+    collectExhibitRevenue,
+    collectAllExhibitRevenue,
+    getShowroomStats,
+    getReputationLevelConfig
   }
 })

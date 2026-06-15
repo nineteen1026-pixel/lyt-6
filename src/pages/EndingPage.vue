@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Home, ArrowRight, ScrollText, Award, TrendingUp, Star, CheckCircle, XCircle, MinusCircle, GitBranch, RotateCcw } from 'lucide-vue-next'
+import { Home, ArrowRight, ScrollText, Award, TrendingUp, Star, CheckCircle, XCircle, MinusCircle, GitBranch, RotateCcw, Coins, Users, MessageSquare } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { MultiDimensionalScore, Achievement, BranchTreeNode } from '../types'
+import { REPUTATION_LEVELS } from '../types'
 
 const route = useRoute()
 const router = useRouter()
@@ -12,6 +13,7 @@ const gameStore = useGameStore()
 const showStory = ref(false)
 const showScore = ref(false)
 const showAchievements = ref(false)
+const showExhibit = ref(false)
 const newlyUnlockedAchievements = ref<Achievement[]>([])
 
 const commissionId = computed(() => route.params.id as string)
@@ -19,6 +21,15 @@ const endingType = computed(() => route.params.type as string)
 
 const commission = computed(() => gameStore.getCommissionById(commissionId.value))
 const ending = computed(() => gameStore.getEndingByType(commissionId.value, endingType.value))
+
+const exhibitData = computed(() => gameStore.getExhibitForCommission(commissionId.value))
+
+const showroomStats = computed(() => gameStore.getShowroomStats())
+
+const currentReputationConfig = computed(() => {
+  const level = showroomStats.value.reputationLevel
+  return REPUTATION_LEVELS.find(l => l.level === level) || REPUTATION_LEVELS[0]
+})
 
 const currentScore = computed<MultiDimensionalScore | null>(() => {
   return gameStore.getScoreForCommissionAndEnding(commissionId.value, endingType.value)
@@ -107,6 +118,10 @@ onMounted(() => {
   setTimeout(() => {
     showScore.value = true
   }, 1500)
+
+  setTimeout(() => {
+    showExhibit.value = true
+  }, 2200)
 })
 </script>
 
@@ -276,6 +291,87 @@ onMounted(() => {
                       <span class="text-stone-600 truncate max-w-32">{{ node.choiceLabel }}</span>
                     </div>
                   </div>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <Transition name="fade-up">
+            <div v-if="showExhibit && exhibitData" class="mb-8">
+              <div class="bg-gradient-to-br from-amber-50 to-orange-50 backdrop-blur-sm rounded-2xl p-6 shadow-lg border-2 border-amber-200">
+                <div class="text-center mb-4">
+                  <span class="text-4xl">🏪</span>
+                  <h3 class="text-lg font-serif font-bold text-amber-800 mt-2">陈列室展品已上架</h3>
+                  <p class="text-sm text-amber-600">{{ commission?.item.image }} {{ commission?.item.name }} 现已展出</p>
+                </div>
+
+                <div class="grid grid-cols-3 gap-3 mb-4">
+                  <div class="text-center p-3 bg-white/80 rounded-xl border border-amber-100">
+                    <Coins class="w-5 h-5 text-amber-500 mx-auto mb-1" />
+                    <div class="text-xl font-bold text-amber-600">{{ exhibitData.revenue.totalRevenue }}</div>
+                    <div class="text-[10px] text-stone-500">展品收益（灵石）</div>
+                  </div>
+                  <div class="text-center p-3 bg-white/80 rounded-xl border border-blue-100">
+                    <Users class="w-5 h-5 text-blue-500 mx-auto mb-1" />
+                    <div class="text-xl font-bold text-blue-600">{{ exhibitData.visitorCount }}</div>
+                    <div class="text-[10px] text-stone-500">访客人数</div>
+                  </div>
+                  <div class="text-center p-3 bg-white/80 rounded-xl border border-green-100">
+                    <span class="text-lg">{{ currentReputationConfig.icon }}</span>
+                    <div class="text-xl font-bold" :class="currentReputationConfig.color">{{ showroomStats.reputationScore }}</div>
+                    <div class="text-[10px] text-stone-500">口碑评分</div>
+                  </div>
+                </div>
+
+                <div class="bg-white/60 rounded-xl p-3 mb-4">
+                  <div class="text-xs text-stone-500 mb-2">收益构成</div>
+                  <div class="space-y-1">
+                    <div v-for="item in exhibitData.revenue.breakdown" :key="item.label" class="flex items-center justify-between text-xs">
+                      <span class="text-stone-500">{{ item.label }}</span>
+                      <span class="font-medium text-amber-700">+{{ item.amount }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="exhibitData.reviews.length > 0" class="bg-white/60 rounded-xl p-3">
+                  <div class="text-xs text-stone-500 flex items-center gap-1 mb-2">
+                    <MessageSquare class="w-3 h-3" />
+                    <span>访客评价</span>
+                  </div>
+                  <div class="space-y-2">
+                    <div
+                      v-for="review in exhibitData.reviews.slice(0, 3)"
+                      :key="review.id"
+                      class="flex items-start gap-2"
+                    >
+                      <span class="text-lg">{{ review.visitorAvatar }}</span>
+                      <div class="flex-1 min-w-0">
+                        <div class="flex items-center gap-1">
+                          <span class="text-xs font-medium text-stone-700">{{ review.visitorName }}</span>
+                          <span class="text-[10px]" :class="[
+                            review.sentiment === 'very_positive' || review.sentiment === 'positive' ? 'text-amber-500' :
+                            review.sentiment === 'neutral' ? 'text-stone-400' : 'text-rose-400'
+                          ]">
+                            {{ '★'.repeat(review.rating) }}{{ '☆'.repeat(5 - review.rating) }}
+                          </span>
+                        </div>
+                        <p class="text-xs text-stone-500">{{ review.comment }}</p>
+                      </div>
+                    </div>
+                    <div v-if="exhibitData.reviews.length > 3" class="text-xs text-amber-600 text-center pt-1">
+                      还有 {{ exhibitData.reviews.length - 3 }} 条评价，前往陈列室查看
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-4 text-center">
+                  <button
+                    class="inline-flex items-center gap-2 px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors"
+                    @click="goToGallery"
+                  >
+                    <Coins class="w-4 h-4" />
+                    <span>前往陈列室</span>
+                  </button>
                 </div>
               </div>
             </div>

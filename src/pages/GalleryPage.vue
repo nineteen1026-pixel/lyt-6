@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal, GitBranch } from 'lucide-vue-next'
+import { ArrowLeft, Trophy, Lock, Star, BookOpen, Award, Medal, GitBranch, Coins, Users, MessageSquare, TrendingUp } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
-import type { Ending, Commission, MultiDimensionalScore, Achievement } from '../types'
+import type { Ending, Commission, MultiDimensionalScore, Achievement, ExhibitData, VisitorReview } from '../types'
+import { REPUTATION_LEVELS } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
 
-const activeTab = ref<'endings' | 'achievements' | 'scores'>('endings')
+const activeTab = ref<'endings' | 'achievements' | 'scores' | 'showroom'>('endings')
 
 const allCommissions = computed(() => gameStore.getAllCommissions())
 const allEndings = computed(() => gameStore.getAllEndings())
@@ -18,6 +19,24 @@ const allAchievements = computed(() => gameStore.allAchievements)
 
 const unlockedEndingIds = computed(() => gameStore.state.unlockedEndings)
 const unlockedAchievementCount = computed(() => gameStore.state.unlockedAchievements.length)
+
+const showroomStats = computed(() => gameStore.getShowroomStats())
+const completedExhibits = computed(() => {
+  return allCommissions.value
+    .filter(c => gameStore.state.completedCommissions.includes(c.id))
+    .map(c => ({
+      commission: c,
+      exhibit: gameStore.getExhibitForCommission(c.id)
+    }))
+    .filter(e => e.exhibit !== null)
+})
+
+const reputationLevelConfig = computed(() => {
+  const level = showroomStats.value.reputationLevel
+  return REPUTATION_LEVELS.find(l => l.level === level) || REPUTATION_LEVELS[0]
+})
+
+const collectResult = ref<{ amount: number; count: number } | null>(null)
 
 const overallBranchStats = computed(() => {
   let totalPaths = 0
@@ -72,6 +91,13 @@ const endingTypeConfig: Record<string, { label: string; icon: string; color: str
   bad: { label: '遗憾', icon: '🌧️', color: 'text-stone-500', bgColor: 'bg-stone-50 border-stone-200' }
 }
 
+const sentimentConfig: Record<string, { label: string; color: string; bgColor: string; icon: string }> = {
+  very_positive: { label: '极度好评', color: 'text-amber-600', bgColor: 'bg-amber-50 border-amber-200', icon: '😍' },
+  positive: { label: '好评', color: 'text-green-600', bgColor: 'bg-green-50 border-green-200', icon: '😊' },
+  neutral: { label: '中评', color: 'text-stone-500', bgColor: 'bg-stone-50 border-stone-200', icon: '😐' },
+  negative: { label: '差评', color: 'text-rose-500', bgColor: 'bg-rose-50 border-rose-200', icon: '😕' }
+}
+
 function goBack() {
   router.push('/')
 }
@@ -99,6 +125,18 @@ function getGradeColor(grade: string): string {
 function getGradeBgColor(grade: string): string {
   const config = gameStore.getGradeConfig(grade)
   return config?.bgColor || 'bg-stone-50'
+}
+
+function handleCollectAll() {
+  const result = gameStore.collectAllExhibitRevenue()
+  collectResult.value = { amount: result.totalCollected, count: result.exhibitCount }
+  setTimeout(() => {
+    collectResult.value = null
+  }, 3000)
+}
+
+function getRatingStars(rating: number): string {
+  return '★'.repeat(rating) + '☆'.repeat(5 - rating)
 }
 
 onMounted(() => {
@@ -162,12 +200,13 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="flex justify-center gap-2 mb-8">
+      <div class="flex justify-center gap-2 mb-8 flex-wrap">
         <button
           v-for="tab in [
             { key: 'endings', label: '结局收藏', icon: BookOpen },
             { key: 'achievements', label: '成就墙', icon: Trophy },
-            { key: 'scores', label: '评分记录', icon: Award }
+            { key: 'scores', label: '评分记录', icon: Award },
+            { key: 'showroom', label: '陈列室经营', icon: Coins }
           ]"
           :key="tab.key"
           class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-medium transition-all duration-300"
@@ -453,6 +492,197 @@ onMounted(() => {
         </div>
       </div>
 
+      <div v-show="activeTab === 'showroom'">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div class="card-warm p-4 text-center">
+            <div class="flex justify-center mb-2">
+              <Coins class="w-6 h-6 text-amber-500" />
+            </div>
+            <div class="text-2xl font-bold text-stone-800">{{ showroomStats.totalRevenue }}</div>
+            <div class="text-xs text-stone-500">累计收益（灵石）</div>
+          </div>
+          <div class="card-warm p-4 text-center">
+            <div class="flex justify-center mb-2">
+              <Users class="w-6 h-6 text-blue-500" />
+            </div>
+            <div class="text-2xl font-bold text-stone-800">{{ showroomStats.totalVisitors }}</div>
+            <div class="text-xs text-stone-500">累计访客</div>
+          </div>
+          <div class="card-warm p-4 text-center">
+            <div class="flex justify-center mb-2">
+              <MessageSquare class="w-6 h-6 text-green-500" />
+            </div>
+            <div class="text-2xl font-bold text-stone-800">{{ showroomStats.averageRating }}</div>
+            <div class="text-xs text-stone-500">平均评分</div>
+          </div>
+          <div class="card-warm p-4 text-center">
+            <div class="flex justify-center mb-2">
+              <span class="text-2xl">{{ reputationLevelConfig.icon }}</span>
+            </div>
+            <div class="text-2xl font-bold" :class="reputationLevelConfig.color">{{ reputationLevelConfig.label }}</div>
+            <div class="text-xs text-stone-500">口碑等级</div>
+          </div>
+        </div>
+
+        <div class="card-warm p-6 mb-8">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl">{{ reputationLevelConfig.icon }}</span>
+              <div>
+                <h3 class="font-serif font-bold text-stone-800 text-lg">{{ reputationLevelConfig.label }}</h3>
+                <p class="text-sm text-stone-500">{{ reputationLevelConfig.description }}</p>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold" :class="reputationLevelConfig.color">{{ showroomStats.reputationScore }}</div>
+              <div class="text-xs text-stone-400">口碑分</div>
+            </div>
+          </div>
+          <div class="w-full bg-stone-200 rounded-full h-3 overflow-hidden mb-2">
+            <div
+              class="h-full rounded-full transition-all duration-500"
+              :class="[
+                showroomStats.reputationScore >= 70 ? 'bg-gradient-to-r from-purple-500 to-amber-500' :
+                showroomStats.reputationScore >= 45 ? 'bg-gradient-to-r from-blue-500 to-purple-500' :
+                showroomStats.reputationScore >= 20 ? 'bg-gradient-to-r from-green-500 to-blue-500' :
+                'bg-gradient-to-r from-stone-400 to-green-500'
+              ]"
+              :style="{ width: `${showroomStats.reputationProgress}%` }"
+            ></div>
+          </div>
+          <div class="flex justify-between text-xs text-stone-400">
+            <span>{{ reputationLevelConfig.label }}</span>
+            <span v-if="showroomStats.nextLevelLabel">下一等级：{{ showroomStats.nextLevelLabel }}</span>
+            <span v-else>已达最高等级</span>
+          </div>
+        </div>
+
+        <div class="flex justify-center mb-6">
+          <button
+            class="flex items-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300 shadow-md hover:shadow-lg"
+            :class="completedExhibits.length > 0 
+              ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-white hover:from-amber-600 hover:to-amber-700' 
+              : 'bg-stone-200 text-stone-400 cursor-not-allowed'"
+            :disabled="completedExhibits.length === 0"
+            @click="handleCollectAll"
+          >
+            <Coins class="w-5 h-5" />
+            <span>收取全部收益</span>
+            <span v-if="completedExhibits.length > 0" class="text-sm opacity-80">({{ completedExhibits.length }}件展品)</span>
+          </button>
+        </div>
+
+        <Transition name="fade">
+          <div v-if="collectResult" class="mb-6 text-center">
+            <div class="inline-flex items-center gap-2 px-6 py-3 bg-amber-50 border-2 border-amber-200 rounded-xl shadow-md">
+              <Coins class="w-5 h-5 text-amber-500" />
+              <span class="font-bold text-amber-700">+{{ collectResult.amount }} 灵石</span>
+              <span class="text-amber-600 text-sm">（{{ collectResult.count }}件展品）</span>
+            </div>
+          </div>
+        </Transition>
+
+        <div class="space-y-6">
+          <div
+            v-for="{ commission, exhibit } in completedExhibits"
+            :key="commission.id"
+            class="card-warm overflow-hidden"
+          >
+            <div class="p-5">
+              <div class="flex items-start gap-4 mb-4">
+                <div class="text-4xl">{{ commission.item.image }}</div>
+                <div class="flex-1 min-w-0">
+                  <h3 class="font-serif font-bold text-stone-800 text-lg truncate">{{ commission.title }}</h3>
+                  <p class="text-sm text-stone-500">{{ commission.clientAvatar }} {{ commission.clientName }}</p>
+                </div>
+                <div class="text-right">
+                  <div class="text-xl font-bold text-amber-600 flex items-center gap-1">
+                    <Coins class="w-4 h-4" />
+                    {{ exhibit!.accumulatedRevenue }}
+                  </div>
+                  <div class="text-xs text-stone-400">累计灵石</div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="text-center p-3 bg-amber-50 rounded-lg border border-amber-100">
+                  <div class="text-lg font-bold text-amber-600">{{ exhibit!.revenue.totalRevenue }}</div>
+                  <div class="text-[10px] text-stone-500">初始收益</div>
+                </div>
+                <div class="text-center p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div class="text-lg font-bold text-blue-600">{{ exhibit!.visitorCount }}</div>
+                  <div class="text-[10px] text-stone-500">访客人数</div>
+                </div>
+                <div class="text-center p-3 bg-green-50 rounded-lg border border-green-100">
+                  <div class="text-lg font-bold text-green-600">{{ exhibit!.displayQuality }}%</div>
+                  <div class="text-[10px] text-stone-500">展示品质</div>
+                </div>
+              </div>
+
+              <div class="mb-4 p-3 bg-stone-50 rounded-lg border border-stone-100">
+                <div class="text-xs text-stone-500 mb-2">收益构成</div>
+                <div class="space-y-1.5">
+                  <div v-for="item in exhibit!.revenue.breakdown" :key="item.label" class="flex items-center justify-between text-xs">
+                    <span class="text-stone-500">{{ item.label }}</span>
+                    <span class="font-medium text-stone-700">+{{ item.amount }}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <div class="text-xs text-stone-500 flex items-center gap-1 mb-3">
+                  <MessageSquare class="w-3 h-3" />
+                  <span>访客评价（{{ exhibit!.reviews.length }}条）</span>
+                </div>
+                <div class="space-y-2">
+                  <div
+                    v-for="review in exhibit!.reviews"
+                    :key="review.id"
+                    class="p-3 rounded-lg border"
+                    :class="sentimentConfig[review.sentiment]?.bgColor"
+                  >
+                    <div class="flex items-center gap-2 mb-1.5">
+                      <span class="text-lg">{{ review.visitorAvatar }}</span>
+                      <span class="text-sm font-medium text-stone-700">{{ review.visitorName }}</span>
+                      <span class="text-xs" :class="sentimentConfig[review.sentiment]?.color">
+                        {{ sentimentConfig[review.sentiment]?.icon }}
+                        {{ getRatingStars(review.rating) }}
+                      </span>
+                    </div>
+                    <p class="text-sm text-stone-600 pl-8">{{ review.comment }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-if="completedExhibits.length === 0" class="text-center py-16">
+            <div class="text-5xl mb-4">🏪</div>
+            <h3 class="text-xl font-serif font-bold text-stone-800 mb-2">陈列室尚无展品</h3>
+            <p class="text-stone-500">完成委托修复后，展品将在此展出并产生收益</p>
+          </div>
+        </div>
+
+        <div v-if="showroomStats.bestReview" class="mt-8">
+          <div class="card-warm p-5">
+            <h3 class="font-serif font-bold text-stone-800 mb-4 flex items-center gap-2">
+              <TrendingUp class="w-4 h-4 text-amber-500" />
+              <span>最佳评价</span>
+            </h3>
+            <div class="p-3 rounded-lg border bg-amber-50 border-amber-200">
+              <div class="flex items-center gap-2 mb-1.5">
+                <span class="text-lg">{{ showroomStats.bestReview.visitorAvatar }}</span>
+                <span class="text-sm font-medium text-stone-700">{{ showroomStats.bestReview.visitorName }}</span>
+                <span class="text-xs text-amber-600">
+                  {{ getRatingStars(showroomStats.bestReview.rating) }}
+                </span>
+              </div>
+              <p class="text-sm text-stone-600 pl-8">{{ showroomStats.bestReview.comment }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <div class="mt-12 text-center">
         <div class="inline-flex items-center gap-6 px-8 py-4 bg-stone-50/80 backdrop-blur-sm rounded-2xl border border-stone-200 shadow-sm">
           <div class="text-center">
@@ -474,6 +704,11 @@ onMounted(() => {
             <div class="text-2xl font-bold text-stone-800">{{ allScores.length }}</div>
             <div class="text-xs text-stone-400">评分记录</div>
           </div>
+          <div class="w-px h-10 bg-stone-200" />
+          <div class="text-center">
+            <div class="text-2xl font-bold text-amber-600">{{ showroomStats.totalRevenue }}</div>
+            <div class="text-xs text-stone-400">灵石收益</div>
+          </div>
         </div>
       </div>
     </div>
@@ -484,5 +719,15 @@ onMounted(() => {
 .gallery-page {
   background-color: #f5efe0;
   background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye } from 'lucide-vue-next'
+import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye, Coins, Users } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { SaveSlotInfo, SnapshotInfo, EndingReplay } from '../types'
+import { REPUTATION_LEVELS } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
@@ -13,6 +14,12 @@ const progress = computed(() => gameStore.completionProgress)
 const saveSlots = computed(() => gameStore.saveSlots)
 const lastActiveSlotId = computed(() => gameStore.lastActiveSlotId)
 const endingReplays = computed(() => gameStore.allEndingReplays)
+
+const showroomStats = computed(() => gameStore.getShowroomStats())
+const reputationConfig = computed(() => {
+  const level = showroomStats.value.reputationLevel
+  return REPUTATION_LEVELS.find(l => l.level === level) || REPUTATION_LEVELS[0]
+})
 
 const showSlotSelector = ref(false)
 const slotSelectorMode = ref<'continue' | 'new'>('continue')
@@ -392,6 +399,35 @@ const triggerLabelMap: Record<string, { label: string; icon: string; color: stri
           <RotateCcw class="w-3 h-3" />
           <span>清除存档</span>
         </button>
+      </div>
+
+      <div v-if="hasSave && showroomStats.exhibitCount > 0" class="mb-6 mx-auto max-w-sm">
+        <div class="bg-gradient-to-br from-amber-50/90 to-orange-50/90 backdrop-blur-sm rounded-xl p-4 border border-amber-200/60 shadow-sm">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="text-lg">{{ reputationConfig.icon }}</span>
+            <span class="text-sm font-medium text-amber-800">陈列室概况</span>
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center">
+            <div>
+              <div class="flex items-center justify-center gap-1 text-amber-600">
+                <Coins class="w-3.5 h-3.5" />
+                <span class="text-lg font-bold">{{ showroomStats.totalRevenue }}</span>
+              </div>
+              <div class="text-[10px] text-stone-500">灵石</div>
+            </div>
+            <div>
+              <div class="flex items-center justify-center gap-1 text-blue-600">
+                <Users class="w-3.5 h-3.5" />
+                <span class="text-lg font-bold">{{ showroomStats.totalVisitors }}</span>
+              </div>
+              <div class="text-[10px] text-stone-500">访客</div>
+            </div>
+            <div>
+              <div class="text-lg font-bold" :class="reputationConfig.color">{{ reputationConfig.label }}</div>
+              <div class="text-[10px] text-stone-500">口碑</div>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div class="mt-8 text-stone-400 text-xs space-y-2">

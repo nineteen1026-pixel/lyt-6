@@ -70,7 +70,8 @@ export function getInitialGameState(): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
@@ -323,7 +324,8 @@ function migrateFromV3ToV4(v3State: GameStateV3): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
@@ -391,7 +393,8 @@ function migrateFromV4ToV5(v4State: GameStateV4): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
@@ -467,7 +470,8 @@ function migrateFromV5ToV6(v5State: GameStateV5): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
@@ -545,7 +549,8 @@ function migrateFromV6ToV7(v6State: GameStateV6): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
@@ -626,11 +631,12 @@ function migrateFromV7ToV8(v7State: GameStateV7): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 }
 
-interface GameStateV8 {
+interface GameStateV1 {
   currentCommissionId: string | null
   currentChapterId: string | null
   currentStep: GameStep
@@ -707,7 +713,8 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
     scoreHistory: [],
     unlockedAchievements: [],
     currentScore: null,
-    branchTreeStates: {}
+    branchTreeStates: {},
+    showroomExhibits: {}
   }
 
   const configCommissionIds = new Set(commissions.map(c => c.id))
@@ -797,6 +804,7 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
         }
       }
     }
+    if (!(state as any).showroomExhibits) (state as any).showroomExhibits = {}
     return state
   }
 

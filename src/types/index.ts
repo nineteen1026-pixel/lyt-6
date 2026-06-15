@@ -644,6 +644,63 @@ export interface Achievement extends AchievementConfig {
   target?: number
 }
 
+export type ReputationLevel = 'emerging' | 'known' | 'respected' | 'renowned' | 'legendary'
+
+export const REPUTATION_LEVELS: { level: ReputationLevel; label: string; minScore: number; icon: string; color: string; bgColor: string; description: string }[] = [
+  { level: 'emerging', label: '初出茅庐', minScore: 0, icon: '🌱', color: 'text-stone-500', bgColor: 'bg-stone-50 border-stone-200', description: '你的店铺刚刚开业，还有很长的路要走' },
+  { level: 'known', label: '小有名气', minScore: 20, icon: '🏡', color: 'text-green-600', bgColor: 'bg-green-50 border-green-200', description: '附近的人开始知道你的手艺' },
+  { level: 'respected', label: '远近闻名', minScore: 45, icon: '🏪', color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200', description: '你的店铺是镇上修复旧物的首选' },
+  { level: 'renowned', label: '声名远扬', minScore: 70, icon: '🏛️', color: 'text-purple-600', bgColor: 'bg-purple-50 border-purple-200', description: '人们从远方慕名而来' },
+  { level: 'legendary', label: '传奇匠人', minScore: 90, icon: '👑', color: 'text-amber-500', bgColor: 'bg-amber-50 border-amber-200', description: '你的名字已成为修复技艺的代名词' }
+]
+
+export interface VisitorReview {
+  id: string
+  visitorName: string
+  visitorAvatar: string
+  rating: number
+  comment: string
+  timestamp: string
+  commissionId: string
+  sentiment: 'very_positive' | 'positive' | 'neutral' | 'negative'
+}
+
+export interface ExhibitRevenue {
+  baseRevenue: number
+  qualityBonus: number
+  reputationBonus: number
+  totalRevenue: number
+  currency: string
+  breakdown: {
+    label: string
+    amount: number
+  }[]
+}
+
+export interface ExhibitData {
+  commissionId: string
+  createdAt: string
+  revenue: ExhibitRevenue
+  reviews: VisitorReview[]
+  visitorCount: number
+  displayQuality: number
+  accumulatedRevenue: number
+  lastCollectedAt: string | null
+}
+
+export interface ShowroomStats {
+  totalRevenue: number
+  totalVisitors: number
+  averageRating: number
+  exhibitCount: number
+  reputationLevel: ReputationLevel
+  reputationScore: number
+  reputationProgress: number
+  nextLevelLabel: string | null
+  bestReview: VisitorReview | null
+  worstReview: VisitorReview | null
+}
+
 export interface GameState {
   currentCommissionId: string | null
   currentChapterId: string | null
@@ -682,6 +739,7 @@ export interface GameState {
   unlockedAchievements: string[]
   currentScore: MultiDimensionalScore | null
   branchTreeStates: Record<string, BranchTreeState>
+  showroomExhibits: Record<string, ExhibitData>
 }
 
 export interface ChoiceWeight {
