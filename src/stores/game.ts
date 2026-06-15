@@ -2681,7 +2681,8 @@ export const useGameStore = defineStore('game', () => {
     achievements.map(ach => ({
       ...ach,
       isUnlocked: state.value.unlockedAchievements.includes(ach.id),
-      progress: getAchievementProgress(ach)
+      progress: getAchievementProgress(ach),
+      target: getAchievementTarget(ach)
     }))
   )
 
@@ -2744,6 +2745,21 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function getAchievementTarget(achievement: AchievementConfig): number {
+    const condition = achievement.condition
+    
+    switch (condition.type) {
+      case 'all_endings': {
+        const commId = condition.value as string
+        return endings.filter(e => e.commissionId === commId).length
+      }
+      case 'grade':
+        return 1
+      default:
+        return typeof condition.value === 'number' ? condition.value : 1
+    }
+  }
+
   function checkAndUnlockAchievements(): Achievement[] {
     const newlyUnlocked: Achievement[] = []
     
@@ -2751,7 +2767,7 @@ export const useGameStore = defineStore('game', () => {
       if (state.value.unlockedAchievements.includes(ach.id)) continue
       
       const progress = getAchievementProgress(ach)
-      const target = typeof ach.condition.value === 'number' ? ach.condition.value : 1
+      const target = getAchievementTarget(ach)
       
       if (progress >= target) {
         state.value.unlockedAchievements.push(ach.id)
@@ -3876,6 +3892,7 @@ export const useGameStore = defineStore('game', () => {
     getGradeConfig,
     allAchievements,
     getAchievementProgress,
+    getAchievementTarget,
     checkAndUnlockAchievements,
     getUnlockedAchievements,
     getAchievementsByCategory,
