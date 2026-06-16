@@ -319,6 +319,7 @@ const triggerLabelMap: Record<string, { label: string; icon: string; color: stri
         <button
           :class="hasSave ? 'btn-secondary w-full text-lg py-4' : 'btn-primary w-full text-lg py-4'"
           @click="startNewGame"
+          data-tutorial="enter-shop"
         >
           <DoorOpen class="w-5 h-5" />
           <span>{{ hasSave ? '重新开始' : '踏入店铺' }}</span>

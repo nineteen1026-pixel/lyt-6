@@ -336,6 +336,7 @@ function toggleHistoryPanel() {
                 :key="hotspot.id"
                 class="absolute cursor-pointer group"
                 :style="getHotspotStyle(hotspot)"
+                data-tutorial="hotspot"
                 @click="handleHotspotClick(hotspot)"
               >
                 <div
@@ -407,6 +408,7 @@ function toggleHistoryPanel() {
                     : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
                 ]"
                 :disabled="!deductionUnlockProgress.unlocked"
+                data-tutorial="go-deduction"
                 @click="goToDeduction"
               >
                 <span>前往推理板</span>

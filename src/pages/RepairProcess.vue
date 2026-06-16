@@ -460,6 +460,7 @@ onMounted(() => {
                   : 'cursor-pointer',
                 choiceStyleClass(choice)
               ]"
+              data-tutorial="repair-choice"
               @click="selectChoice(choice)"
             >
               <div class="flex items-start gap-4">

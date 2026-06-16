@@ -169,7 +169,7 @@ onMounted(() => {
           </div>
 
           <Transition name="fade-up">
-            <div v-if="showScore && currentScore" class="mb-8">
+            <div v-if="showScore && currentScore" class="mb-8" data-tutorial="score-card">
               <div class="text-center mb-6">
                 <div class="inline-flex items-center gap-3 px-6 py-3 rounded-2xl shadow-lg" :class="gradeConfig?.bgColor || 'bg-stone-50'">
                   <Award class="w-8 h-8" :class="gradeConfig?.color || 'text-stone-600'" />

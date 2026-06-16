@@ -94,6 +94,7 @@ function handleClick() {
       isCompleted ? 'border-amber-300' : isLocked ? 'border-stone-300' : 'border-stone-200',
       isInProgress ? 'ring-2 ring-amber-400 ring-offset-2' : ''
     ]"
+    data-tutorial="commission-card"
     @click="handleClick"
   >
     <div v-if="isLocked" class="absolute inset-0 flex items-center justify-center bg-stone-900/10 backdrop-blur-[1px] rounded-lg z-10">

@@ -618,6 +618,7 @@ onMounted(() => {
                 v-for="clue in filteredClues"
                 :key="'node-' + clue.id"
                 :data-clue-node="clue.id"
+                data-tutorial="clue-card"
                 :class="[
                   'board-clue-node absolute w-40 cursor-grab active:cursor-grabbing transition-shadow duration-200',
                   isClueInConflict(clue.id) && 'ring-2 ring-rose-400 ring-offset-2',
@@ -850,6 +851,7 @@ onMounted(() => {
                     : 'bg-stone-200/60 text-stone-400 cursor-not-allowed rounded-xl'
                 ]"
                 :disabled="!repairUnlockProgress.unlocked"
+                data-tutorial="go-repair"
                 @click="goToRepair"
               >
                 <span>开始修复</span>
