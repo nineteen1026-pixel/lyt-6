@@ -53,13 +53,20 @@ import type {
   ReputationLevel,
   ShowroomStats,
   TutorialState,
-  TutorialStepKey
+  TutorialStepKey,
+  TimelineEventType,
+  TimelineEvent,
+  TimelineGroup,
+  TimelineFilterState,
+  TimelineStats,
+  DeductionConclusion
 } from '../types'
 import {
   SCORE_GRADES,
   SCORE_DIMENSION_CONFIG,
   REPUTATION_LEVELS,
-  TUTORIAL_STEPS
+  TUTORIAL_STEPS,
+  TIMELINE_EVENT_TYPE_CONFIG
 } from '../types'
 import { 
   getInitialGameState, 
@@ -3966,6 +3973,301 @@ export const useGameStore = defineStore('game', () => {
     }
   }
 
+  function getTimelineEventsForCommission(commissionId: string): TimelineEvent[] {
+    const events: TimelineEvent[] = []
+    let order = 0
+
+    const commission = commissions.find(c => c.id === commissionId)
+    if (!commission) return events
+
+    const chapter = chapters.find(c => c.id === commission.chapterId)
+
+    const status = getCommissionStatus(commissionId)
+    if (status !== 'locked') {
+      const startedAt = state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp
+      if (startedAt) {
+        const config = TIMELINE_EVENT_TYPE_CONFIG['commission_started']
+        events.push({
+          id: `tl-start-${commissionId}`,
+          commissionId,
+          type: 'commission_started',
+          timestamp: startedAt,
+          order: order++,
+          title: `开始委托：${commission.title}`,
+          content: `委托人${commission.clientAvatar}${commission.clientName}送来了${commission.item.name}，希望修复其中的记忆。`,
+          icon: config.icon,
+          color: config.color,
+          isKeyMoment: true
+        })
+      }
+    }
+
+    const collectedClues = clues.filter(c => 
+      c.commissionId === commissionId && state.value.collectedClues.includes(c.id)
+    )
+    collectedClues.forEach(clue => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['clue_collected']
+      const hotspot = commission.item.hotspots.find(h => h.clueId === clue.id)
+      events.push({
+        id: `tl-clue-${clue.id}`,
+        commissionId,
+        type: 'clue_collected',
+        timestamp: state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp || new Date().toISOString(),
+        order: order++,
+        title: `发现线索：${clue.title}`,
+        content: hotspot?.description || clue.content,
+        icon: config.icon,
+        color: config.color,
+        relatedClueIds: [clue.id]
+      })
+    })
+
+    const discoveredConns = connections.filter(c => {
+      const fromClue = clues.find(cl => cl.id === c.fromClueId)
+      return fromClue?.commissionId === commissionId && state.value.discoveredConnections.includes(c.id)
+    })
+    discoveredConns.forEach(conn => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['connection_discovered']
+      const fromClue = clues.find(c => c.id === conn.fromClueId)
+      const toClue = clues.find(c => c.id === conn.toClueId)
+      events.push({
+        id: `tl-conn-${conn.id}`,
+        commissionId,
+        type: 'connection_discovered',
+        timestamp: state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp || new Date().toISOString(),
+        order: order++,
+        title: `建立关联：${fromClue?.title} ↔ ${toClue?.title}`,
+        content: conn.conclusion,
+        icon: config.icon,
+        color: config.color,
+        relatedClueIds: [conn.fromClueId, conn.toClueId],
+        relatedConnectionId: conn.id,
+        isKeyMoment: conn.isKeyConnection
+      })
+    })
+
+    const conclusions = getArchivedConclusionsForCommission(commissionId)
+    conclusions.forEach(conclusion => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['conclusion_made']
+      const fromClue = clues.find(c => c.id === conclusion.fromClueId)
+      const toClue = clues.find(c => c.id === conclusion.toClueId)
+      events.push({
+        id: `tl-concl-${conclusion.id}`,
+        commissionId,
+        type: 'conclusion_made',
+        timestamp: conclusion.archivedAt,
+        order: order++,
+        title: `推理结论：${fromClue?.title} → ${toClue?.title}`,
+        content: conclusion.conclusionText,
+        icon: config.icon,
+        color: config.color,
+        relatedClueIds: [conclusion.fromClueId, conclusion.toClueId],
+        isKeyMoment: conclusion.isKeyConclusion
+      })
+    })
+
+    const branchHistory = getBranchTreeHistory(commissionId)
+    branchHistory.forEach(entry => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['repair_choice']
+      events.push({
+        id: `tl-repair-${entry.id}`,
+        commissionId,
+        type: 'repair_choice',
+        timestamp: entry.timestamp,
+        order: order++,
+        title: `修复选择：${entry.choiceLabel}`,
+        content: entry.isRemedy ? `这是一个补救选择，用于修正之前的决定。` : `在修复过程中做出了这个选择。`,
+        icon: config.icon,
+        color: config.color,
+        relatedChoiceId: entry.choiceId,
+        isKeyMoment: entry.endingType === 'good'
+      })
+    })
+
+    const notes = getNotesForCommission(commissionId)
+    notes.forEach(note => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['note_created']
+      events.push({
+        id: `tl-note-${note.id}`,
+        commissionId,
+        type: 'note_created',
+        timestamp: note.createdAt,
+        order: order++,
+        title: `笔记：${note.title}`,
+        content: note.content,
+        icon: config.icon,
+        color: config.color,
+        relatedNoteId: note.id,
+        relatedClueIds: note.clueId ? [note.clueId] : undefined,
+        isKeyMoment: note.isImportant
+      })
+    })
+
+    const unlockedEndings = endings.filter(e => 
+      e.commissionId === commissionId && state.value.unlockedEndings.includes(e.id)
+    )
+    unlockedEndings.forEach(ending => {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['ending_unlocked']
+      events.push({
+        id: `tl-ending-${ending.id}`,
+        commissionId,
+        type: 'ending_unlocked',
+        timestamp: state.value.scoreHistory.find(s => s.endingId === ending.id)?.achievedAt || new Date().toISOString(),
+        order: order++,
+        title: `解锁结局：${ending.title}`,
+        content: ending.story.substring(0, 150) + (ending.story.length > 150 ? '...' : ''),
+        icon: config.icon,
+        color: config.color,
+        relatedEndingId: ending.id,
+        isKeyMoment: true
+      })
+    })
+
+    if (state.value.completedCommissions.includes(commissionId)) {
+      const config = TIMELINE_EVENT_TYPE_CONFIG['commission_completed']
+      const completedAt = state.value.scoreHistory.find(s => s.commissionId === commissionId)?.achievedAt || new Date().toISOString()
+      events.push({
+        id: `tl-complete-${commissionId}`,
+        commissionId,
+        type: 'commission_completed',
+        timestamp: completedAt,
+        order: order++,
+        title: `完成委托：${commission.title}`,
+        content: `${commission.clientAvatar}${commission.clientName}的记忆已经修复完成，这段故事将被永远珍藏。`,
+        icon: config.icon,
+        color: config.color,
+        isKeyMoment: true
+      })
+    }
+
+    return events.sort((a, b) => a.order - b.order)
+  }
+
+  function getTimelineGroups(filter?: Partial<TimelineFilterState>): TimelineGroup[] {
+    const groups: TimelineGroup[] = []
+
+    const relevantCommissions = commissions.filter(c => {
+      const status = getCommissionStatus(c.id)
+      if (status === 'locked') return false
+      if (filter?.selectedCommissionIds?.length) {
+        return filter.selectedCommissionIds.includes(c.id)
+      }
+      if (filter?.selectedChapterIds?.length) {
+        return filter.selectedChapterIds.includes(c.chapterId)
+      }
+      return true
+    })
+
+    for (const commission of relevantCommissions) {
+      const chapter = chapters.find(c => c.id === commission.chapterId)
+      let events = getTimelineEventsForCommission(commission.id)
+
+      if (filter?.selectedEventTypes?.length) {
+        events = events.filter(e => filter.selectedEventTypes!.includes(e.type))
+      }
+
+      if (filter?.showKeyMomentsOnly) {
+        events = events.filter(e => e.isKeyMoment)
+      }
+
+      if (filter?.searchKeyword) {
+        const kw = filter.searchKeyword.toLowerCase()
+        events = events.filter(e => 
+          e.title.toLowerCase().includes(kw) || 
+          e.content.toLowerCase().includes(kw)
+        )
+      }
+
+      if (events.length === 0) continue
+
+      if (filter?.sortOrder === 'desc') {
+        events = [...events].reverse()
+      }
+
+      const keyMoments = events.filter(e => e.isKeyMoment)
+      const startedAt = events[0]?.timestamp
+      const completedAt = state.value.completedCommissions.includes(commission.id)
+        ? events[events.length - 1]?.timestamp
+        : undefined
+
+      groups.push({
+        commissionId: commission.id,
+        commissionTitle: commission.title,
+        commissionImage: commission.item.image,
+        clientName: commission.clientName,
+        clientAvatar: commission.clientAvatar,
+        chapterId: commission.chapterId,
+        chapterTitle: chapter?.title || '',
+        events,
+        startedAt,
+        completedAt,
+        isCompleted: state.value.completedCommissions.includes(commission.id),
+        totalEvents: events.length,
+        keyMoments
+      })
+    }
+
+    return groups
+  }
+
+  function getAllTimelineEvents(filter?: Partial<TimelineFilterState>): TimelineEvent[] {
+    const groups = getTimelineGroups(filter)
+    const allEvents: TimelineEvent[] = []
+    
+    for (const group of groups) {
+      allEvents.push(...group.events)
+    }
+
+    return allEvents.sort((a, b) => {
+      const dateA = new Date(a.timestamp).getTime()
+      const dateB = new Date(b.timestamp).getTime()
+      return filter?.sortOrder === 'desc' ? dateB - dateA : dateA - dateB
+    })
+  }
+
+  function getTimelineStats(): TimelineStats {
+    const allEvents = getAllTimelineEvents()
+    const completedCommissions = state.value.completedCommissions.length
+    const activeCommissions = commissions.filter(c => 
+      getCommissionStatus(c.id) === 'in_progress'
+    ).length
+
+    const eventTypeBreakdown: Record<TimelineEventType, number> = {
+      clue_collected: 0,
+      connection_discovered: 0,
+      conclusion_made: 0,
+      ending_unlocked: 0,
+      repair_choice: 0,
+      note_created: 0,
+      commission_started: 0,
+      commission_completed: 0
+    }
+
+    allEvents.forEach(e => {
+      eventTypeBreakdown[e.type]++
+    })
+
+    const totalCommissions = completedCommissions + activeCommissions
+
+    return {
+      totalCommissions,
+      completedCommissions,
+      totalEvents: allEvents.length,
+      keyMomentsCount: allEvents.filter(e => e.isKeyMoment).length,
+      totalCluesCollected: eventTypeBreakdown['clue_collected'],
+      totalConnectionsDiscovered: eventTypeBreakdown['connection_discovered'],
+      totalEndingsUnlocked: eventTypeBreakdown['ending_unlocked'],
+      totalNotesCreated: eventTypeBreakdown['note_created'],
+      eventTypeBreakdown,
+      averageEventsPerCommission: totalCommissions > 0 ? Math.round(allEvents.length / totalCommissions) : 0,
+      completionPercentage: commissions.length > 0 ? Math.round((completedCommissions / commissions.length) * 100) : 0
+    }
+  }
+
+  function searchTimeline(keyword: string, filter?: Partial<TimelineFilterState>): TimelineEvent[] {
+    return getAllTimelineEvents({ ...filter, searchKeyword: keyword })
+  }
+
   return {
     currentSlotId,
     lastActiveSlotId,
@@ -4176,6 +4478,11 @@ export const useGameStore = defineStore('game', () => {
     setTutorialCurrentStep,
     getNextTutorialStep,
     isTutorialStepEligible,
-    getTutorialProgress
+    getTutorialProgress,
+    getTimelineEventsForCommission,
+    getTimelineGroups,
+    getAllTimelineEvents,
+    getTimelineStats,
+    searchTimeline
   }
 })

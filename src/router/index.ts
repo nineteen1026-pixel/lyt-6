@@ -7,6 +7,7 @@ import RepairProcess from '@/pages/RepairProcess.vue'
 import EndingPage from '@/pages/EndingPage.vue'
 import GalleryPage from '@/pages/GalleryPage.vue'
 import RoadmapPage from '@/pages/RoadmapPage.vue'
+import TimelinePage from '@/pages/TimelinePage.vue'
 import { useGameStore } from '@/stores/game'
 import { TUTORIAL_STEPS } from '@/types'
 import type { TutorialStepKey, TutorialRouteGuardAction } from '@/types'
@@ -59,6 +60,11 @@ const routes = [
     name: 'gallery',
     component: GalleryPage,
     meta: { tutorialKey: 'gallery_intro' as TutorialStepKey },
+  },
+  {
+    path: '/timeline',
+    name: 'timeline',
+    component: TimelinePage,
   },
 ]
 

@@ -1177,3 +1177,91 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
 
 export const TUTORIAL_VERSION = '1.0.0'
 
+export type TimelineEventType =
+  | 'clue_collected'
+  | 'connection_discovered'
+  | 'conclusion_made'
+  | 'ending_unlocked'
+  | 'repair_choice'
+  | 'note_created'
+  | 'commission_started'
+  | 'commission_completed'
+
+export interface TimelineEvent {
+  id: string
+  commissionId: string
+  type: TimelineEventType
+  timestamp: string
+  order: number
+  title: string
+  content: string
+  icon: string
+  color: string
+  relatedClueIds?: string[]
+  relatedConnectionId?: string
+  relatedEndingId?: string
+  relatedNoteId?: string
+  relatedChoiceId?: string
+  isKeyMoment?: boolean
+}
+
+export interface TimelineGroup {
+  commissionId: string
+  commissionTitle: string
+  commissionImage: string
+  clientName: string
+  clientAvatar: string
+  chapterId: string
+  chapterTitle: string
+  events: TimelineEvent[]
+  startedAt?: string
+  completedAt?: string
+  isCompleted: boolean
+  totalEvents: number
+  keyMoments: TimelineEvent[]
+}
+
+export interface TimelineFilterState {
+  selectedCommissionIds: string[]
+  selectedEventTypes: TimelineEventType[]
+  selectedChapterIds: string[]
+  searchKeyword: string
+  showKeyMomentsOnly: boolean
+  sortOrder: 'asc' | 'desc'
+  groupByCommission: boolean
+}
+
+export interface TimelinePlaybackState {
+  isPlaying: boolean
+  currentEventIndex: number
+  currentGroupIndex: number
+  playbackSpeed: number
+  isPaused: boolean
+  highlightedEventId: string | null
+}
+
+export interface TimelineStats {
+  totalCommissions: number
+  completedCommissions: number
+  totalEvents: number
+  keyMomentsCount: number
+  totalCluesCollected: number
+  totalConnectionsDiscovered: number
+  totalEndingsUnlocked: number
+  totalNotesCreated: number
+  eventTypeBreakdown: Record<TimelineEventType, number>
+  averageEventsPerCommission: number
+  completionPercentage: number
+}
+
+export const TIMELINE_EVENT_TYPE_CONFIG: Record<TimelineEventType, { label: string; icon: string; color: string; bgColor: string }> = {
+  clue_collected: { label: '线索发现', icon: '🔍', color: 'text-blue-600', bgColor: 'bg-blue-50 border-blue-200' },
+  connection_discovered: { label: '关联建立', icon: '🔗', color: 'text-purple-600', bgColor: 'bg-purple-50 border-purple-200' },
+  conclusion_made: { label: '推理结论', icon: '💡', color: 'text-amber-600', bgColor: 'bg-amber-50 border-amber-200' },
+  ending_unlocked: { label: '结局解锁', icon: '✨', color: 'text-green-600', bgColor: 'bg-green-50 border-green-200' },
+  repair_choice: { label: '修复选择', icon: '🔧', color: 'text-orange-600', bgColor: 'bg-orange-50 border-orange-200' },
+  note_created: { label: '笔记记录', icon: '📝', color: 'text-stone-600', bgColor: 'bg-stone-50 border-stone-200' },
+  commission_started: { label: '委托开始', icon: '🎯', color: 'text-indigo-600', bgColor: 'bg-indigo-50 border-indigo-200' },
+  commission_completed: { label: '委托完成', icon: '🏆', color: 'text-amber-500', bgColor: 'bg-amber-50 border-amber-200' }
+}
+

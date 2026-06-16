@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye, Coins, Users } from 'lucide-vue-next'
+import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye, Coins, Users, GitBranch } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import type { SaveSlotInfo, SnapshotInfo, EndingReplay } from '../types'
 import { REPUTATION_LEVELS } from '../types'
@@ -219,6 +219,10 @@ function goToRoadmap() {
   router.push('/roadmap')
 }
 
+function goToTimeline() {
+  router.push('/timeline')
+}
+
 function resetGame() {
   if (confirm('确定要清除所有存档数据吗？此操作不可恢复。')) {
     gameStore.clearAllData()
@@ -325,7 +329,7 @@ const triggerLabelMap: Record<string, { label: string; icon: string; color: stri
           <span>{{ hasSave ? '重新开始' : '踏入店铺' }}</span>
         </button>
 
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-3 gap-3">
           <button
             class="btn-secondary py-3"
             @click="goToGallery"
@@ -339,6 +343,13 @@ const triggerLabelMap: Record<string, { label: string; icon: string; color: stri
           >
             <Map class="w-4 h-4" />
             <span class="text-sm">路线图</span>
+          </button>
+          <button
+            class="btn-secondary py-3"
+            @click="goToTimeline"
+          >
+            <GitBranch class="w-4 h-4" />
+            <span class="text-sm">时间线</span>
           </button>
         </div>
 
