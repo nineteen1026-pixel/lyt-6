@@ -520,6 +520,7 @@ export const useGameStore = defineStore('game', () => {
   function collectClue(clueId: string) {
     if (!state.value.collectedClues.includes(clueId)) {
       state.value.collectedClues.push(clueId)
+      state.value.collectedClueTimestamps[clueId] = new Date().toISOString()
       if (state.value.currentCommissionId) {
         checkAndUnlockSteps(state.value.currentCommissionId)
       }
@@ -530,6 +531,7 @@ export const useGameStore = defineStore('game', () => {
   function discoverConnection(connectionId: string) {
     if (!state.value.discoveredConnections.includes(connectionId)) {
       state.value.discoveredConnections.push(connectionId)
+      state.value.discoveredConnectionTimestamps[connectionId] = new Date().toISOString()
       if (state.value.currentCommissionId) {
         checkAndUnlockSteps(state.value.currentCommissionId)
       }
@@ -578,17 +580,32 @@ export const useGameStore = defineStore('game', () => {
     if (!state.value.currentCommissionId) return
     
     const commissionId = state.value.currentCommissionId
-    
+
+    const clueIdsToRemove = state.value.collectedClues.filter(id => {
+      const clue = clues.find(c => c.id === id)
+      return clue?.commissionId === commissionId
+    })
     state.value.collectedClues = state.value.collectedClues.filter(id => {
       const clue = clues.find(c => c.id === id)
       return clue?.commissionId !== commissionId
     })
-    
+    for (const id of clueIdsToRemove) {
+      delete state.value.collectedClueTimestamps[id]
+    }
+
+    const connIdsToRemove = state.value.discoveredConnections.filter(id => {
+      const conn = connections.find(c => c.id === id)
+      const fromClue = clues.find(c => c.id === conn?.fromClueId)
+      return fromClue?.commissionId === commissionId
+    })
     state.value.discoveredConnections = state.value.discoveredConnections.filter(id => {
       const conn = connections.find(c => c.id === id)
       const fromClue = clues.find(c => c.id === conn?.fromClueId)
       return fromClue?.commissionId !== commissionId
     })
+    for (const id of connIdsToRemove) {
+      delete state.value.discoveredConnectionTimestamps[id]
+    }
     
     state.value.currentEndingType = null
     state.value.currentStep = 'item'
@@ -3975,24 +3992,23 @@ export const useGameStore = defineStore('game', () => {
 
   function getTimelineEventsForCommission(commissionId: string): TimelineEvent[] {
     const events: TimelineEvent[] = []
-    let order = 0
 
     const commission = commissions.find(c => c.id === commissionId)
     if (!commission) return events
 
     const chapter = chapters.find(c => c.id === commission.chapterId)
+    const commissionStartedAt = state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp
 
     const status = getCommissionStatus(commissionId)
     if (status !== 'locked') {
-      const startedAt = state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp
-      if (startedAt) {
+      if (commissionStartedAt) {
         const config = TIMELINE_EVENT_TYPE_CONFIG['commission_started']
         events.push({
           id: `tl-start-${commissionId}`,
           commissionId,
           type: 'commission_started',
-          timestamp: startedAt,
-          order: order++,
+          timestamp: commissionStartedAt,
+          order: 0,
           title: `开始委托：${commission.title}`,
           content: `委托人${commission.clientAvatar}${commission.clientName}送来了${commission.item.name}，希望修复其中的记忆。`,
           icon: config.icon,
@@ -4002,18 +4018,19 @@ export const useGameStore = defineStore('game', () => {
       }
     }
 
-    const collectedClues = clues.filter(c => 
+    const collectedCluesList = clues.filter(c => 
       c.commissionId === commissionId && state.value.collectedClues.includes(c.id)
     )
-    collectedClues.forEach(clue => {
+    collectedCluesList.forEach(clue => {
       const config = TIMELINE_EVENT_TYPE_CONFIG['clue_collected']
       const hotspot = commission.item.hotspots.find(h => h.clueId === clue.id)
+      const clueTimestamp = state.value.collectedClueTimestamps[clue.id] || commissionStartedAt || new Date().toISOString()
       events.push({
         id: `tl-clue-${clue.id}`,
         commissionId,
         type: 'clue_collected',
-        timestamp: state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp || new Date().toISOString(),
-        order: order++,
+        timestamp: clueTimestamp,
+        order: 1,
         title: `发现线索：${clue.title}`,
         content: hotspot?.description || clue.content,
         icon: config.icon,
@@ -4030,12 +4047,13 @@ export const useGameStore = defineStore('game', () => {
       const config = TIMELINE_EVENT_TYPE_CONFIG['connection_discovered']
       const fromClue = clues.find(c => c.id === conn.fromClueId)
       const toClue = clues.find(c => c.id === conn.toClueId)
+      const connTimestamp = state.value.discoveredConnectionTimestamps[conn.id] || commissionStartedAt || new Date().toISOString()
       events.push({
         id: `tl-conn-${conn.id}`,
         commissionId,
         type: 'connection_discovered',
-        timestamp: state.value.dialogueHistory.find(h => h.commissionId === commissionId)?.timestamp || new Date().toISOString(),
-        order: order++,
+        timestamp: connTimestamp,
+        order: 2,
         title: `建立关联：${fromClue?.title} ↔ ${toClue?.title}`,
         content: conn.conclusion,
         icon: config.icon,
@@ -4056,7 +4074,7 @@ export const useGameStore = defineStore('game', () => {
         commissionId,
         type: 'conclusion_made',
         timestamp: conclusion.archivedAt,
-        order: order++,
+        order: 3,
         title: `推理结论：${fromClue?.title} → ${toClue?.title}`,
         content: conclusion.conclusionText,
         icon: config.icon,
@@ -4074,7 +4092,7 @@ export const useGameStore = defineStore('game', () => {
         commissionId,
         type: 'repair_choice',
         timestamp: entry.timestamp,
-        order: order++,
+        order: 4,
         title: `修复选择：${entry.choiceLabel}`,
         content: entry.isRemedy ? `这是一个补救选择，用于修正之前的决定。` : `在修复过程中做出了这个选择。`,
         icon: config.icon,
@@ -4092,7 +4110,7 @@ export const useGameStore = defineStore('game', () => {
         commissionId,
         type: 'note_created',
         timestamp: note.createdAt,
-        order: order++,
+        order: 5,
         title: `笔记：${note.title}`,
         content: note.content,
         icon: config.icon,
@@ -4113,7 +4131,7 @@ export const useGameStore = defineStore('game', () => {
         commissionId,
         type: 'ending_unlocked',
         timestamp: state.value.scoreHistory.find(s => s.endingId === ending.id)?.achievedAt || new Date().toISOString(),
-        order: order++,
+        order: 6,
         title: `解锁结局：${ending.title}`,
         content: ending.story.substring(0, 150) + (ending.story.length > 150 ? '...' : ''),
         icon: config.icon,
@@ -4131,7 +4149,7 @@ export const useGameStore = defineStore('game', () => {
         commissionId,
         type: 'commission_completed',
         timestamp: completedAt,
-        order: order++,
+        order: 7,
         title: `完成委托：${commission.title}`,
         content: `${commission.clientAvatar}${commission.clientName}的记忆已经修复完成，这段故事将被永远珍藏。`,
         icon: config.icon,
@@ -4140,7 +4158,11 @@ export const useGameStore = defineStore('game', () => {
       })
     }
 
-    return events.sort((a, b) => a.order - b.order)
+    return events.sort((a, b) => {
+      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      if (timeDiff !== 0) return timeDiff
+      return a.order - b.order
+    })
   }
 
   function getTimelineGroups(filter?: Partial<TimelineFilterState>): TimelineGroup[] {

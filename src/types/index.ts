@@ -724,7 +724,9 @@ export interface GameState {
   completedCommissions: string[]
   unlockedChapters: string[]
   collectedClues: string[]
+  collectedClueTimestamps: Record<string, string>
   discoveredConnections: string[]
+  discoveredConnectionTimestamps: Record<string, string>
   unlockedEndings: string[]
   currentEndingType: string | null
   lastSaveTime: string | null
