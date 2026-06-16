@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { Lock } from 'lucide-vue-next'
 import type { Commission } from '../types'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import { cn } from '../lib/utils'
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const status = computed(() => gameStore.getCommissionStatus(props.commission.id))
 
@@ -70,9 +72,11 @@ const difficultyColor = computed(() => {
 
 function handleClick() {
   if (isLocked.value) {
+    playError()
     emit('locked-click', props.commission)
     return
   }
+  playTransition()
   if (status.value === 'pending'
       && gameStore.hasDialogueForSession(props.commission.id, 'commission_accept')
       && !gameStore.hasCompletedDialogueForType(props.commission.id, 'commission_accept')) {

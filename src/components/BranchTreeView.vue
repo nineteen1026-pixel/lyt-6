@@ -4,6 +4,7 @@ import { GitBranch, X, RotateCcw, Map, History, Shield, Sparkles } from 'lucide-
 import { useGameStore } from '../stores/game'
 import BranchTreeNode from './BranchTreeNode.vue'
 import BranchTreeHistory from './BranchTreeHistory.vue'
+import { useSound } from '../composables/useSound'
 
 const props = defineProps<{
   commissionId: string
@@ -17,6 +18,7 @@ const emit = defineEmits<{
 }>()
 
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const expandedNodes = ref<Set<string>>(new Set())
 const activeTab = ref<'tree' | 'history'>('tree')
@@ -54,6 +56,7 @@ function expandToCurrentNode() {
 }
 
 function handleToggle(nodeId: string) {
+  playClick()
   if (expandedNodes.value.has(nodeId)) {
     expandedNodes.value.delete(nodeId)
   } else {
@@ -62,20 +65,33 @@ function handleToggle(nodeId: string) {
 }
 
 function handleJump(nodeId: string) {
+  playTransition()
   emit('jumpToNode', nodeId)
 }
 
 function handleGoBack() {
+  playUndo()
   emit('goBack')
 }
 
 function handleApplyRemedy(remedyId: string) {
+  playDiscover()
   const treeStateVal = treeState.value
   if (!treeStateVal) return
   const remedy = treeStateVal.remedies.find(r => r.id === remedyId)
   if (!remedy) return
   const stepIndex = remedy.stepId.split('-').map(Number).pop() || 0
   emit('applyRemedy', remedyId, stepIndex - 1)
+}
+
+function handleClose() {
+  playClick()
+  emit('close')
+}
+
+function setActiveTab(tab: 'tree' | 'history') {
+  playClick()
+  activeTab.value = tab
 }
 
 function formatWeight(weight: number): string {
@@ -99,7 +115,7 @@ const weightDistribution = computed(() => {
         </div>
         <button
           class="text-stone-400 hover:text-stone-600 transition-colors p-1 rounded-lg hover:bg-stone-100"
-          @click="emit('close')"
+          @click="handleClose"
         >
           <X class="w-5 h-5" />
         </button>
@@ -194,7 +210,7 @@ const weightDistribution = computed(() => {
       <button
         class="flex-1 py-2 text-xs font-serif transition-colors flex items-center justify-center gap-1.5"
         :class="activeTab === 'tree' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-stone-400 hover:text-stone-600'"
-        @click="activeTab = 'tree'"
+        @click="setActiveTab('tree')"
       >
         <GitBranch class="w-3.5 h-3.5" />
         <span>分支图</span>
@@ -202,7 +218,7 @@ const weightDistribution = computed(() => {
       <button
         class="flex-1 py-2 text-xs font-serif transition-colors flex items-center justify-center gap-1.5"
         :class="activeTab === 'history' ? 'text-amber-600 border-b-2 border-amber-500' : 'text-stone-400 hover:text-stone-600'"
-        @click="activeTab = 'history'"
+        @click="setActiveTab('history')"
       >
         <History class="w-3.5 h-3.5" />
         <span>历史</span>

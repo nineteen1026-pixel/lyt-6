@@ -4,11 +4,13 @@ import { useRouter } from 'vue-router'
 import { ArrowLeft, Lock, CheckCircle, Clock, ChevronRight } from 'lucide-vue-next'
 import CommissionCard from '../components/CommissionCard.vue'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import { cn } from '../lib/utils'
 import type { Commission } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const selectedChapterId = ref<string | null>(null)
 
@@ -49,13 +51,16 @@ function handleChapterClick(chapterId: string) {
   if (!chapter) return
   
   if (!chapter.isUnlocked) {
+    playError()
     return
   }
   
+  playClick()
   selectedChapterId.value = selectedChapterId.value === chapterId ? null : chapterId
 }
 
 function handleLockedCommissionClick(commission: Commission) {
+  playError()
   const prereqNames = commission.prerequisiteCommissionIds
     .map(id => gameStore.getCommissionById(id)?.title)
     .filter(Boolean)
@@ -64,10 +69,12 @@ function handleLockedCommissionClick(commission: Commission) {
 }
 
 function goBack() {
+  playClick()
   router.push('/')
 }
 
 function goToCommissions() {
+  playClick()
   router.push('/commissions')
 }
 

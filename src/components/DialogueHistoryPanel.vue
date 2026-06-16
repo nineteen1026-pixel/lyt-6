@@ -38,7 +38,7 @@
 
             <div class="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1 scrollbar-hide">
               <button
-                @click="selectedCommissionId = null"
+                @click="selectCommission(null)"
                 class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                 :class="selectedCommissionId === null
                   ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
@@ -49,7 +49,7 @@
               <button
                 v-for="commission in availableCommissions"
                 :key="commission.id"
-                @click="selectedCommissionId = commission.id"
+                @click="selectCommission(commission.id)"
                 class="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all"
                 :class="selectedCommissionId === commission.id
                   ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/30'
@@ -196,6 +196,7 @@ import { ref, computed, watch } from 'vue'
 import { useGameStore } from '../stores/game'
 import type { DialogueHistoryEntry, DialogueCharacter } from '../types'
 import { commissions } from '../data/gameData'
+import { useSound } from '../composables/useSound'
 
 const props = defineProps<{
   modelValue: boolean
@@ -207,6 +208,7 @@ const emit = defineEmits<{
 }>()
 
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 const searchKeyword = ref('')
 const selectedCommissionId = ref<string | null>(props.commissionId || null)
 const scrollContainerRef = ref<HTMLElement | null>(null)
@@ -264,14 +266,21 @@ function getCommissionName(id: string): string {
 }
 
 function handleClose() {
+  playClick()
   emit('update:modelValue', false)
 }
 
 function scrollToBottom() {
+  playClick()
   const container = document.querySelector('.flex-1.overflow-y-auto') as HTMLElement | null
   if (container) {
     container.scrollTo({ top: container.scrollHeight, behavior: 'smooth' })
   }
+}
+
+function selectCommission(id: string | null) {
+  selectedCommissionId.value = id
+  playClick()
 }
 
 function isPlayerSide(speaker: DialogueCharacter): boolean {

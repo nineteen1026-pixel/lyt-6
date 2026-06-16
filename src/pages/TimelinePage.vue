@@ -19,6 +19,7 @@ import {
   Layers
 } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import type { 
   TimelineEvent, 
   TimelineGroup, 
@@ -30,6 +31,7 @@ import { TIMELINE_EVENT_TYPE_CONFIG } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const viewMode = ref<'grouped' | 'chronological'>('grouped')
 const expandedGroups = ref<Set<string>>(new Set())
@@ -116,6 +118,7 @@ function toggleCommission(commissionId: string) {
 }
 
 function toggleChapter(chapterId: string) {
+  playClick()
   const idx = filter.value.selectedChapterIds.indexOf(chapterId)
   if (idx >= 0) {
     filter.value.selectedChapterIds.splice(idx, 1)
@@ -137,6 +140,7 @@ function clearFilters() {
 }
 
 function goBack() {
+  playClick()
   router.push('/')
 }
 
@@ -163,6 +167,7 @@ function clearHighlight() {
 }
 
 function startPlayback() {
+  playClick()
   if (viewMode.value === 'grouped') {
     if (timelineGroups.value.length === 0) return
     playbackState.value.isPlaying = true
@@ -181,6 +186,7 @@ function startPlayback() {
 }
 
 function pausePlayback() {
+  playClick()
   playbackState.value.isPaused = true
   playbackState.value.isPlaying = false
 }
@@ -237,6 +243,7 @@ function playNextChronologicalEvent() {
 }
 
 function skipBack() {
+  playClick()
   if (playbackState.value.currentEventIndex > 0) {
     playbackState.value.currentEventIndex--
   }
@@ -264,6 +271,24 @@ function viewEnding(endingId: string) {
 
 function viewCommission(commissionId: string) {
   router.push(`/commission/${commissionId}`)
+}
+
+function setViewMode(mode: 'grouped' | 'chronological') {
+  playClick()
+  viewMode.value = mode
+}
+
+function toggleFilterPanel() {
+  playClick()
+  showFilterPanel.value = !showFilterPanel.value
+}
+
+function handleSortOrderChange() {
+  playClick()
+}
+
+function handleKeyMomentsOnlyChange() {
+  playClick()
 }
 
 watch(() => viewMode.value, () => {
@@ -346,7 +371,7 @@ onMounted(() => {
             <button
               class="flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition-all"
               :class="showFilterPanel ? 'bg-amber-500 text-white' : 'bg-white text-stone-600 border-2 border-stone-200 hover:border-amber-300'"
-              @click="showFilterPanel = !showFilterPanel"
+              @click="toggleFilterPanel"
             >
               <Filter class="w-4 h-4" />
               <span>筛选</span>
@@ -356,7 +381,7 @@ onMounted(() => {
               <button
                 class="px-4 py-2.5 font-medium transition-all"
                 :class="viewMode === 'grouped' ? 'bg-amber-500 text-white' : 'text-stone-600 hover:bg-stone-50'"
-                @click="viewMode = 'grouped'"
+                @click="setViewMode('grouped')"
               >
                 按委托
               </button>
@@ -473,6 +498,7 @@ onMounted(() => {
                 <input
                   type="checkbox"
                   v-model="filter.showKeyMomentsOnly"
+                  @change="handleKeyMomentsOnlyChange"
                   class="w-4 h-4 rounded text-amber-500 focus:ring-amber-400"
                 />
                 <span class="text-sm text-stone-600">仅显示关键时刻</span>
@@ -483,6 +509,7 @@ onMounted(() => {
                 <span class="text-sm text-stone-500">排序：</span>
                 <select
                   v-model="filter.sortOrder"
+                  @change="handleSortOrderChange"
                   class="px-3 py-1.5 rounded-lg border-2 border-stone-200 text-sm focus:border-amber-400 focus:outline-none"
                 >
                   <option value="asc">正序（旧→新）</option>

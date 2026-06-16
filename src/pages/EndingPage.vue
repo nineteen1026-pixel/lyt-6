@@ -3,12 +3,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Home, ArrowRight, ScrollText, Award, TrendingUp, Star, CheckCircle, XCircle, MinusCircle, GitBranch, RotateCcw, Coins, Users, MessageSquare } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import type { MultiDimensionalScore, Achievement, BranchTreeNode } from '../types'
 import { REPUTATION_LEVELS } from '../types'
 
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const showStory = ref(false)
 const showScore = ref(false)
@@ -58,20 +60,29 @@ const currentPathNodes = computed<BranchTreeNode[]>(() => {
 })
 
 function goHome() {
+  playClick()
   router.push('/')
 }
 
 function goToGallery() {
+  playClick()
   router.push('/gallery')
 }
 
 function goToCommissions() {
+  playClick()
   router.push('/commissions')
 }
 
 function replayRepair() {
+  playTransition()
   gameStore.initBranchTree(commissionId.value)
   router.push(`/repair/${commissionId.value}`)
+}
+
+function closeAchievements() {
+  playClick()
+  showAchievements.value = false
 }
 
 function getChoiceIcon(type: string) {
@@ -107,6 +118,7 @@ onMounted(() => {
   newlyUnlockedAchievements.value = gameStore.checkAndUnlockAchievements()
   if (newlyUnlockedAchievements.value.length > 0) {
     setTimeout(() => {
+      playDiscover()
       showAchievements.value = true
     }, 2000)
   }
@@ -411,7 +423,7 @@ onMounted(() => {
                 </div>
                 <button
                   class="w-full py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
-                  @click="showAchievements = false"
+                  @click="closeAchievements"
                 >
                   太棒了！
                 </button>

@@ -7,9 +7,11 @@ import type { Ending, Commission, MultiDimensionalScore, Achievement, ExhibitDat
 import { REPUTATION_LEVELS } from '../types'
 import { useAchievements } from '../composables/useAchievements'
 import AchievementDetail from '../components/AchievementDetail.vue'
+import { useSound } from '../composables/useSound'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const activeTab = ref<'endings' | 'achievements' | 'scores' | 'showroom'>('endings')
 
@@ -52,15 +54,27 @@ const rarityStats = computed(() => getRarityStats())
 const categoryStats = computed(() => getCategoryStats())
 
 function viewAchievementDetail(achievement: Achievement) {
+  playClick()
   selectedAchievement.value = achievement
   showAchievementDetail.value = true
 }
 
 function closeAchievementDetail() {
+  playClick()
   showAchievementDetail.value = false
   setTimeout(() => {
     selectedAchievement.value = null
   }, 300)
+}
+
+function setActiveTab(tab: 'endings' | 'achievements' | 'scores' | 'showroom') {
+  playClick()
+  activeTab.value = tab
+}
+
+function setAchievementFilter(filter: 'all' | 'score' | 'ending' | 'collection' | 'special') {
+  playClick()
+  achievementFilter.value = filter
 }
 
 const unlockedEndingIds = computed(() => gameStore.state.unlockedEndings)
@@ -145,11 +159,16 @@ const sentimentConfig: Record<string, { label: string; color: string; bgColor: s
 }
 
 function goBack() {
+  playTransition()
   router.push('/')
 }
 
 function viewEnding(ending: Ending) {
-  if (!isEndingUnlocked(ending.id)) return
+  if (!isEndingUnlocked(ending.id)) {
+    playError()
+    return
+  }
+  playTransition()
   router.push(`/ending/${ending.commissionId}/${ending.type}`)
 }
 
@@ -174,6 +193,7 @@ function getGradeBgColor(grade: string): string {
 }
 
 function handleCollectAll() {
+  playSuccess()
   const result = gameStore.collectAllExhibitRevenue()
   collectResult.value = { amount: result.totalCollected, count: result.exhibitCount }
   setTimeout(() => {
@@ -259,7 +279,7 @@ onMounted(() => {
           :class="activeTab === tab.key 
             ? 'bg-amber-500 text-white shadow-lg' 
             : 'bg-white text-stone-600 border-2 border-stone-200 hover:border-amber-300'"
-          @click="activeTab = tab.key as any"
+          @click="setActiveTab(tab.key as any)"
         >
           <component :is="tab.icon" class="w-4 h-4" />
           <span>{{ tab.label }}</span>
@@ -437,7 +457,7 @@ onMounted(() => {
             :class="achievementFilter === cat.key 
               ? 'bg-amber-500 text-white shadow-md' 
               : 'bg-white text-stone-600 border border-stone-200 hover:border-amber-300'"
-            @click="achievementFilter = cat.key as any"
+            @click="setAchievementFilter(cat.key as any)"
           >
             {{ cat.label }}
           </button>

@@ -3,9 +3,10 @@
 function withOpacity(variableName, fallback) {
   return ({ opacityValue }) => {
     if (opacityValue !== undefined) {
-      return `rgba(var(${variableName}), ${opacityValue})`
+      const pct = Math.round(Number(opacityValue) * 100)
+      return `color-mix(in srgb, var(${variableName}, ${fallback}) ${pct}%, transparent)`
     }
-    return fallback
+    return `var(${variableName}, ${fallback})`
   }
 }
 

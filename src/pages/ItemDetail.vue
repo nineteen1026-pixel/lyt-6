@@ -7,10 +7,12 @@ import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import type { Hotspot, Tag, Note, DynamicDifficultyLevel } from '../types'
+import { useSound } from '../composables/useSound'
 
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const selectedHotspot = ref<Hotspot | null>(null)
 const foundClue = ref<{ id: string; title: string } | null>(null)
@@ -140,16 +142,26 @@ function handleHotspotClick(hotspot: Hotspot) {
     const clue = gameStore.getClueById(hotspot.clueId)
     if (clue) {
       foundClue.value = { id: clue.id, title: clue.title }
+      playDiscover()
       setTimeout(() => { foundClue.value = null }, 2500)
     }
+  } else {
+    playClick()
   }
 }
 
-function closeModal() { selectedHotspot.value = null }
+function closeModal() {
+  playClick()
+  selectedHotspot.value = null
+}
 
-function goBack() { router.push('/commissions') }
+function goBack() {
+  playTransition()
+  router.push('/commissions')
+}
 
 function goToDeduction() {
+  playTransition()
   gameStore.setCurrentStep('deduction')
   router.push(`/deduction/${commissionId.value}`)
 }
@@ -186,12 +198,14 @@ function getHotspotGlowStyle(hotspot: Hotspot) {
 }
 
 function toggleTag(tagId: string) {
+  playClick()
   const i = localTagFilters.value.indexOf(tagId)
   if (i >= 0) localTagFilters.value.splice(i, 1)
   else localTagFilters.value.push(tagId)
 }
 
 function openNewNote(clueId?: string) {
+  playClick()
   editingNote.value = null
   activeClueForNote.value = clueId || null
   noteForm.value = {
@@ -204,6 +218,7 @@ function openNewNote(clueId?: string) {
 }
 
 function openEditNote(note: Note) {
+  playClick()
   editingNote.value = note
   activeClueForNote.value = note.clueId || null
   noteForm.value = {
@@ -237,19 +252,37 @@ function saveNote() {
       isImportant: noteForm.value.isImportant
     })
   }
+  playSuccess()
   noteModalOpen.value = false
 }
 
 function removeNote(noteId: string) {
   if (confirm('确定要删除这条笔记吗？')) {
+    playClick()
     gameStore.deleteNote(noteId)
   }
 }
 
 function toggleNoteTag(tagId: string) {
+  playClick()
   const i = noteForm.value.tagIds.indexOf(tagId)
   if (i >= 0) noteForm.value.tagIds.splice(i, 1)
   else noteForm.value.tagIds.push(tagId)
+}
+
+function setAggregationMode(mode: 'list' | 'tag') {
+  playClick()
+  aggregationMode.value = mode
+}
+
+function closeNoteModal() {
+  playClick()
+  noteModalOpen.value = false
+}
+
+function toggleHistoryPanel() {
+  playClick()
+  showHistoryPanel.value = !showHistoryPanel.value
 }
 
 function getTagById(tagId: string): Tag | null {
@@ -257,10 +290,6 @@ function getTagById(tagId: string): Tag | null {
 }
 
 function handleDialogueEnd() {
-}
-
-function toggleHistoryPanel() {
-  showHistoryPanel.value = !showHistoryPanel.value
 }
 </script>
 
@@ -431,7 +460,7 @@ function toggleHistoryPanel() {
                     'px-2 py-1 rounded text-xs transition-colors',
                     aggregationMode === 'list' ? 'bg-amber-100 text-amber-700' : 'text-stone-500 hover:bg-stone-100'
                   ]"
-                  @click="aggregationMode = 'list'"
+                  @click="setAggregationMode('list')"
                 >
                   <Lightbulb class="w-3.5 h-3.5 inline" />
                   列表
@@ -441,7 +470,7 @@ function toggleHistoryPanel() {
                     'px-2 py-1 rounded text-xs transition-colors',
                     aggregationMode === 'tag' ? 'bg-amber-100 text-amber-700' : 'text-stone-500 hover:bg-stone-100'
                   ]"
-                  @click="aggregationMode = 'tag'"
+                  @click="setAggregationMode('tag')"
                 >
                   <FolderKanban class="w-3.5 h-3.5 inline" />
                   标签
@@ -716,14 +745,14 @@ function toggleHistoryPanel() {
         <div
           v-if="noteModalOpen"
           class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
-          @click.self="noteModalOpen = false"
+          @click.self="closeNoteModal()"
         >
           <div class="card-warm p-6 max-w-lg w-full shadow-2xl animate-scale-in">
             <div class="flex items-start justify-between mb-4">
               <h3 class="text-lg font-serif font-bold text-stone-800">
                 {{ editingNote ? '编辑笔记' : (activeClueForNote ? '为线索新建笔记' : '新建笔记') }}
               </h3>
-              <button class="text-stone-400 hover:text-stone-600 p-1" @click="noteModalOpen = false">
+              <button class="text-stone-400 hover:text-stone-600 p-1" @click="closeNoteModal()">
                 <X class="w-5 h-5" />
               </button>
             </div>
@@ -793,7 +822,7 @@ function toggleHistoryPanel() {
             <div class="flex gap-3 mt-6">
               <button
                 class="btn-secondary flex-1"
-                @click="noteModalOpen = false"
+                @click="closeNoteModal()"
               >
                 取消
               </button>

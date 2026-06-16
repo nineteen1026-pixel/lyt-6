@@ -6,11 +6,13 @@ import CommissionCard from '../components/CommissionCard.vue'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import { cn } from '../lib/utils'
 import type { Commission } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const showHistoryPanel = ref(false)
 const pendingCommissionId = ref<string | null>(null)
@@ -62,6 +64,7 @@ const filterOptions: { value: FilterType; label: string }[] = [
 ]
 
 function handleLockedCommissionClick(commission: Commission) {
+  playError()
   const chapter = gameStore.getChapterById(commission.chapterId)
   const chapterUnlocked = chapter?.isUnlocked
   
@@ -93,6 +96,7 @@ function handleLockedCommissionClick(commission: Commission) {
 }
 
 function goToRoadmap() {
+  playClick()
   router.push('/roadmap')
 }
 
@@ -101,20 +105,24 @@ onMounted(() => {
 })
 
 function goBack() {
+  playClick()
   router.push('/')
 }
 
 function goToGallery() {
+  playClick()
   router.push('/gallery')
 }
 
 function handleCommissionSelect(commission: Commission) {
+  playDiscover()
   pendingCommissionId.value = commission.id
   gameStore.selectCommission(commission.id)
   gameStore.startDialogueSession(commission.id, 'commission_accept')
 }
 
 function handleDialogueEnd() {
+  playTransition()
   if (pendingCommissionId.value) {
     const cid = pendingCommissionId.value
     pendingCommissionId.value = null
@@ -123,7 +131,18 @@ function handleDialogueEnd() {
 }
 
 function toggleHistoryPanel() {
+  playClick()
   showHistoryPanel.value = !showHistoryPanel.value
+}
+
+function setFilter(v: FilterType) {
+  playClick()
+  currentFilter.value = v
+}
+
+function setChapterFilter(v: string) {
+  playClick()
+  currentChapterFilter.value = v
 }
 </script>
 
@@ -183,7 +202,7 @@ function toggleHistoryPanel() {
                   ? 'bg-white text-stone-800 shadow-sm'
                   : 'text-stone-500 hover:text-stone-700'
               ]"
-              @click="currentFilter = option.value"
+              @click="setFilter(option.value)"
             >
               {{ option.label }}
             </button>
@@ -193,7 +212,8 @@ function toggleHistoryPanel() {
         <div class="flex items-center gap-2">
           <span class="text-sm text-stone-500">章节：</span>
           <select
-            v-model="currentChapterFilter"
+            :value="currentChapterFilter"
+            @change="setChapterFilter(($event.target as HTMLSelectElement).value)"
             class="px-3 py-1.5 text-sm bg-white border border-stone-200 rounded-lg text-stone-700 focus:outline-none focus:ring-2 focus:ring-amber-400"
           >
             <option

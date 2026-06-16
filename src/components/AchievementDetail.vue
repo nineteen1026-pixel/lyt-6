@@ -3,6 +3,7 @@ import { computed } from 'vue'
 import { X, Star, Trophy, Target } from 'lucide-vue-next'
 import type { Achievement } from '../types'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 
 interface Props {
   achievement: Achievement | null
@@ -15,6 +16,7 @@ const emit = defineEmits<{
 }>()
 
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const rarityColor = computed(() => 
   props.achievement ? gameStore.getRarityColor(props.achievement.rarity) : 'text-stone-600'
@@ -45,6 +47,7 @@ const progressPercentage = computed(() => {
 })
 
 function handleClose() {
+  playClick()
   emit('close')
 }
 

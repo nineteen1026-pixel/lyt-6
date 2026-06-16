@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Wrench, ChevronRight, Sparkles, Check, GitBranch, RotateCcw, Shield, TrendingUp } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
+import { useSound } from '../composables/useSound'
 import StoryDialogue from '../components/StoryDialogue.vue'
 import DialogueHistoryPanel from '../components/DialogueHistoryPanel.vue'
 import BranchTreeView from '../components/BranchTreeView.vue'
@@ -12,6 +13,7 @@ import type { RepairStep, RepairChoice, DynamicDifficultyLevel, ChoiceWeight } f
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
 
 const currentStepIndex = ref(0)
 const selectedChoices = ref<string[]>([])
@@ -87,6 +89,14 @@ function selectChoice(choice: RepairChoice) {
   if (isAnimating.value) return
   if (!currentStep.value) return
 
+  if (choice.endingType === 'bad') {
+    playError()
+  } else if (choice.endingType === 'good') {
+    playSuccess()
+  } else {
+    playClick()
+  }
+
   isAnimating.value = true
   selectedChoices.value.push(choice.id)
 
@@ -121,10 +131,13 @@ function handleApplyRemedy(remedyId: string, stepIndex: number) {
 
   const success = gameStore.applyRemedy(commissionId.value, remedyId, stepIndex)
   if (success) {
+    playDiscover()
     showRemedyBanner.value = false
     const newChoices = gameStore.getSelectedChoiceIds(commissionId.value)
     selectedChoices.value = newChoices
     currentStepIndex.value = newChoices.length
+  } else {
+    playError()
   }
 }
 
@@ -134,6 +147,7 @@ function handleGoBack() {
 
   const success = gameStore.goBackOneStep(commissionId.value)
   if (success) {
+    playUndo()
     selectedChoices.value.pop()
     if (currentStepIndex.value > 0) {
       currentStepIndex.value--
@@ -146,6 +160,7 @@ function handleJumpToNode(nodeId: string) {
   
   const success = gameStore.jumpToBranchNode(commissionId.value, nodeId)
   if (success) {
+    playTransition()
     const newChoices = gameStore.getSelectedChoiceIds(commissionId.value)
     selectedChoices.value = newChoices
     currentStepIndex.value = newChoices.length
@@ -153,6 +168,7 @@ function handleJumpToNode(nodeId: string) {
 }
 
 function toggleBranchTree() {
+  playClick()
   showBranchTree.value = !showBranchTree.value
 }
 
@@ -184,6 +200,13 @@ function calculateEndingType(): string {
 
 function finishRepair() {
   const endingType = calculateEndingType() as 'good' | 'neutral' | 'bad'
+  if (endingType === 'good') {
+    playComplete()
+  } else if (endingType === 'neutral') {
+    playSuccess()
+  } else {
+    playError()
+  }
   const ending = gameStore.getEndingByType(commissionId.value, endingType)
 
   if (ending) {
@@ -215,6 +238,7 @@ function finishRepair() {
 
 function navigateToEnding() {
   if (!pendingEndingType.value) return
+  playTransition()
   const endingType = pendingEndingType.value
   pendingEndingType.value = null
   awaitingPostDialogue.value = false
@@ -230,10 +254,12 @@ function handleDialogueEnd() {
 }
 
 function toggleHistoryPanel() {
+  playClick()
   showHistoryPanel.value = !showHistoryPanel.value
 }
 
 function goBack() {
+  playClick()
   router.push(`/deduction/${commissionId.value}`)
 }
 

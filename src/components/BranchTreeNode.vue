@@ -2,6 +2,7 @@
 import { defineComponent, computed } from 'vue'
 import { ChevronDown, ChevronRight, Shield, Star } from 'lucide-vue-next'
 import type { BranchTreeNode as BranchTreeNodeType } from '../types'
+import { useSound } from '../composables/useSound'
 
 export default defineComponent({
   name: 'BranchTreeNode',
@@ -26,6 +27,8 @@ export default defineComponent({
   emits: ['toggle', 'jump'],
   components: { ChevronDown, ChevronRight, Shield, Star },
   setup(props, { emit }) {
+    const { playClick, playSuccess, playError, playTransition, playDiscover, playComplete, playUndo } = useSound()
+
     const hasChildren = computed(() => {
       return props.node.childIds && props.node.childIds.length > 0
     })
@@ -121,11 +124,13 @@ export default defineComponent({
     })
 
     function handleToggle() {
+      playClick()
       emit('toggle', props.node.id)
     }
 
     function handleClick() {
       if (props.node.isVisited && !isCurrent.value) {
+        playTransition()
         emit('jump', props.node.id)
       }
     }
