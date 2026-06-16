@@ -8,8 +8,10 @@ import {
   type AmbientLevel,
   type AnimationLevel,
 } from '../stores/preferences'
+import { useSound } from '../composables/useSound'
 
 const prefs = usePreferencesStore()
+const { playClick, playTransition, resumeContext } = useSound()
 
 const showPanel = ref(false)
 const activeTab = ref<'theme' | 'effects'>('theme')
@@ -40,22 +42,28 @@ onMounted(() => {
 })
 
 function togglePanel() {
+  resumeContext()
+  playClick()
   showPanel.value = !showPanel.value
 }
 
 function selectTheme(id: ThemeMode) {
+  playTransition()
   prefs.setTheme(id)
 }
 
 function setAmbient(level: AmbientLevel) {
+  playClick()
   prefs.setAmbientLevel(level)
 }
 
 function setAnimation(level: AnimationLevel) {
+  playClick()
   prefs.setAnimationLevel(level)
 }
 
 function setFontSize(size: 'small' | 'normal' | 'large') {
+  playClick()
   prefs.setFontSize(size)
 }
 

@@ -33,6 +33,48 @@
   --color-scrollbar: rgba(180, 160, 130, 0.4);
   --color-scrollbar-hover: rgba(180, 160, 130, 0.6);
 
+  --color-stone-50:  #FEFAF5;
+  --color-stone-100: #F5EFE0;
+  --color-stone-200: #E8DCC0;
+  --color-stone-300: #D4C4A0;
+  --color-stone-400: #A8A29E;
+  --color-stone-500: #9C8E7C;
+  --color-stone-600: #6B5D4F;
+  --color-stone-700: #57534E;
+  --color-stone-800: #3D2914;
+  --color-stone-900: #291810;
+  --color-stone-950: #1C1008;
+
+  --color-gray-50:  #FDFBF7;
+  --color-gray-100: #F7F1E4;
+  --color-gray-200: #EDE5D1;
+  --color-gray-300: #D9CFAE;
+  --color-gray-400: #B5A98C;
+  --color-gray-500: #9C8E7C;
+  --color-gray-600: #7A6F5A;
+  --color-gray-700: #5E5445;
+  --color-gray-800: #443C30;
+  --color-gray-900: #2A241A;
+
+  --color-amber-50:  #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #D4AF37;
+  --color-amber-600: #8B6914;
+  --color-amber-700: #6B4F10;
+  --color-amber-800: #5C3D0C;
+  --color-amber-900: #4A3008;
+  --color-amber-950: #2A1A04;
+
+  --color-orange-50:  #FFF7ED;
+  --color-orange-100: #FFEDD5;
+  --color-orange-200: #FED7AA;
+  --color-orange-300: #FDBA74;
+
+  --color-white-hue: #FFFFFF;
+
   --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
   --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4b896' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
 
@@ -70,6 +112,46 @@
   --color-shadow-warm: rgba(139, 105, 20, 0.15);
   --color-border: rgba(139, 105, 20, 0.15);
   --color-border-strong: rgba(139, 105, 20, 0.3);
+
+  --color-stone-50:  #FEFAF5;
+  --color-stone-100: #F5EFE0;
+  --color-stone-200: #E8DCC0;
+  --color-stone-300: #D4C4A0;
+  --color-stone-400: #A8A29E;
+  --color-stone-500: #9C8E7C;
+  --color-stone-600: #6B5D4F;
+  --color-stone-700: #57534E;
+  --color-stone-800: #3D2914;
+  --color-stone-900: #291810;
+  --color-stone-950: #1C1008;
+
+  --color-gray-50:  #FDFBF7;
+  --color-gray-100: #F7F1E4;
+  --color-gray-200: #EDE5D1;
+  --color-gray-300: #D9CFAE;
+  --color-gray-400: #B5A98C;
+  --color-gray-500: #9C8E7C;
+  --color-gray-600: #7A6F5A;
+  --color-gray-700: #5E5445;
+  --color-gray-800: #443C30;
+  --color-gray-900: #2A241A;
+
+  --color-amber-50:  #FFFBEB;
+  --color-amber-100: #FEF3C7;
+  --color-amber-200: #FDE68A;
+  --color-amber-300: #FCD34D;
+  --color-amber-400: #FBBF24;
+  --color-amber-500: #D4AF37;
+  --color-amber-600: #8B6914;
+  --color-amber-700: #6B4F10;
+  --color-amber-800: #5C3D0C;
+  --color-amber-900: #4A3008;
+  --color-amber-950: #2A1A04;
+
+  --color-orange-50:  #FFF7ED;
+  --color-orange-100: #FFEDD5;
+
+  --color-white-hue: #FFFFFF;
 }
 
 :root.theme-parchment {
@@ -90,6 +172,46 @@
   --color-border: rgba(123, 94, 28, 0.18);
   --color-border-strong: rgba(123, 94, 28, 0.35);
   --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a08050' fill-opacity='0.08'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+
+  --color-stone-50:  #FBF5E6;
+  --color-stone-100: #F5ECD2;
+  --color-stone-200: #E8D9B0;
+  --color-stone-300: #D4BE82;
+  --color-stone-400: #A8965A;
+  --color-stone-500: #8B7A55;
+  --color-stone-600: #5F4E30;
+  --color-stone-700: #4E4026;
+  --color-stone-800: #3A2A10;
+  --color-stone-900: #261A08;
+  --color-stone-950: #181004;
+
+  --color-gray-50:  #FAF3E0;
+  --color-gray-100: #F2E8C8;
+  --color-gray-200: #E5D5A0;
+  --color-gray-300: #CFB878;
+  --color-gray-400: #A89048;
+  --color-gray-500: #8B7A55;
+  --color-gray-600: #6B5A38;
+  --color-gray-700: #524528;
+  --color-gray-800: #3A2F18;
+  --color-gray-900: #241D0C;
+
+  --color-amber-50:  #FBF3E0;
+  --color-amber-100: #F5E6B8;
+  --color-amber-200: #E8D08A;
+  --color-amber-300: #D4B45A;
+  --color-amber-400: #C09A30;
+  --color-amber-500: #B8860B;
+  --color-amber-600: #7B5E1C;
+  --color-amber-700: #5E4812;
+  --color-amber-800: #4A380C;
+  --color-amber-900: #382808;
+  --color-amber-950: #201804;
+
+  --color-orange-50:  #FBF0E0;
+  --color-orange-100: #F5DFB8;
+
+  --color-white-hue: #FFF8E8;
 }
 
 :root.theme-autumn {
@@ -113,6 +235,46 @@
   --color-border-strong: rgba(160, 82, 45, 0.32);
   --color-selection-bg: rgba(205, 133, 63, 0.3);
   --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c08060' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+
+  --color-stone-50:  #FDF5EC;
+  --color-stone-100: #FBF5EC;
+  --color-stone-200: #F0E0CC;
+  --color-stone-300: #E0C090;
+  --color-stone-400: #B88660;
+  --color-stone-500: #A07655;
+  --color-stone-600: #7A4E30;
+  --color-stone-700: #603820;
+  --color-stone-800: #4A2810;
+  --color-stone-900: #301808;
+  --color-stone-950: #1C0C04;
+
+  --color-gray-50:  #FCF2E8;
+  --color-gray-100: #F8E6D2;
+  --color-gray-200: #EFD0B0;
+  --color-gray-300: #E0AE78;
+  --color-gray-400: #B88850;
+  --color-gray-500: #A07655;
+  --color-gray-600: #7A5A38;
+  --color-gray-700: #5E4428;
+  --color-gray-800: #443018;
+  --color-gray-900: #2A1C0C;
+
+  --color-amber-50:  #FDF5EC;
+  --color-amber-100: #FAE8D0;
+  --color-amber-200: #F0CC98;
+  --color-amber-300: #E0A860;
+  --color-amber-400: #CD853F;
+  --color-amber-500: #B87030;
+  --color-amber-600: #A0522D;
+  --color-amber-700: #7A3E20;
+  --color-amber-800: #5C2E14;
+  --color-amber-900: #3E1E0A;
+  --color-amber-950: #241004;
+
+  --color-orange-50:  #FDF0E0;
+  --color-orange-100: #FAE0C0;
+
+  --color-white-hue: #FFFBF5;
 }
 
 :root.theme-twilight {
@@ -143,6 +305,46 @@
   --color-scrollbar-hover: rgba(143, 165, 200, 0.5);
   --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
   --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%236080a0' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+
+  --color-stone-50:  #2A3A52;
+  --color-stone-100: #263448;
+  --color-stone-200: #223047;
+  --color-stone-300: #1E2A3E;
+  --color-stone-400: #7A88A0;
+  --color-stone-500: #A8B3C5;
+  --color-stone-600: #8FA0B8;
+  --color-stone-700: #C0C8D5;
+  --color-stone-800: #E0E5EC;
+  --color-stone-900: #F0F4F8;
+  --color-stone-950: #F8FAFC;
+
+  --color-gray-50:  #2E3E56;
+  --color-gray-100: #283850;
+  --color-gray-200: #243048;
+  --color-gray-300: #1E2A3E;
+  --color-gray-400: #7A88A0;
+  --color-gray-500: #A8B3C5;
+  --color-gray-600: #90A0B8;
+  --color-gray-700: #BCC8D5;
+  --color-gray-800: #D8E0EA;
+  --color-gray-900: #F0F4F8;
+
+  --color-amber-50:  #283448;
+  --color-amber-100: #2E3C52;
+  --color-amber-200: #384A62;
+  --color-amber-300: #4A6080;
+  --color-amber-400: #6B7F9E;
+  --color-amber-500: #8FA5C8;
+  --color-amber-600: #6B7F9E;
+  --color-amber-700: #8FA5C8;
+  --color-amber-800: #B0C0D8;
+  --color-amber-900: #D0DAE8;
+  --color-amber-950: #E8EEF5;
+
+  --color-orange-50:  #2A3548;
+  --color-orange-100: #324058;
+
+  --color-white-hue: #2A3A52;
 }
 
 :root.theme-ink {
@@ -173,6 +375,46 @@
   --color-scrollbar-hover: rgba(156, 163, 175, 0.45);
   --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
   --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23404850' fill-opacity='0.08'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+
+  --color-stone-50:  #1A1F26;
+  --color-stone-100: #161A20;
+  --color-stone-200: #13171D;
+  --color-stone-300: #0D0F12;
+  --color-stone-400: #6B7280;
+  --color-stone-500: #9CA3AF;
+  --color-stone-600: #8B95A5;
+  --color-stone-700: #B8C0CC;
+  --color-stone-800: #D1D5DB;
+  --color-stone-900: #E5E7EB;
+  --color-stone-950: #F3F4F6;
+
+  --color-gray-50:  #1E2328;
+  --color-gray-100: #181C22;
+  --color-gray-200: #141820;
+  --color-gray-300: #0D0F12;
+  --color-gray-400: #6B7280;
+  --color-gray-500: #9CA3AF;
+  --color-gray-600: #8890A0;
+  --color-gray-700: #B5BCC8;
+  --color-gray-800: #CCD2DA;
+  --color-gray-900: #E5E7EB;
+
+  --color-amber-50:  #1A1E26;
+  --color-amber-100: #1E2430;
+  --color-amber-200: #283040;
+  --color-amber-300: #3A4558;
+  --color-amber-400: #6B7280;
+  --color-amber-500: #9CA3AF;
+  --color-amber-600: #6B7280;
+  --color-amber-700: #9CA3AF;
+  --color-amber-800: #BCC2CC;
+  --color-amber-900: #D4D8E0;
+  --color-amber-950: #E8EBF0;
+
+  --color-orange-50:  #1C2028;
+  --color-orange-100: #222830;
+
+  --color-white-hue: #1A1F26;
 }
 
 :root.font-small { --font-scale: 0.9; }
@@ -187,6 +429,26 @@
 
 :root.reduce-motion .particle {
   animation: none !important;
+}
+
+:root.theme-twilight .bg-white,
+:root.theme-ink .bg-white {
+  background-color: var(--color-bg-card);
+}
+
+:root.theme-twilight .bg-white\/80,
+:root.theme-ink .bg-white\/80 {
+  background-color: color-mix(in srgb, var(--color-bg-card) 80%, transparent);
+}
+
+:root.theme-twilight .bg-white\/90,
+:root.theme-ink .bg-white\/90 {
+  background-color: color-mix(in srgb, var(--color-bg-card) 90%, transparent);
+}
+
+:root.theme-twilight .bg-white\/60,
+:root.theme-ink .bg-white\/60 {
+  background-color: color-mix(in srgb, var(--color-bg-card) 60%, transparent);
 }
 
 .font-display {

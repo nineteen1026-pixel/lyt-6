@@ -150,7 +150,10 @@
 <script setup lang="ts">
 import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import type { DialogueCharacter } from '../types'
+
+const { playClick, playTransition, playType: playTypeSound, resumeContext } = useSound()
 
 const props = defineProps<{
   showHistoryToggle?: boolean
@@ -324,6 +327,7 @@ function startTyping(text: string) {
     if (i < text.length) {
       displayedText.value += text[i]
       i++
+      if (i % 3 === 0) playTypeSound()
       typingTimer = setTimeout(typeNext, typingSpeed)
     } else {
       isTyping.value = false
@@ -345,10 +349,12 @@ function skipTyping() {
 }
 
 function handleAdvance() {
+  resumeContext()
   if (isTyping.value) {
     skipTyping()
     return
   }
+  playClick()
   const result = gameStore.advanceDialogueNode()
   if (result.finished) {
     emit('dialogueEnd')
@@ -356,7 +362,9 @@ function handleAdvance() {
 }
 
 function handleChoiceSelect(choiceId: string) {
+  resumeContext()
   if (isTyping.value) return
+  playClick()
   const result = gameStore.selectDialogueChoice(choiceId)
   if (!result.success) return
   if (result.finished) {
@@ -365,6 +373,8 @@ function handleChoiceSelect(choiceId: string) {
 }
 
 function handleSkip() {
+  resumeContext()
+  playTransition()
   if (typingTimer) {
     clearTimeout(typingTimer)
     typingTimer = null

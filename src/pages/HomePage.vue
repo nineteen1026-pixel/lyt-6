@@ -3,11 +3,13 @@ import { computed, ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { Play, RotateCcw, DoorOpen, ScrollText, Map, Save, Trash2, Clock, BookOpen, AlertTriangle, Shield, X, Camera, History, Film, ChevronRight, Eye, Coins, Users, GitBranch } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
+import { useSound } from '../composables/useSound'
 import type { SaveSlotInfo, SnapshotInfo, EndingReplay } from '../types'
 import { REPUTATION_LEVELS } from '../types'
 
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playTransition, resumeContext } = useSound()
 
 const hasSave = computed(() => gameStore.hasSave)
 const progress = computed(() => gameStore.completionProgress)
@@ -61,6 +63,8 @@ function formatDate(dateStr: string | null): string {
 }
 
 function navigateToGame() {
+  resumeContext()
+  playClick()
   const step = gameStore.state.currentStep
   const commissionId = gameStore.state.currentCommissionId
   
@@ -128,6 +132,7 @@ function closeSlotSelector() {
 }
 
 function selectSlot(slot: SaveSlotInfo) {
+  playClick()
   selectedSlot.value = slot
   
   if (slotSelectorMode.value === 'continue') {
@@ -172,6 +177,8 @@ function startNewGameInSlot(slotId: string) {
 }
 
 function startNewGame() {
+  resumeContext()
+  playClick()
   if (hasSave.value) {
     openSlotSelector('new')
   } else {
@@ -190,6 +197,7 @@ function confirmDelete() {
   if (selectedSlot.value) {
     gameStore.deleteSlot(selectedSlot.value.slotId)
     gameStore.refreshSaveSlots()
+    playError()
   }
   showConfirmDialog.value = false
   selectedSlot.value = null
@@ -220,6 +228,7 @@ function goToRoadmap() {
 }
 
 function goToTimeline() {
+  playClick()
   router.push('/timeline')
 }
 

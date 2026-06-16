@@ -9,6 +9,7 @@ import {
 } from 'lucide-vue-next'
 import { useGameStore } from '../stores/game'
 import { useDynamicDifficulty } from '../composables/useDynamicDifficulty'
+import { useSound } from '../composables/useSound'
 import type {
   Clue, ClueConnection, ConnectionValidationResult, Tag, Note,
   DynamicDifficultyLevel, ConnectionScoreResult, ConnectionConflict,
@@ -18,6 +19,7 @@ import type {
 const route = useRoute()
 const router = useRouter()
 const gameStore = useGameStore()
+const { playClick, playSuccess, playError, playDiscover, resumeContext } = useSound()
 
 const showConclusion = ref<ClueConnection | null>(null)
 const conclusionScore = ref<ConnectionScoreResult | null>(null)
@@ -230,6 +232,7 @@ function findClueUnderPoint(clientX: number, clientY: number): string | null {
 }
 
 function checkConnection(fromId?: string, toId?: string) {
+  resumeContext()
   const fid = fromId
   const tid = toId
   if (!fid || !tid) return
@@ -237,6 +240,7 @@ function checkConnection(fromId?: string, toId?: string) {
 
   if (!result.isValid) {
     showValidationToast(result, 'error')
+    playError()
     return
   }
 
@@ -245,6 +249,7 @@ function checkConnection(fromId?: string, toId?: string) {
     if (conn) {
       if (!gameStore.state.discoveredConnections.includes(conn.id)) {
         gameStore.discoverConnection(conn.id)
+        playDiscover()
         const archived = gameStore.archiveConclusion(conn.id)
         if (archived) {
           conclusionScore.value = archived.score
@@ -273,15 +278,17 @@ function closeConclusion() {
   conclusionScore.value = null
 }
 
-function goBack() { router.push(`/commission/${commissionId.value}`) }
+function goBack() { playClick(); router.push(`/commission/${commissionId.value}`) }
 
 function goToRepair() {
+  playClick()
   endPhaseTiming('deduction')
   gameStore.setCurrentStep('repair')
   router.push(`/repair/${commissionId.value}`)
 }
 
 function toggleTag(tagId: string) {
+  playClick()
   const i = localTagFilters.value.indexOf(tagId)
   if (i >= 0) localTagFilters.value.splice(i, 1)
   else localTagFilters.value.push(tagId)
@@ -314,6 +321,7 @@ function openEditNote(note: Note) {
 function saveNote() {
   if (!commissionId.value) return
   if (!noteForm.value.title.trim()) noteForm.value.title = '未命名笔记'
+  playClick()
   if (editingNote.value) {
     gameStore.updateNote(editingNote.value.id, {
       title: noteForm.value.title,
@@ -336,6 +344,7 @@ function saveNote() {
 
 function removeNote(noteId: string) {
   if (confirm('确定要删除这条笔记吗？')) {
+    playError()
     gameStore.deleteNote(noteId)
   }
 }
