@@ -22,6 +22,17 @@ import type {
   Achievement
 } from '../types'
 
+import {
+  initConfigCenter,
+  registerConfig,
+  getConfig,
+  hotReloadConfig,
+  validateAllConfigs,
+  validateCrossReferences,
+  onConfigEvent,
+  CONFIG_CENTER_VERSION
+} from './configCenter'
+
 import tagsConfig from './config/tags.json'
 import chaptersConfig from './config/chapters.json'
 import commissionsConfig from './config/commissions.json'
@@ -34,7 +45,7 @@ import dialogueComm001 from './config/dialogues/comm-001.json'
 import dialogueComm002 from './config/dialogues/comm-002.json'
 import dialogueComm003 from './config/dialogues/comm-003.json'
 
-export const CONFIG_VERSION = '9.0.0'
+export const CONFIG_VERSION = CONFIG_CENTER_VERSION
 
 function loadConfig<T>(config: unknown): T {
   const cfg = config as { version: string; data: T }
@@ -69,6 +80,22 @@ export const dialogueNodesConfigData: DialogueNode[] = [
 ]
 
 export const achievementsConfigData: AchievementConfig[] = loadConfig<AchievementConfig[]>(achievementsConfig)
+
+const initResult = initConfigCenter({
+  tags,
+  chapters: chaptersConfigData,
+  commissions: commissionsConfigData,
+  clues: cluesConfigData,
+  connections: connectionsConfigData,
+  endings: endingsConfigData,
+  repairSteps: repairStepsConfigData,
+  dialogueNodes: dialogueNodesConfigData,
+  achievements: achievementsConfigData
+})
+
+if (import.meta.env.DEV && !initResult.valid) {
+  console.error('ConfigCenter initialization validation failed')
+}
 
 function createItemWithRuntimeState(config: ItemConfig): Item {
   return {
@@ -186,8 +213,8 @@ export function getGameConfig(): GameDataConfig & { achievements: AchievementCon
 }
 
 export function validateConfigIntegrity(): { valid: boolean; errors: string[]; warnings: string[] } {
-  const errors: string[] = []
-  const warnings: string[] = []
+  const legacyErrors: string[] = []
+  const legacyWarnings: string[] = []
 
   const tagIds = new Set(tags.map(t => t.id))
   const chapterIds = new Set(chaptersConfigData.map(c => c.id))
@@ -199,7 +226,7 @@ export function validateConfigIntegrity(): { valid: boolean; errors: string[]; w
   commissionsConfigData.forEach(comm => {
     comm.item.hotspots.forEach(h => {
       if (hotspotIds.has(h.id)) {
-        errors.push(`Duplicate hotspot ID: ${h.id}`)
+        legacyErrors.push(`Duplicate hotspot ID: ${h.id}`)
       }
       hotspotIds.add(h.id)
     })
@@ -208,77 +235,93 @@ export function validateConfigIntegrity(): { valid: boolean; errors: string[]; w
   chaptersConfigData.forEach(chapter => {
     chapter.commissionIds.forEach(commId => {
       if (!commissionIds.has(commId)) {
-        errors.push(`Chapter ${chapter.id} references non-existent commission: ${commId}`)
+        legacyErrors.push(`Chapter ${chapter.id} references non-existent commission: ${commId}`)
       }
     })
   })
 
   commissionsConfigData.forEach(comm => {
     if (!chapterIds.has(comm.chapterId)) {
-      errors.push(`Commission ${comm.id} references non-existent chapter: ${comm.chapterId}`)
+      legacyErrors.push(`Commission ${comm.id} references non-existent chapter: ${comm.chapterId}`)
     }
 
     comm.prerequisiteCommissionIds.forEach(prereqId => {
       if (!commissionIds.has(prereqId)) {
-        errors.push(`Commission ${comm.id} references non-existent prerequisite: ${prereqId}`)
+        legacyErrors.push(`Commission ${comm.id} references non-existent prerequisite: ${prereqId}`)
       }
     })
 
     comm.item.hotspots.forEach(h => {
       if (h.clueId && !clueIds.has(h.clueId)) {
-        errors.push(`Hotspot ${h.id} references non-existent clue: ${h.clueId}`)
+        legacyErrors.push(`Hotspot ${h.id} references non-existent clue: ${h.clueId}`)
       }
     })
   })
 
   cluesConfigData.forEach(clue => {
     if (!commissionIds.has(clue.commissionId)) {
-      errors.push(`Clue ${clue.id} references non-existent commission: ${clue.commissionId}`)
+      legacyErrors.push(`Clue ${clue.id} references non-existent commission: ${clue.commissionId}`)
     }
 
     if (clue.hotspotId && !hotspotIds.has(clue.hotspotId)) {
-      warnings.push(`Clue ${clue.id} references non-existent hotspot: ${clue.hotspotId}`)
+      legacyWarnings.push(`Clue ${clue.id} references non-existent hotspot: ${clue.hotspotId}`)
     }
 
     clue.tagIds.forEach(tagId => {
       if (!tagIds.has(tagId)) {
-        warnings.push(`Clue ${clue.id} references non-existent tag: ${tagId}`)
+        legacyWarnings.push(`Clue ${clue.id} references non-existent tag: ${tagId}`)
       }
     })
   })
 
   connectionsConfigData.forEach(conn => {
     if (!clueIds.has(conn.fromClueId)) {
-      errors.push(`Connection ${conn.id} references non-existent fromClue: ${conn.fromClueId}`)
+      legacyErrors.push(`Connection ${conn.id} references non-existent fromClue: ${conn.fromClueId}`)
     }
     if (!clueIds.has(conn.toClueId)) {
-      errors.push(`Connection ${conn.id} references non-existent toClue: ${conn.toClueId}`)
+      legacyErrors.push(`Connection ${conn.id} references non-existent toClue: ${conn.toClueId}`)
     }
   })
 
   endingsConfigData.forEach(ending => {
     if (!commissionIds.has(ending.commissionId)) {
-      errors.push(`Ending ${ending.id} references non-existent commission: ${ending.commissionId}`)
+      legacyErrors.push(`Ending ${ending.id} references non-existent commission: ${ending.commissionId}`)
     }
   })
 
   Object.entries(repairStepsConfigData).forEach(([commId, steps]) => {
     if (!commissionIds.has(commId)) {
-      warnings.push(`Repair steps exist for non-existent commission: ${commId}`)
+      legacyWarnings.push(`Repair steps exist for non-existent commission: ${commId}`)
     }
   })
 
   dialogueNodesConfigData.forEach(node => {
     if (!commissionIds.has(node.commissionId)) {
-      warnings.push(`Dialogue node ${node.id} references non-existent commission: ${node.commissionId}`)
+      legacyWarnings.push(`Dialogue node ${node.id} references non-existent commission: ${node.commissionId}`)
     }
   })
 
+  const crossRef = validateCrossReferences()
+
+  const allErrors = [...legacyErrors, ...crossRef.errors.map(e => `[${e.typeName}] ${e.message}`)]
+  const allWarnings = [...legacyWarnings, ...crossRef.warnings.map(w => `[${w.typeName}] ${w.message}`)]
+
   return {
-    valid: errors.length === 0,
-    errors,
-    warnings
+    valid: allErrors.length === 0,
+    errors: allErrors,
+    warnings: allWarnings
   }
+}
+
+export {
+  initConfigCenter,
+  registerConfig,
+  getConfig,
+  hotReloadConfig,
+  validateAllConfigs,
+  validateCrossReferences,
+  onConfigEvent,
+  CONFIG_CENTER_VERSION
 }
 
 if (import.meta.env.DEV) {

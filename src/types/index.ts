@@ -468,8 +468,8 @@ export interface GameDataConfig {
   dialogueNodes: DialogueNode[]
 }
 
-export const CURRENT_CONFIG_VERSION = '9.0.0'
-export const CURRENT_SAVE_VERSION = '9.0.0'
+export const CURRENT_CONFIG_VERSION = '10.0.0'
+export const CURRENT_SAVE_VERSION = '10.0.0'
 
 export type ConnectionScoreLevel = 'weak' | 'moderate' | 'strong' | 'critical'
 
@@ -1266,4 +1266,116 @@ export const TIMELINE_EVENT_TYPE_CONFIG: Record<TimelineEventType, { label: stri
   commission_started: { label: '委托开始', icon: '🎯', color: 'text-indigo-600', bgColor: 'bg-indigo-50 border-indigo-200' },
   commission_completed: { label: '委托完成', icon: '🏆', color: 'text-amber-500', bgColor: 'bg-amber-50 border-amber-200' }
 }
+
+export type ConfigFieldType =
+  | 'string'
+  | 'number'
+  | 'boolean'
+  | 'enum'
+  | 'array'
+  | 'object'
+  | 'record'
+
+export interface ConfigFieldSchema {
+  type: ConfigFieldType
+  required?: boolean
+  enumValues?: string[]
+  items?: ConfigFieldSchema
+  properties?: Record<string, ConfigFieldSchema>
+  minValue?: number
+  maxValue?: number
+  minLength?: number
+  pattern?: string
+  idPrefix?: string
+}
+
+export interface ConfigTypeSchema {
+  typeName: string
+  idPrefix: string
+  version: string
+  fields: Record<string, ConfigFieldSchema>
+  foreignKeys: { field: string | string[]; targetTypeName: string; targetField?: string }[]
+  uniqueFields: string[]
+}
+
+export type ConfigEventType = 'loaded' | 'updated' | 'validated' | 'validation_failed' | 'hot_reloaded'
+
+export interface ConfigEvent {
+  type: ConfigEventType
+  typeName: string
+  timestamp: string
+  version: string
+  details?: string
+  errorCount?: number
+  warningCount?: number
+}
+
+export type ConfigEventListener = (event: ConfigEvent) => void
+
+export interface ConfigValidationResult {
+  valid: boolean
+  errors: ConfigValidationError[]
+  warnings: ConfigValidationWarning[]
+}
+
+export interface ConfigValidationError {
+  typeName: string
+  itemId?: string
+  field: string
+  message: string
+  value?: unknown
+}
+
+export interface ConfigValidationWarning {
+  typeName: string
+  itemId?: string
+  field: string
+  message: string
+  value?: unknown
+}
+
+export interface ConfigRegistryEntry<T = unknown> {
+  typeName: string
+  schema: ConfigTypeSchema
+  data: T[]
+  version: string
+  loadedAt: string
+  lastValidatedAt: string | null
+  lastValidationResult: ConfigValidationResult | null
+}
+
+export interface ConfigCenterState {
+  version: string
+  registries: Record<string, ConfigRegistryEntry>
+  eventLog: ConfigEvent[]
+  hotReloadEnabled: boolean
+  lastHotReloadAt: string | null
+}
+
+export interface ConfigMigrationStep {
+  fromVersion: string
+  toVersion: string
+  description: string
+  migrate: (data: unknown) => unknown
+}
+
+export interface ConfigMigrationResult {
+  success: boolean
+  fromVersion: string
+  toVersion: string
+  migratedCount: number
+  skippedCount: number
+  errors: string[]
+}
+
+export type ConfigTypeName =
+  | 'tags'
+  | 'chapters'
+  | 'commissions'
+  | 'clues'
+  | 'connections'
+  | 'endings'
+  | 'repairSteps'
+  | 'dialogueNodes'
+  | 'achievements'
 

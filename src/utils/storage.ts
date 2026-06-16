@@ -834,6 +834,123 @@ function migrateFromV8ToV9(v8State: GameStateV8): GameState {
   return migrated
 }
 
+function migrateFromV9ToV10(v9State: GameState): GameState {
+  const migrated: GameState = { ...v9State }
+
+  const configCommissionIds = new Set(commissions.map(c => c.id))
+  const configChapterIds = new Set(chapters.map(c => c.id))
+  const configClueIds = new Set(clues.map(c => c.id))
+  const configConnectionIds = new Set(connections.map(c => c.id))
+  const configEndingIds = new Set(endings.map(e => e.id))
+
+  if (migrated.currentCommissionId && !configCommissionIds.has(migrated.currentCommissionId)) {
+    migrated.currentCommissionId = null
+    migrated.currentStep = 'commission'
+  }
+
+  if (migrated.currentChapterId && !configChapterIds.has(migrated.currentChapterId)) {
+    migrated.currentChapterId = null
+  }
+
+  migrated.commissionStatuses = { ...migrated.commissionStatuses }
+  for (const commId of Object.keys(migrated.commissionStatuses)) {
+    if (!configCommissionIds.has(commId)) {
+      delete migrated.commissionStatuses[commId]
+    }
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.commissionStatuses)) {
+      migrated.commissionStatuses[comm.id] = comm.status
+    }
+  }
+
+  migrated.unlockedChapters = migrated.unlockedChapters.filter(id => configChapterIds.has(id))
+  if (migrated.unlockedChapters.length === 0) {
+    migrated.unlockedChapters = ['chap-001']
+  }
+
+  migrated.collectedClues = [...migrated.collectedClues].filter(id => configClueIds.has(id))
+  migrated.collectedClueTimestamps = { ...migrated.collectedClueTimestamps }
+  for (const clueId of Object.keys(migrated.collectedClueTimestamps)) {
+    if (!configClueIds.has(clueId)) {
+      delete migrated.collectedClueTimestamps[clueId]
+    }
+  }
+
+  migrated.discoveredConnections = [...migrated.discoveredConnections].filter(id => configConnectionIds.has(id))
+  migrated.discoveredConnectionTimestamps = { ...migrated.discoveredConnectionTimestamps }
+  for (const connId of Object.keys(migrated.discoveredConnectionTimestamps)) {
+    if (!configConnectionIds.has(connId)) {
+      delete migrated.discoveredConnectionTimestamps[connId]
+    }
+  }
+
+  migrated.unlockedEndings = [...migrated.unlockedEndings].filter(id => configEndingIds.has(id))
+
+  migrated.unlockedSteps = { ...migrated.unlockedSteps }
+  for (const commId of Object.keys(migrated.unlockedSteps)) {
+    if (!configCommissionIds.has(commId)) {
+      delete migrated.unlockedSteps[commId]
+    }
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.unlockedSteps)) {
+      migrated.unlockedSteps[comm.id] = ['item']
+    }
+  }
+
+  if (migrated.branchTreeStates) {
+    const cleanedTrees: Record<string, any> = {}
+    for (const [commId, tree] of Object.entries(migrated.branchTreeStates)) {
+      if (configCommissionIds.has(commId)) {
+        cleanedTrees[commId] = tree
+      }
+    }
+    migrated.branchTreeStates = cleanedTrees
+  }
+
+  if (migrated.phaseTimings) {
+    const cleanedTimings: Record<string, any> = {}
+    for (const [commId, timing] of Object.entries(migrated.phaseTimings)) {
+      if (configCommissionIds.has(commId)) {
+        cleanedTimings[commId] = timing
+      }
+    }
+    for (const comm of commissions) {
+      if (!(comm.id in cleanedTimings)) {
+        cleanedTimings[comm.id] = getEmptyDifficultyTiming()
+      }
+    }
+    migrated.phaseTimings = cleanedTimings
+  }
+
+  if (migrated.showroomExhibits) {
+    const cleanedExhibits: Record<string, any> = {}
+    for (const [commId, exhibit] of Object.entries(migrated.showroomExhibits)) {
+      if (configCommissionIds.has(commId)) {
+        cleanedExhibits[commId] = exhibit
+      }
+    }
+    migrated.showroomExhibits = cleanedExhibits
+  }
+
+  migrated.repairRetryCounts = { ...migrated.repairRetryCounts }
+  for (const key of Object.keys(migrated.repairRetryCounts)) {
+    if (!configCommissionIds.has(key) && !configClueIds.has(key)) {
+      delete migrated.repairRetryCounts[key]
+    }
+  }
+
+  migrated.connectionRetryCounts = { ...migrated.connectionRetryCounts }
+  for (const key of Object.keys(migrated.connectionRetryCounts)) {
+    if (!configCommissionIds.has(key) && !configConnectionIds.has(key)) {
+      delete migrated.connectionRetryCounts[key]
+    }
+  }
+
+  return migrated
+}
+
 function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | SavedGameV4 | SavedGameV5 | SavedGameV6 | SavedGameV7 | SavedGameV8 | SavedGame): GameState | null {
   const version = savedGame.version
   
@@ -929,26 +1046,34 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     return state
   }
 
+  if (version === '9.0.0') {
+    return migrateFromV9ToV10((savedGame as SavedGame).state)
+  }
+
   if (version === '8.0.0') {
-    return migrateFromV8ToV9((savedGame as SavedGameV8).state)
+    const v9 = migrateFromV8ToV9((savedGame as SavedGameV8).state)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '7.0.0') {
     const v8 = migrateFromV7ToV8((savedGame as SavedGameV7).state)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '6.0.0') {
     const v7 = migrateFromV6ToV7((savedGame as SavedGameV6).state)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '5.0.0') {
     const v6 = migrateFromV5ToV6((savedGame as SavedGameV5).state)
     const v7 = migrateFromV6ToV7(v6)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '4.0.0') {
@@ -956,7 +1081,8 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     const v6 = migrateFromV5ToV6(v5 as any)
     const v7 = migrateFromV6ToV7(v6)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '3.0.0') {
@@ -965,7 +1091,8 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     const v6 = migrateFromV5ToV6(v5 as any)
     const v7 = migrateFromV6ToV7(v6)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '2.0.0') {
@@ -975,7 +1102,8 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     const v6 = migrateFromV5ToV6(v5 as any)
     const v7 = migrateFromV6ToV7(v6)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   if (version === '1.0.0') {
@@ -986,7 +1114,8 @@ function migrateSavedGame(savedGame: SavedGameV1 | SavedGameV2 | SavedGameV3 | S
     const v6 = migrateFromV5ToV6(v5 as any)
     const v7 = migrateFromV6ToV7(v6)
     const v8 = migrateFromV7ToV8(v7)
-    return migrateFromV8ToV9(v8)
+    const v9 = migrateFromV8ToV9(v8)
+    return migrateFromV9ToV10(v9)
   }
 
   console.warn(`Unsupported save version: ${version}, starting new game`)

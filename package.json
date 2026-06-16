@@ -10,7 +10,8 @@
     "check": "vue-tsc -b",
     "lint": "eslint . --ext .ts,.vue",
     "lint:fix": "eslint . --ext .ts,.vue --fix",
-    "verify:config": "node scripts/verify-config-migration.mjs"
+    "verify:config": "node scripts/verify-config-migration.mjs",
+    "migrate:config": "node scripts/migrate-config-archive.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

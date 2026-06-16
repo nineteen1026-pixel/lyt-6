@@ -39,7 +39,7 @@ function section(title) {
 }
 
 console.log(`\n${consoleColors.info} 创建测试目录：${testDir}\n`)
-console.log(`${consoleColors.info} 配置版本：9.0.0\n`)
+console.log(`${consoleColors.info} 配置版本：10.0.0\n`)
 
 const configDir = path.join(__dirname, '../src/data/config')
 const configFiles = {
@@ -75,7 +75,7 @@ for (const [key, filename] of Object.entries(configFiles)) {
     loadedConfigs[key] = parsed
     assert(`JSON 格式正确：${filename}`, true)
     assert(`包含 version 字段：${filename}`, 'version' in parsed, `缺少 version 字段`)
-    assert(`version === '9.0.0'：${filename}`, parsed.version === '9.0.0', `实际版本：${parsed.version}`)
+    assert(`version === '10.0.0'：${filename}`, parsed.version === '10.0.0', `实际版本：${parsed.version}`)
     if (key !== 'index') {
       assert(`包含 data 字段：${filename}`, 'data' in parsed, `缺少 data 字段`)
     }
@@ -93,7 +93,7 @@ for (const filename of dialogueFiles) {
     loadedDialogues[filename] = parsed
     assert(`对话 JSON 格式正确：${filename}`, true)
     assert(`对话包含 version 字段：${filename}`, 'version' in parsed)
-    assert(`对话 version === '9.0.0'：${filename}`, parsed.version === '9.0.0')
+    assert(`对话 version === '10.0.0'：${filename}`, parsed.version === '10.0.0')
     assert(`对话包含 data 字段：${filename}`, 'data' in parsed)
   } catch (e) {
     assert(`对话 JSON 格式正确：${filename}`, false, e.message)
@@ -337,7 +337,7 @@ for (const [key, filename] of Object.entries(configFiles)) {
 assert(`索引文件包含对话配置模式`, 'dialogueNodes' in indexConfig.files)
 assert(`对话配置模式正确`, indexConfig.files.dialogueNodes.pattern.includes('{commissionId}'))
 
-section('第四阶段：V8 → V9 迁移逻辑源码检查')
+section('第四阶段：V8 → V9 → V10 迁移逻辑源码检查')
 
 const storageSource = readFileSync(path.join(__dirname, '../src/utils/storage.ts'), 'utf-8')
 
@@ -353,6 +353,20 @@ assert('storage.ts: 定义 SavedGameV8 接口',
   storageSource.includes('interface SavedGameV8'))
 assert('storage.ts: 定义 migrateFromV8ToV9 函数', 
   storageSource.includes('function migrateFromV8ToV9'))
+assert('storage.ts: 定义 migrateFromV9ToV10 函数', 
+  storageSource.includes('function migrateFromV9ToV10'))
+assert('migrateFromV9ToV10: 清理无效 currentCommissionId', 
+  /migrated\.currentCommissionId.*configCommissionIds/.test(storageSource))
+assert('migrateFromV9ToV10: 清理无效 branchTreeStates', 
+  /branchTreeStates[\s\S]{0,300}configCommissionIds/.test(storageSource))
+assert('migrateFromV9ToV10: 清理无效 phaseTimings', 
+  /phaseTimings[\s\S]{0,300}configCommissionIds/.test(storageSource))
+assert('migrateFromV9ToV10: 清理无效 showroomExhibits', 
+  /showroomExhibits[\s\S]{0,300}configCommissionIds/.test(storageSource))
+assert('migrateFromV9ToV10: 清理无效 repairRetryCounts', 
+  /repairRetryCounts[\s\S]{0,300}configCommissionIds/.test(storageSource))
+assert('migrateFromV9ToV10: 清理无效 connectionRetryCounts', 
+  /connectionRetryCounts[\s\S]{0,300}configConnectionIds/.test(storageSource))
 assert('migrateFromV8ToV9: 清理无效 commissionStatuses', 
   storageSource.includes('configCommissionIds') && /delete migrated\.commissionStatuses\[commId\]/.test(storageSource))
 assert('migrateFromV8ToV9: 清理无效 collectedClues', 
@@ -371,6 +385,8 @@ assert('storage.ts: 定义 migrateFromV7ToV8 函数',
 assert('storage.ts: 定义 migrateFromV6ToV7 函数', 
   storageSource.includes('function migrateFromV6ToV7'))
 
+assert("migrateSavedGame: 处理 version === '9.0.0' 分支", 
+  storageSource.includes("version === '9.0.0'"))
 assert("migrateSavedGame: 处理 version === '8.0.0' 分支", 
   storageSource.includes("version === '8.0.0'"))
 assert("migrateSavedGame: 处理 version === '7.0.0' 分支", 
@@ -378,10 +394,12 @@ assert("migrateSavedGame: 处理 version === '7.0.0' 分支",
 assert("migrateSavedGame: 处理 version === '6.0.0' 分支", 
   storageSource.includes("version === '6.0.0'"))
 
-assert('migrateSavedGame: V8→V9 完整链路', 
-  /migrateFromV8ToV9\(/.test(storageSource))
-assert('migrateSavedGame: V7→V8→V9 完整链路', 
-  /migrateFromV7ToV8\([\s\S]{0,100}migrateFromV8ToV9/.test(storageSource))
+assert('migrateSavedGame: V9→V10 完整链路', 
+  storageSource.includes('migrateFromV9ToV10('))
+assert('migrateSavedGame: V8→V9→V10 完整链路', 
+  /migrateFromV8ToV9\([\s\S]{0,100}migrateFromV9ToV10/.test(storageSource))
+assert('migrateSavedGame: V7→V8→V9→V10 完整链路', 
+  /migrateFromV7ToV8\([\s\S]{0,100}migrateFromV8ToV9[\s\S]{0,100}migrateFromV9ToV10/.test(storageSource))
 
 section('第五阶段：gameData.ts 配置驱动加载检查')
 
@@ -396,7 +414,7 @@ assert('gameData.ts: 导入 endings.json 配置', gameDataSource.includes("from 
 assert('gameData.ts: 导入 repairSteps.json 配置', gameDataSource.includes("from './config/repairSteps.json'"))
 assert('gameData.ts: 导入对话配置', gameDataSource.includes("from './config/dialogues/comm-001.json'"))
 
-assert('gameData.ts: CONFIG_VERSION 常量', gameDataSource.includes("export const CONFIG_VERSION = '9.0.0'"))
+assert('gameData.ts: CONFIG_VERSION 常量（ConfigCenter 版本）', gameDataSource.includes("CONFIG_CENTER_VERSION") || gameDataSource.includes("export const CONFIG_VERSION = '10.0.0'"))
 assert('gameData.ts: loadConfig 泛型函数', gameDataSource.includes('function loadConfig<T>'))
 assert('gameData.ts: 版本不匹配警告', /\.version !== CONFIG_VERSION/.test(gameDataSource))
 
@@ -415,7 +433,184 @@ assert('validateConfigIntegrity: 检查 ending → commission 引用', /endingsC
 
 assert('gameData.ts: DEV 环境自动校验', /import\.meta\.env\.DEV[\s\S]{0,100}validateConfigIntegrity\(\)/.test(gameDataSource))
 
-section('第六阶段：V8 → V9 迁移手动验证')
+section('第四点五阶段：ConfigCenter 配置中心检查')
+
+const configCenterSource = readFileSync(path.join(__dirname, '../src/data/configCenter.ts'), 'utf-8')
+
+assert('configCenter.ts: 存在', existsSync(path.join(__dirname, '../src/data/configCenter.ts')))
+assert('configCenter.ts: CONFIG_CENTER_VERSION = 10.0.0', configCenterSource.includes("CONFIG_CENTER_VERSION = '10.0.0'"))
+assert('configCenter.ts: 定义 SCHEMAS', configCenterSource.includes('const SCHEMAS'))
+assert('configCenter.ts: tags schema 定义', configCenterSource.includes("typeName: 'tags'"))
+assert('configCenter.ts: commissions schema 定义', configCenterSource.includes("typeName: 'commissions'"))
+assert('configCenter.ts: clues schema 定义', configCenterSource.includes("typeName: 'clues'"))
+assert('configCenter.ts: connections schema 定义', configCenterSource.includes("typeName: 'connections'"))
+assert('configCenter.ts: endings schema 定义', configCenterSource.includes("typeName: 'endings'"))
+assert('configCenter.ts: repairSteps schema 定义', configCenterSource.includes("typeName: 'repairSteps'"))
+assert('configCenter.ts: dialogueNodes schema 定义', configCenterSource.includes("typeName: 'dialogueNodes'"))
+assert('configCenter.ts: achievements schema 定义', configCenterSource.includes("typeName: 'achievements'"))
+assert('configCenter.ts: validateConfig 函数', configCenterSource.includes('export function validateConfig'))
+assert('configCenter.ts: registerConfig 函数', configCenterSource.includes('export function registerConfig'))
+assert('configCenter.ts: hotReloadConfig 函数', configCenterSource.includes('export function hotReloadConfig'))
+assert('configCenter.ts: validateCrossReferences 函数', configCenterSource.includes('export function validateCrossReferences'))
+assert('configCenter.ts: migrateConfig 函数', configCenterSource.includes('export function migrateConfig'))
+assert('configCenter.ts: initConfigCenter 函数', configCenterSource.includes('export function initConfigCenter'))
+assert('configCenter.ts: onConfigEvent 函数', configCenterSource.includes('export function onConfigEvent'))
+assert('configCenter.ts: 事件监听器系统', configCenterSource.includes('listeners'))
+assert('configCenter.ts: 外键校验逻辑', configCenterSource.includes('validateForeignKeys'))
+assert('configCenter.ts: 唯一性校验逻辑', configCenterSource.includes('validateUniqueness'))
+
+assert('gameData.ts: 导入 ConfigCenter', gameDataSource.includes('initConfigCenter'))
+assert('gameData.ts: 调用 initConfigCenter', gameDataSource.includes('initConfigCenter('))
+assert('gameData.ts: 导出 ConfigCenter 函数', gameDataSource.includes('export {') && gameDataSource.includes('initConfigCenter'))
+
+const typesSource = readFileSync(path.join(__dirname, '../src/types/index.ts'), 'utf-8')
+assert('types: ConfigTypeSchema 接口', typesSource.includes('export interface ConfigTypeSchema'))
+assert('types: ConfigFieldSchema 接口', typesSource.includes('export interface ConfigFieldSchema'))
+assert('types: ConfigValidationResult 接口', typesSource.includes('export interface ConfigValidationResult'))
+assert('types: ConfigRegistryEntry 接口', typesSource.includes('export interface ConfigRegistryEntry'))
+assert('types: ConfigEvent 接口', typesSource.includes('export interface ConfigEvent'))
+assert('types: ConfigMigrationStep 接口', typesSource.includes('export interface ConfigMigrationStep'))
+assert('types: ConfigTypeName 类型', typesSource.includes('export type ConfigTypeName'))
+assert('types: CURRENT_CONFIG_VERSION = 10.0.0', typesSource.includes("CURRENT_CONFIG_VERSION = '10.0.0'"))
+assert('types: CURRENT_SAVE_VERSION = 10.0.0', typesSource.includes("CURRENT_SAVE_VERSION = '10.0.0'"))
+
+section('第六阶段：V9 → V10 迁移手动验证')
+
+function buildV9Save() {
+  return {
+    version: '9.0.0',
+    savedAt: '2026-06-14T10:00:00.000Z',
+    state: {
+      currentCommissionId: 'comm-001',
+      currentChapterId: 'chap-001',
+      currentStep: 'item',
+      completedCommissions: [],
+      unlockedChapters: ['chap-001'],
+      collectedClues: ['clue-001-1', 'clue-001-2', 'clue-old-invalid'],
+      collectedClueTimestamps: { 'clue-001-1': '2026-06-14T10:05:00.000Z', 'clue-old-invalid': '2026-06-14T10:06:00.000Z' },
+      discoveredConnections: ['conn-001-1', 'conn-old-invalid'],
+      discoveredConnectionTimestamps: { 'conn-001-1': '2026-06-14T10:10:00.000Z', 'conn-old-invalid': '2026-06-14T10:11:00.000Z' },
+      unlockedEndings: ['end-old-invalid'],
+      currentEndingType: null,
+      lastSaveTime: '2026-06-14T10:00:00.000Z',
+      totalPlayTime: 300,
+      commissionStatuses: { 
+        'comm-001': 'in_progress',
+        'comm-old-invalid': 'completed'
+      },
+      unlockedSteps: { 
+        'comm-001': ['item', 'deduction'],
+        'comm-old-invalid': ['item', 'deduction', 'repair']
+      },
+      notes: [],
+      customTags: [],
+      activeTagFilters: [],
+      searchKeyword: '',
+      searchMatchMode: 'or',
+      searchScope: 'all',
+      noteSortBy: 'updatedAt',
+      noteSortOrder: 'desc',
+      noteAggregationType: 'tag',
+      connectionHintsUsed: [],
+      discoveredHints: [],
+      progressMilestones: {},
+      repairRetryCounts: { 'comm-old-invalid': 2 },
+      connectionRetryCounts: { 'conn-old-invalid': 1 },
+      dialogueFlags: {},
+      dialogueHistory: [],
+      completedDialogueNodeIds: [],
+      archivedConclusions: [],
+      boardCluePositions: {},
+      discoveredConflicts: [],
+      scoreHistory: [],
+      unlockedAchievements: [],
+      currentScore: null,
+      branchTreeStates: { 'comm-old-invalid': {} },
+      showroomExhibits: { 'comm-old-invalid': {} },
+      phaseTimings: { 'comm-old-invalid': {} },
+      tutorialState: { isActive: false, currentStep: null, completedSteps: [], skippedSteps: [], isCompleted: false, lastActiveAt: null, totalShown: 0 }
+    },
+  }
+}
+
+function manualMigrateV9ToV10(v9State) {
+  const configCommissionIds = new Set(commissions.map(c => c.id))
+  const configChapterIds = new Set(chapters.map(c => c.id))
+  const configClueIds = new Set(clues.map(c => c.id))
+  const configConnectionIds = new Set(connections.map(c => c.id))
+  const configEndingIds = new Set(endings.map(e => e.id))
+
+  const migrated = { ...v9State }
+
+  if (migrated.currentCommissionId && !configCommissionIds.has(migrated.currentCommissionId)) {
+    migrated.currentCommissionId = null
+    migrated.currentStep = 'commission'
+  }
+
+  migrated.commissionStatuses = { ...migrated.commissionStatuses }
+  for (const commId of Object.keys(migrated.commissionStatuses)) {
+    if (!configCommissionIds.has(commId)) delete migrated.commissionStatuses[commId]
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.commissionStatuses)) migrated.commissionStatuses[comm.id] = comm.status
+  }
+
+  migrated.unlockedChapters = migrated.unlockedChapters.filter(id => configChapterIds.has(id))
+  if (migrated.unlockedChapters.length === 0) migrated.unlockedChapters = ['chap-001']
+
+  migrated.collectedClues = [...migrated.collectedClues].filter(id => configClueIds.has(id))
+  migrated.discoveredConnections = [...migrated.discoveredConnections].filter(id => configConnectionIds.has(id))
+  migrated.unlockedEndings = [...migrated.unlockedEndings].filter(id => configEndingIds.has(id))
+
+  migrated.branchTreeStates = { ...migrated.branchTreeStates }
+  for (const commId of Object.keys(migrated.branchTreeStates)) {
+    if (!configCommissionIds.has(commId)) delete migrated.branchTreeStates[commId]
+  }
+  for (const comm of commissions) {
+    if (!(comm.id in migrated.branchTreeStates)) migrated.branchTreeStates[comm.id] = { commissionId: comm.id, currentNodeId: '', rootNodeId: '', nodes: {}, paths: [], currentPathId: '', visitedChoiceIds: [], totalPossiblePaths: 0, discoveredPaths: 0, history: [], remedies: [], pendingRemedies: [] }
+  }
+
+  migrated.phaseTimings = { ...migrated.phaseTimings }
+  for (const commId of Object.keys(migrated.phaseTimings)) {
+    if (!configCommissionIds.has(commId)) delete migrated.phaseTimings[commId]
+  }
+
+  migrated.showroomExhibits = { ...migrated.showroomExhibits }
+  for (const commId of Object.keys(migrated.showroomExhibits)) {
+    if (!configCommissionIds.has(commId)) delete migrated.showroomExhibits[commId]
+  }
+
+  migrated.repairRetryCounts = { ...migrated.repairRetryCounts }
+  for (const key of Object.keys(migrated.repairRetryCounts)) {
+    if (!configCommissionIds.has(key)) delete migrated.repairRetryCounts[key]
+  }
+
+  migrated.connectionRetryCounts = { ...migrated.connectionRetryCounts }
+  for (const key of Object.keys(migrated.connectionRetryCounts)) {
+    if (!configCommissionIds.has(key) && !configConnectionIds.has(key)) delete migrated.connectionRetryCounts[key]
+  }
+
+  return migrated
+}
+
+clearStorage()
+const v9Input = buildV9Save().state
+const v10Migrated = manualMigrateV9ToV10(v9Input)
+
+assert('V10迁移: 保留有效 currentCommissionId', v10Migrated.currentCommissionId === 'comm-001')
+assert('V10迁移: 删除无效 commissionStatuses', !('comm-old-invalid' in v10Migrated.commissionStatuses))
+assert('V10迁移: 新增缺失的 commissionStatuses', 'comm-002' in v10Migrated.commissionStatuses && 'comm-003' in v10Migrated.commissionStatuses)
+assert('V10迁移: 删除无效 collectedClues', !v10Migrated.collectedClues.includes('clue-old-invalid'))
+assert('V10迁移: 保留有效 collectedClues', v10Migrated.collectedClues.includes('clue-001-1'))
+assert('V10迁移: 删除无效 discoveredConnections', !v10Migrated.discoveredConnections.includes('conn-old-invalid'))
+assert('V10迁移: 删除无效 unlockedEndings', v10Migrated.unlockedEndings.length === 0)
+assert('V10迁移: 删除无效 branchTreeStates', !('comm-old-invalid' in v10Migrated.branchTreeStates))
+assert('V10迁移: 删除无效 phaseTimings', !('comm-old-invalid' in v10Migrated.phaseTimings))
+assert('V10迁移: 删除无效 showroomExhibits', !('comm-old-invalid' in v10Migrated.showroomExhibits))
+assert('V10迁移: 删除无效 repairRetryCounts', !('comm-old-invalid' in v10Migrated.repairRetryCounts))
+assert('V10迁移: 删除无效 connectionRetryCounts', !('conn-old-invalid' in v10Migrated.connectionRetryCounts))
+
+section('第六点五阶段：V8 → V9 → V10 迁移手动验证')
 
 function buildV8Save() {
   return {
@@ -592,18 +787,18 @@ assert('EndingPage.vue: 使用 getCommissionById', endingPageSource.includes('ga
 
 section('第八阶段：TypeScript 类型检查')
 
-const typesSource = readFileSync(path.join(__dirname, '../src/types/index.ts'), 'utf-8')
-assert('types/index.ts: CommissionConfig 接口', typesSource.includes('export interface CommissionConfig'))
-assert('types/index.ts: ClueConfig 接口', typesSource.includes('export interface ClueConfig'))
-assert('types/index.ts: EndingConfig 接口', typesSource.includes('export interface EndingConfig'))
+const typesSourceV2 = readFileSync(path.join(__dirname, '../src/types/index.ts'), 'utf-8')
+assert('types/index.ts: CommissionConfig 接口', typesSourceV2.includes('export interface CommissionConfig'))
+assert('types/index.ts: ClueConfig 接口', typesSourceV2.includes('export interface ClueConfig'))
+assert('types/index.ts: EndingConfig 接口', typesSourceV2.includes('export interface EndingConfig'))
 assert('types/index.ts: Commission 继承 CommissionConfig', 
-  /export interface Commission extends CommissionConfig/.test(typesSource))
+  /export interface Commission extends CommissionConfig/.test(typesSourceV2))
 assert('types/index.ts: Clue 继承 ClueConfig', 
-  /export interface Clue extends ClueConfig/.test(typesSource))
+  /export interface Clue extends ClueConfig/.test(typesSourceV2))
 assert('types/index.ts: Ending 继承 EndingConfig', 
-  /export interface Ending extends EndingConfig/.test(typesSource))
-assert('types/index.ts: CURRENT_CONFIG_VERSION', typesSource.includes("CURRENT_CONFIG_VERSION = '9.0.0'"))
-assert('types/index.ts: CURRENT_SAVE_VERSION', typesSource.includes("CURRENT_SAVE_VERSION = '9.0.0'"))
+  /export interface Ending extends EndingConfig/.test(typesSourceV2))
+assert('types/index.ts: CURRENT_CONFIG_VERSION = 10.0.0', typesSourceV2.includes("CURRENT_CONFIG_VERSION = '10.0.0'"))
+assert('types/index.ts: CURRENT_SAVE_VERSION = 10.0.0', typesSourceV2.includes("CURRENT_SAVE_VERSION = '10.0.0'"))
 
 section('汇总结果')
 const passed = results.filter(r => r.ok).length
