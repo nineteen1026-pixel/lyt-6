@@ -1,16 +1,19 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=ZCOOL+XiaoWei&display=swap');
-
 :root {
+  --animation-speed-multiplier: 1;
+
   --color-primary: #8B6914;
   --color-primary-light: #D4AF37;
   --color-primary-dark: #5C4A1C;
   --color-bg: #F5EFE0;
   --color-bg-warm: #F0E6CE;
   --color-bg-card: #FAF5E8;
+  --color-bg-alt: #EDE4CC;
   --color-text: #3D2914;
   --color-text-light: #6B5D4F;
   --color-text-muted: #9C8E7C;
@@ -22,6 +25,18 @@
   --color-blue: #6B7F9E;
   --color-shadow: rgba(61, 41, 20, 0.12);
   --color-shadow-warm: rgba(139, 105, 20, 0.15);
+  --color-border: rgba(139, 105, 20, 0.15);
+  --color-border-strong: rgba(139, 105, 20, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.45);
+  --color-selection-bg: rgba(251, 191, 36, 0.3);
+  --color-selection-text: #292524;
+  --color-scrollbar: rgba(180, 160, 130, 0.4);
+  --color-scrollbar-hover: rgba(180, 160, 130, 0.6);
+
+  --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4b896' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+
+  --font-scale: 1;
 
   font-family:
     'Noto Serif SC', 'ZCOOL XiaoWei', -apple-system, BlinkMacSystemFont,
@@ -34,6 +49,144 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   color: var(--color-text);
+  font-size: calc(16px * var(--font-scale));
+  transition: background-color 0.6s ease, color 0.4s ease;
+}
+
+:root.theme-classic {
+  --color-primary: #8B6914;
+  --color-primary-light: #D4AF37;
+  --color-primary-dark: #5C4A1C;
+  --color-bg: #F5EFE0;
+  --color-bg-warm: #F0E6CE;
+  --color-bg-card: #FAF5E8;
+  --color-bg-alt: #EDE4CC;
+  --color-text: #3D2914;
+  --color-text-light: #6B5D4F;
+  --color-text-muted: #9C8E7C;
+  --color-gold: #D4AF37;
+  --color-gold-light: #E8CC6E;
+  --color-shadow: rgba(61, 41, 20, 0.12);
+  --color-shadow-warm: rgba(139, 105, 20, 0.15);
+  --color-border: rgba(139, 105, 20, 0.15);
+  --color-border-strong: rgba(139, 105, 20, 0.3);
+}
+
+:root.theme-parchment {
+  --color-primary: #7B5E1C;
+  --color-primary-light: #B8860B;
+  --color-primary-dark: #4A3810;
+  --color-bg: #EFE4C8;
+  --color-bg-warm: #E6D8B0;
+  --color-bg-card: #F5ECD2;
+  --color-bg-alt: #E0D0A5;
+  --color-text: #3A2A10;
+  --color-text-light: #5F4E30;
+  --color-text-muted: #8B7A55;
+  --color-gold: #B8860B;
+  --color-gold-light: #DAA520;
+  --color-shadow: rgba(58, 42, 16, 0.14);
+  --color-shadow-warm: rgba(123, 94, 28, 0.18);
+  --color-border: rgba(123, 94, 28, 0.18);
+  --color-border-strong: rgba(123, 94, 28, 0.35);
+  --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23a08050' fill-opacity='0.08'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+:root.theme-autumn {
+  --color-primary: #A0522D;
+  --color-primary-light: #CD853F;
+  --color-primary-dark: #6B3410;
+  --color-bg: #F7EEE3;
+  --color-bg-warm: #F0E0CC;
+  --color-bg-card: #FBF5EC;
+  --color-bg-alt: #EAD8C0;
+  --color-text: #4A2810;
+  --color-text-light: #7A4E30;
+  --color-text-muted: #A07655;
+  --color-gold: #CD853F;
+  --color-gold-light: #DEB887;
+  --color-rose: #B22222;
+  --color-green: #8B7355;
+  --color-shadow: rgba(74, 40, 16, 0.12);
+  --color-shadow-warm: rgba(160, 82, 45, 0.18);
+  --color-border: rgba(160, 82, 45, 0.15);
+  --color-border-strong: rgba(160, 82, 45, 0.32);
+  --color-selection-bg: rgba(205, 133, 63, 0.3);
+  --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23c08060' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+:root.theme-twilight {
+  --color-primary: #6B7F9E;
+  --color-primary-light: #8FA5C8;
+  --color-primary-dark: #4A5C78;
+  --color-bg: #1E2A3E;
+  --color-bg-warm: #263448;
+  --color-bg-card: #2A3A52;
+  --color-bg-alt: #223047;
+  --color-text: #E0E5EC;
+  --color-text-light: #A8B3C5;
+  --color-text-muted: #7A88A0;
+  --color-accent: #B0A080;
+  --color-gold: #9CA3AF;
+  --color-gold-light: #C4B9A0;
+  --color-rose: #A08080;
+  --color-green: #6B8E8B;
+  --color-blue: #8FA5C8;
+  --color-shadow: rgba(0, 0, 0, 0.4);
+  --color-shadow-warm: rgba(107, 127, 158, 0.25);
+  --color-border: rgba(143, 165, 200, 0.15);
+  --color-border-strong: rgba(143, 165, 200, 0.3);
+  --color-overlay: rgba(0, 0, 0, 0.65);
+  --color-selection-bg: rgba(143, 165, 200, 0.3);
+  --color-selection-text: #F0F4F8;
+  --color-scrollbar: rgba(143, 165, 200, 0.3);
+  --color-scrollbar-hover: rgba(143, 165, 200, 0.5);
+  --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+  --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%236080a0' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+:root.theme-ink {
+  --color-primary: #6B7280;
+  --color-primary-light: #9CA3AF;
+  --color-primary-dark: #4B5563;
+  --color-bg: #0D0F12;
+  --color-bg-warm: #161A20;
+  --color-bg-card: #1A1F26;
+  --color-bg-alt: #13171D;
+  --color-text: #D1D5DB;
+  --color-text-light: #9CA3AF;
+  --color-text-muted: #6B7280;
+  --color-accent: #8B8580;
+  --color-gold: #9CA3AF;
+  --color-gold-light: #C4C9D0;
+  --color-rose: #887878;
+  --color-green: #6B8E78;
+  --color-blue: #7A8BA5;
+  --color-shadow: rgba(0, 0, 0, 0.6);
+  --color-shadow-warm: rgba(156, 163, 175, 0.15);
+  --color-border: rgba(156, 163, 175, 0.12);
+  --color-border-strong: rgba(156, 163, 175, 0.28);
+  --color-overlay: rgba(0, 0, 0, 0.8);
+  --color-selection-bg: rgba(156, 163, 175, 0.25);
+  --color-selection-text: #F3F4F6;
+  --color-scrollbar: rgba(156, 163, 175, 0.25);
+  --color-scrollbar-hover: rgba(156, 163, 175, 0.45);
+  --texture-pattern-1: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.06'/%3E%3C/svg%3E");
+  --texture-pattern-2: url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23404850' fill-opacity='0.08'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+}
+
+:root.font-small { --font-scale: 0.9; }
+:root.font-normal { --font-scale: 1; }
+:root.font-large { --font-scale: 1.125; }
+
+:root.reduce-motion * {
+  animation-duration: 0.001s !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001s !important;
+}
+
+:root.reduce-motion .particle {
+  animation: none !important;
 }
 
 .font-display {
@@ -48,9 +201,24 @@ body {
   margin: 0;
   min-height: 100vh;
   background-color: var(--color-bg);
-  background-image:
-    url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
-    url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4b896' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+  background-image: var(--texture-pattern-1), var(--texture-pattern-2);
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse at 20% 0%, color-mix(in srgb, var(--color-primary-light) 6%, transparent) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, color-mix(in srgb, var(--color-primary) 5%, transparent) 0%, transparent 45%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+#app {
+  position: relative;
+  z-index: 1;
 }
 
 @layer base {
@@ -63,41 +231,57 @@ body {
   }
 
   ::-webkit-scrollbar-thumb {
-    background-color: rgba(180, 160, 130, 0.4);
+    background-color: var(--color-scrollbar);
     border-radius: 3px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(180, 160, 130, 0.6);
+    background-color: var(--color-scrollbar-hover);
   }
 
   ::selection {
-    background-color: rgba(251, 191, 36, 0.3);
-    color: #292524;
+    background-color: var(--color-selection-bg);
+    color: var(--color-selection-text);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    transition: color 0.4s ease;
   }
 }
 
 @layer components {
   .paper-texture {
     background-color: var(--color-bg);
-    background-image:
-      url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"),
-      url("data:image/svg+xml,%3Csvg width='80' height='80' viewBox='0 0 80 80' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23d4b896' fill-opacity='0.06'%3E%3Cpath d='M0 0h40v40H0V0zm40 40h40v40H40V40z'/%3E%3C/g%3E%3C/svg%3E");
+    background-image: var(--texture-pattern-1), var(--texture-pattern-2);
+    transition: background-color 0.6s ease;
   }
 
   .card-warm {
     background: var(--color-bg-card);
-    border: 1px solid rgba(139, 105, 20, 0.12);
+    border: 1px solid var(--color-border);
     border-radius: 1rem;
     box-shadow:
       0 2px 8px var(--color-shadow),
-      0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+      0 0 0 1px color-mix(in srgb, white 40%, transparent) inset;
+    transition: all 0.4s ease;
+  }
+
+  .dark .card-warm {
+    box-shadow:
+      0 2px 8px var(--color-shadow),
+      0 0 0 1px rgba(255, 255, 255, 0.04) inset;
   }
 
   .card-warm:hover {
     box-shadow:
       0 4px 16px var(--color-shadow-warm),
-      0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+      0 0 0 1px color-mix(in srgb, white 50%, transparent) inset;
+  }
+
+  .dark .card-warm:hover {
+    box-shadow:
+      0 4px 16px var(--color-shadow-warm),
+      0 0 0 1px rgba(255, 255, 255, 0.06) inset;
   }
 
   .btn-primary {
@@ -115,10 +299,14 @@ body {
 
   .btn-secondary {
     @apply flex items-center justify-center gap-2 px-6 py-3 rounded-xl font-medium transition-all duration-300;
-    background: white;
+    background: var(--color-bg-card);
     color: var(--color-text-light);
-    border: 2px solid rgba(139, 105, 20, 0.15);
+    border: 2px solid var(--color-border);
     box-shadow: 0 2px 8px var(--color-shadow);
+  }
+
+  .dark .btn-secondary {
+    background: var(--color-bg-card);
   }
 
   .btn-secondary:hover {
@@ -136,26 +324,28 @@ body {
   }
 
   .glow-warm {
-    box-shadow: 0 0 40px rgba(212, 175, 55, 0.15), 0 0 80px rgba(212, 175, 55, 0.08);
+    box-shadow:
+      0 0 40px color-mix(in srgb, var(--color-gold) 15%, transparent),
+      0 0 80px color-mix(in srgb, var(--color-gold) 8%, transparent);
   }
 
   .stitch-border {
     border: 2px dashed var(--color-primary-light);
     border-radius: 0.75rem;
     padding: 1rem;
-    background: rgba(212, 175, 55, 0.03);
+    background: color-mix(in srgb, var(--color-gold) 3%, transparent);
   }
 
   .note-paper {
-    background: linear-gradient(135deg, #fefcf5, #faf5e8);
+    background: linear-gradient(135deg, var(--color-bg-card), var(--color-bg-warm));
     border-left: 4px solid var(--color-primary-light);
     box-shadow:
       2px 2px 6px var(--color-shadow),
-      inset 0 0 30px rgba(255, 248, 220, 0.3);
+      inset 0 0 30px color-mix(in srgb, var(--color-gold-light) 20%, transparent);
   }
 
   .polaroid {
-    background: white;
+    background: var(--color-bg-card);
     padding: 0.75rem 0.75rem 2.5rem;
     box-shadow: 2px 3px 12px var(--color-shadow);
     transform: rotate(-2deg);
@@ -179,9 +369,17 @@ body {
     transform: translateX(-50%);
     width: 60%;
     height: 40%;
-    background: radial-gradient(ellipse, rgba(212, 175, 55, 0.15) 0%, transparent 70%);
+    background: radial-gradient(ellipse, color-mix(in srgb, var(--color-gold) 15%, transparent) 0%, transparent 70%);
     pointer-events: none;
   }
+
+  .text-primary { color: var(--color-primary); }
+  .text-primary-light { color: var(--color-primary-light); }
+  .text-gold { color: var(--color-gold); }
+  .bg-card { background-color: var(--color-bg-card); }
+  .bg-warm { background-color: var(--color-bg-warm); }
+  .border-theme { border-color: var(--color-border); }
+  .border-theme-strong { border-color: var(--color-border-strong); }
 }
 
 @layer utilities {
@@ -200,7 +398,12 @@ body {
   }
 
   .text-shadow-warm {
-    text-shadow: 0 1px 2px rgba(139, 105, 20, 0.2);
+    text-shadow: 0 1px 2px color-mix(in srgb, var(--color-primary) 20%, transparent);
+  }
+
+  .bg-blur-warm {
+    backdrop-filter: blur(10px);
+    background: color-mix(in srgb, var(--color-bg-card) 85%, transparent);
   }
 }
 
@@ -253,38 +456,54 @@ body {
   }
 }
 
+@keyframes theme-transition {
+  0% {
+    filter: brightness(1) saturate(1);
+  }
+  50% {
+    filter: brightness(1.08) saturate(1.1);
+  }
+  100% {
+    filter: brightness(1) saturate(1);
+  }
+}
+
 .animate-float-gentle {
-  animation: float-gentle 4s ease-in-out infinite;
+  animation: float-gentle calc(4s * var(--animation-speed-multiplier)) ease-in-out infinite;
 }
 
 .animate-pulse-soft {
-  animation: pulse-soft 2.5s ease-in-out infinite;
+  animation: pulse-soft calc(2.5s * var(--animation-speed-multiplier)) ease-in-out infinite;
 }
 
 .animate-shimmer {
   background-size: 200% auto;
-  animation: shimmer 3s linear infinite;
+  animation: shimmer calc(3s * var(--animation-speed-multiplier)) linear infinite;
 }
 
 .animate-fade-in-up {
-  animation: fade-in-up 0.6s ease-out both;
+  animation: fade-in-up calc(0.6s * var(--animation-speed-multiplier)) ease-out both;
 }
 
 .animate-scale-in {
-  animation: scale-in 0.3s ease-out both;
+  animation: scale-in calc(0.3s * var(--animation-speed-multiplier)) ease-out both;
+}
+
+.animate-theme-change {
+  animation: theme-transition 0.6s ease;
 }
 
 .page-enter-active {
-  animation: fade-in-up 0.4s ease-out both;
+  animation: fade-in-up calc(0.4s * var(--animation-speed-multiplier)) ease-out both;
 }
 
 .page-leave-active {
-  animation: fade-in-up 0.2s ease-in reverse both;
+  animation: fade-in-up calc(0.2s * var(--animation-speed-multiplier)) ease-in reverse both;
 }
 
 .fade-enter-active,
 .fade-leave-active {
-  transition: opacity 0.3s ease;
+  transition: opacity calc(0.3s * var(--animation-speed-multiplier)) ease;
 }
 
 .fade-enter-from,
@@ -293,11 +512,11 @@ body {
 }
 
 .slide-fade-enter-active {
-  transition: all 0.4s ease-out;
+  transition: all calc(0.4s * var(--animation-speed-multiplier)) ease-out;
 }
 
 .slide-fade-leave-active {
-  transition: all 0.3s ease-in;
+  transition: all calc(0.3s * var(--animation-speed-multiplier)) ease-in;
 }
 
 .slide-fade-enter-from {
@@ -308,4 +527,21 @@ body {
 .slide-fade-leave-to {
   transform: translateX(-30px);
   opacity: 0;
+}
+
+:root.anim-minimal {
+  --animation-speed-multiplier: 1.6;
+}
+
+:root.anim-normal {
+  --animation-speed-multiplier: 1;
+}
+
+:root.anim-playful {
+  --animation-speed-multiplier: 0.7;
+}
+
+:root.anim-playful .btn-primary:hover,
+:root.anim-playful .btn-secondary:hover {
+  transition-duration: 0.15s;
 }

@@ -1,40 +1,48 @@
-import { ref, watchEffect, onMounted, computed } from 'vue'
+import { computed, onMounted } from 'vue'
+import { usePreferencesStore, type ThemeMode } from '../stores/preferences'
 
-type Theme = 'light' | 'dark'
+export type Theme = 'light' | 'dark'
 
 export function useTheme() {
-  const theme = ref<Theme>('light')
-
-  const getPreferredTheme = (): Theme => {
-    const saved = localStorage.getItem('theme') as Theme | null
-    if (saved === 'light' || saved === 'dark') return saved
-    return window.matchMedia('(prefers-color-scheme: dark)').matches
-      ? 'dark'
-      : 'light'
-  }
-
-  const applyTheme = (t: Theme) => {
-    document.documentElement.classList.remove('light', 'dark')
-    document.documentElement.classList.add(t)
-    localStorage.setItem('theme', t)
-  }
-
-  const toggleTheme = () => {
-    theme.value = theme.value === 'light' ? 'dark' : 'light'
-  }
+  const prefs = usePreferencesStore()
 
   onMounted(() => {
-    theme.value = getPreferredTheme()
-    applyTheme(theme.value)
+    prefs.initialize()
   })
 
-  watchEffect(() => {
-    applyTheme(theme.value)
-  })
+  const theme = computed<Theme>(() => (prefs.isDarkTheme ? 'dark' : 'light'))
+
+  const isDark = computed(() => prefs.isDarkTheme)
+
+  const currentThemeMode = computed<ThemeMode>(() => prefs.theme)
+
+  function toggleTheme() {
+    prefs.cycleTheme()
+  }
+
+  function setThemeMode(mode: ThemeMode) {
+    prefs.setTheme(mode)
+  }
+
+  function getPreferredTheme(): Theme {
+    return prefs.isDarkTheme ? 'dark' : 'light'
+  }
+
+  function applyTheme(t: Theme) {
+    if (t === 'dark') {
+      prefs.setTheme('ink')
+    } else {
+      prefs.setTheme('classic')
+    }
+  }
 
   return {
     theme,
     toggleTheme,
-    isDark: computed(() => theme.value === 'dark'),
+    isDark,
+    currentThemeMode,
+    setThemeMode,
+    getPreferredTheme,
+    applyTheme,
   }
 }
